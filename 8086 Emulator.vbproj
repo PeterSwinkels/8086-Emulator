@@ -91,6 +91,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="8086.vb" />
+    <Compile Include="Assembler.vb" />
     <Compile Include="Core.vb" />
     <Compile Include="Disassembler.vb" />
     <Compile Include="Interface.Designer.vb">

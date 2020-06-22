@@ -41,7 +41,13 @@ Public Class InterfaceWindow
    Private Sub EnterButton_Click(sender As Object, e As EventArgs) Handles EnterButton.Click
       Try
          MouseCursorStatus(Busy:=True)
-         ParseCommand(CommandBox.Text)
+
+         If AssemblyModeOn Then
+            Assemble(CommandBox.Text)
+         Else
+            ParseCommand(CommandBox.Text)
+         End If
+
          CommandBox.Clear()
          UpdateStatus()
          MouseCursorStatus(Busy:=False)

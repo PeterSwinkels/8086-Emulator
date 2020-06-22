@@ -37,9 +37,11 @@ Public Module CoreModule
 
    Public WithEvents CPU As New CPU8086Class                                        'Contains a reference to the CPU 8086 class.
    Public WithEvents Tracer As New Timer With {.Enabled = False, .Interval = 100}   'Contains the clock that handles CPU execution tracing.
+   Private WithEvents Assembler As New AssemblerClass                               'Contains a reference to the assembler.
    Private WithEvents Disassembler As New DisassemblerClass                         'Contains a reference to the disassembler.
 
-   Public Output As TextBox = Nothing   'Contains a reference to an output.
+   Public AssemblyModeOn As Boolean = False   'Indicates whether input is interpreted as assembly language.
+   Public Output As TextBox = Nothing         'Contains a reference to an output.
 
    Private ReadOnly GET_OPERAND As Func(Of String, String) = Function(Input As String) (Input.Substring(Input.IndexOf(ASSIGNMENT_OPERATOR) + 1))                                                                                                             'Returns the specified input's operand.
    Private ReadOnly IS_CHARACTER_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(CHARACTER_OPERAND_DELIMITER) AndAlso Operand.Trim().EndsWith(CHARACTER_OPERAND_DELIMITER) AndAlso Operand.Trim().Length = 3)   'Indicates whether the specified operand is a character.
@@ -86,6 +88,50 @@ Public Module CoreModule
       Return Nothing
    End Function
 
+   'This procedure translates the specified assembly code to opcodes.
+   Public Sub Assemble(Optional Input As String = Nothing, Optional StartAddress As Integer? = Nothing)
+      Try
+         Dim Opcodes As New List(Of Byte)
+         Static Address As New Integer
+
+         If AssemblyModeOn Then
+            If Input.Trim() = Nothing Then
+               AssemblyModeOn = False
+               Output.AppendText($"Done.{NewLine}")
+            Else
+               Opcodes = Assembler.Assemble(Input)
+               If Opcodes Is Nothing Then
+                  Output.AppendText($"{Input}{NewLine}")
+               ElseIf Opcodes.Count = 0 Then
+                  Output.AppendText($"{Input}{NewLine}")
+                  Output.AppendText($"Undefined error.{NewLine}")
+               Else
+                  Output.AppendText($"{Address:X8}   {Input,-25} -> {String.Join(Nothing, (From Opcode In Opcodes Select Opcode.ToString("X2")).ToArray())}{NewLine}")
+                  Array.Copy(Opcodes.ToArray(), 0, CPU.Memory, Address, Opcodes.Count)
+                  Address += Opcodes.Count
+               End If
+            End If
+         ElseIf StartAddress IsNot Nothing Then
+            Address = CInt(StartAddress)
+            AssemblyModeOn = True
+            Output.AppendText($"Assembler started.{NewLine}")
+         End If
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure handles any exceptions raised by the assembler.
+   Private Sub Assembler_HandleError(ExceptionO As Exception) Handles Assembler.HandleError
+      Dim Message As String = ExceptionO.Message
+
+      Try
+         Output.AppendText($"Assembler error: {Message}{NewLine}")
+      Catch Exception2 As Exception
+         DisplayException(Exception2.Message)
+      End Try
+   End Sub
+
    'This procedure handles the emulated CPU's halt events.
    Private Sub CPU_Halt() Handles CPU.Halt
       Try
@@ -131,7 +177,7 @@ Public Module CoreModule
    End Sub
 
    'This procedure disassembles the specified code and returns the resulting lines of code.
-   Private Function Disasemble(Code() As Byte, Position As Integer, Optional Count As Integer? = Nothing) As String
+   Private Function Disasemble(Code As List(Of Byte), Position As Integer, Optional Count As Integer? = Nothing) As String
       Try
          Dim Disassembly As New StringBuilder
          Dim EndPosition As New Integer
@@ -141,7 +187,7 @@ Public Module CoreModule
 
          If Count Is Nothing Then Count = DEFAULT_DISASSEMBLY_COUNT
 
-         EndPosition = If(CInt(Count) = &H0%, Code.Length, Position + CInt(Count))
+         EndPosition = If(CInt(Count) = &H0%, Code.Count, Position + CInt(Count))
 
          With Disassembler
             Do Until Position >= EndPosition
@@ -423,6 +469,12 @@ Public Module CoreModule
             ElseIf Command.ToUpper().StartsWith("L") Then
                FileName = If(Command.Contains(" "c), Command.Substring(Command.IndexOf(" "c) + 1), RequestFileName("Load binary."))
                If Not FileName = Nothing Then LoadBinary(FileName, GetFlatCSIP())
+            ElseIf Command.ToUpper().StartsWith("MA") Then
+               Parsed.Remainder = Command
+               Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=" "c, Ending:=" "c)
+               Address = AddressFromOperand(Parsed.Element)
+               If Address Is Nothing Then Address = GetFlatCSIP()
+               Assemble(, StartAddress:=Address)
             ElseIf Command.ToUpper().StartsWith("M") OrElse Command.ToUpper().StartsWith("MD") OrElse Command.ToUpper().StartsWith("MT") Then
                Parsed.Remainder = Command
 
@@ -438,7 +490,7 @@ Public Module CoreModule
                End If
 
                If Command.ToUpper().StartsWith("MD") Then
-                  Output.AppendText(Disasemble(CPU.Memory, CInt(Address), Count))
+                  Output.AppendText(Disasemble(CPU.Memory.ToList(), CInt(Address), Count))
                Else
                   Output.AppendText(GetMemoryDump(AllHexadecimal:=Not Command.ToUpper().StartsWith("MT"), CInt(Address), Count))
                End If
@@ -454,7 +506,7 @@ Public Module CoreModule
                   If Address Is Nothing Then
                      Output.AppendText($"Invalid address.{NewLine}")
                   Else
-                     Value = GET_OPERAND(Value).Trim()
+                     Value = GET_OPERAND(Command).Trim()
                      If IS_VALUES_OPERAND(Value) Then
                         Value = WITHOUT_DELIMITERS(Value)
                         Output.AppendText($"Finished writing values at 0x{WriteValuesToMemory(Value, CInt(Address)):X8}.{NewLine}")
@@ -547,7 +599,7 @@ Public Module CoreModule
    Private Sub Tracer_Tick(sender As Object, e As EventArgs) Handles Tracer.Tick
       Try
          Dim Address As New Integer
-         Dim Code As String = Disasemble(CPU.Memory, GetFlatCSIP(), Count:=&H1%)
+         Dim Code As String = Disasemble(CPU.Memory.ToList(), GetFlatCSIP(), Count:=&H1%)
 
          If Not CPU.ExecuteOpcode() Then CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Number:=CPU8086Class.INVALID_OPCODE)
 
