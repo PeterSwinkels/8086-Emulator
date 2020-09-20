@@ -125,6 +125,7 @@
   <ItemGroup>
     <EmbeddedResource Include="Interface.resx">
       <DependentUpon>Interface.vb</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="My Project\Resources.resx">
       <Generator>VbMyResourcesResXFileCodeGenerator</Generator>

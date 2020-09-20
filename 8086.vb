@@ -5,6 +5,7 @@ Option Infer Off
 Option Strict On
 
 Imports System
+Imports System.Linq
 Imports System.Math
 Imports System.Windows.Forms
 
@@ -426,7 +427,7 @@ Public Class CPU8086Class
    Private Const OVERFLOW_TRAP As Integer = &H4%          'Defines the overflow trap interrupt number. 
    Public Const INVALID_OPCODE As Integer = &H6%         'Defines the invalid opcode interrupt number.
 
-   Public Memory(&H0% To &HFFFFF%) As Byte   'Contains the memory used by the emulated 8086 CPU.
+   Public Memory() As Byte = Enumerable.Repeat(CByte(&H0%), &H10000%).ToArray()   'Contains the memory used by the emulated 8086 CPU.
 
    Public Event Halt()                                                                   'Defines the halt event.
    Public Event Interrupt(Number As Integer, AH As Integer)                              'Defines the interrupt event.
