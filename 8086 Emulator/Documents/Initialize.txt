@@ -1,6 +1,0 @@
-[SCRIPT]
-l Interrupt Vectors.bin
-cs = 200
-ds = 1F0
-sp = FFFF
-ss = E000
