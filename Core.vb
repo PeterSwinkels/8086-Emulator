@@ -233,7 +233,7 @@ Public Module CoreModule
    'This procedure returns the flat memory address for the emulated CPU's CS:IP registers.
    Public Function GetFlatCSIP() As Integer
       Try
-         Return (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.IP))
+         Return (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)) << &H4%) Or CInt(CPU.Registers(CPU8086Class.Registers16BitE.IP))
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
