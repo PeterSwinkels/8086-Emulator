@@ -16,20 +16,8 @@ Public Class DisassemblerClass
    Private ReadOnly OPCODES_707F As New List(Of String)({"JO", "JNO", "JC", "JNC", "JZ", "JNZ", "JNA", "JA", "JS", "JNS", "JPE", "JPO", "JL", "JNL", "JNG", "JG"})
    Private ReadOnly OPCODES_8083 As New List(Of String)({"ADD", "OR", "ADC", "SBB", "AND", "SUB", "XOR", "CMP"})
    Private ReadOnly OPCODES_8F As New List(Of String)({"POP", Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing})
-   Private ReadOnly OPCODES_C0C1_D0D3 As New List(Of String)({"ROL", "ROR", "RCL", "RCR", "SHL", "SHR", Nothing, "SAR"})
+   Private ReadOnly OPCODES_C0C1_D2D3 As New List(Of String)({"ROL", "ROR", "RCL", "RCR", "SHL", "SHR", Nothing, "SAR"})
    Private ReadOnly OPCODES_C6C7 As New List(Of String)({"MOV", Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing})
-   Private ReadOnly OPCODES_D8_DC As New List(Of String)({"FADD", "FMUL", "FCOM", "FCOMP", "FSUB", "FSUBR", "FDIV", "FDIVR"})
-   Private ReadOnly OPCODES_D9__00BF As New List(Of String)({"FLD DWORD", Nothing, "FST DWORD", "FSTP DWORD", "FLDENV DWORD", "FLDCW DWORD", "FSTENV DWORD", "FSTCW DWORD"})
-   Private ReadOnly OPCODES_D9__C0DF As New List(Of String)({"FLD", "FXCH", Nothing, "FSTP", Nothing, Nothing, Nothing, Nothing})
-   Private ReadOnly OPCODES_D9__E0FD As New List(Of String)({"FCHS", "FABS", Nothing, Nothing, "FTST", "FXAM", Nothing, Nothing, "FLD1", "FLDL2T", "FLDL2E", "FLDPI", "FLDLG2", "FLDLN2", "FLDZ", Nothing, "F2XM1", "FYL2X", "FPTAN", "FPATAN", "FXTRACT", Nothing, "FDECSTP", "FINCSTP", "FPREM", "FYL2XP1", "FSQRT", Nothing, "FRNDINT", "FSCALE"})
-   Private ReadOnly OPCODES_DA__00BF As New List(Of String)({"FIADD DWORD", "FIMUL DWORD", "FICOM DWORD", "FICOMP DWORD", "FISUB DWORD", "FISUBR DWORD", "FIDIV DWORD", "FIDIVR DWORD"})
-   Private ReadOnly OPCODES_DB__00BF As New List(Of String)({"FILD DWORD", Nothing, "FIST DWORD", "FISTP TBYTE", Nothing, "FLD TBYTE", Nothing, "FSTP TBYTE"})
-   Private ReadOnly OPCODES_DD__00BF As New List(Of String)({"FLD QWORD", Nothing, "FST QWORD", "FSTP QWORD", "FRSTOR QWORD", Nothing, "FSAVE QWORD", "FSTSW QWORD"})
-   Private ReadOnly OPCODES_DD__C0FF As New List(Of String)({"FFREE", "FXCH", "FST", "FSTP", Nothing, Nothing, Nothing, Nothing})
-   Private ReadOnly OPCODES_DE__00BF As New List(Of String)({"FIADD WORD", "FIMUL WORD", "FICOM WORD", "FICOMP WORD", "FISUB WORD", "FISUBR WORD", "FIDIV WORD", "FIDIVR WORD"})
-   Private ReadOnly OPCODES_DE__C0FF As New List(Of String)({"FADDP", "FMULP", "FCOMP", Nothing, "FSUBRP", "FSUBP", "FDIVRP", "FDIVP"})
-   Private ReadOnly OPCODES_DF__00BF As New List(Of String)({"FILD WORD", Nothing, "FIST WORD", "FISTP WORD", "FBLD TBYTE", "FILD QWORD", "FBSTP TBYTE", "FISTP QWORD"})
-   Private ReadOnly OPCODES_DF__C0C7 As New List(Of String)({"FFREE", Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing})
    Private ReadOnly OPCODES_F6F7 As New List(Of String)({"TEST", Nothing, "NOT", "NEG", "MUL", "IMUL", "DIV", "IDIV"})
    Private ReadOnly OPCODES_FE__00BF As New List(Of String)({"INC BYTE", "DEC BYTE", "CALL WORD NEAR", "CALL WORD FAR", "JMP WORD NEAR", "JMP WORD FAR", "PUSH WORD", Nothing})
    Private ReadOnly OPCODES_FE__C0FF As New List(Of String)({"INC BYTE", "DEC BYTE", "CALL", Nothing, "JMP", Nothing, "PUSH", Nothing})
@@ -38,8 +26,7 @@ Public Class DisassemblerClass
 
    'These lists contain the CPU register names.
    Private ReadOnly LH_REGISTERS As New List(Of String)({"AL", "CL", "DL", "BL", "AH", "CH", "DH", "BH"})
-   Private ReadOnly SG_REGISTERS As New List(Of String)({"ES", "CS", "SS", "DS", "FS", "GS", "SEGR6", "SEGR7"})
-   Private ReadOnly ST_REGISTERS As New List(Of String)({"ST0", "ST1", "ST2", "ST3", "ST4", "ST5", "ST6", "ST7"})
+   Private ReadOnly SG_REGISTERS As New List(Of String)({"ES", "CS", "SS", "DS", Nothing, Nothing, Nothing, Nothing})
    Private ReadOnly XP_REGISTERS As New List(Of String)({"AX", "CX", "DX", "BX", "SP", "BP", "SI", "DI"})
 
    'This list contains the names of registers referring to memory locations.
@@ -98,12 +85,6 @@ Public Class DisassemblerClass
                Case &H2F% : Instruction = "DAS"
                Case &H37% : Instruction = "AAA"
                Case &H3F% : Instruction = "AAS"
-               Case &H60% : Instruction = "PUSHA"
-               Case &H61% : Instruction = "POPA"
-               Case &H6C% : Instruction = "INSB"
-               Case &H6D% : Instruction = "INSW"
-               Case &H6E% : Instruction = "OUTSB"
-               Case &H6F% : Instruction = "OUTSW"
                Case &H90% : Instruction = "NOP"
                Case &H98% : Instruction = "CBW"
                Case &H99% : Instruction = "CWD"
@@ -123,7 +104,6 @@ Public Class DisassemblerClass
                Case &HAE% : Instruction = "SCASB"
                Case &HAF% : Instruction = "SCASW"
                Case &HC3% : Instruction = "RETN"
-               Case &HC9% : Instruction = "LEAVE"
                Case &HCB% : Instruction = "RETF"
                Case &HCE% : Instruction = "INTO"
                Case &HCF% : Instruction = "IRET"
@@ -163,21 +143,13 @@ Public Class DisassemblerClass
                      Case &H5% : Instruction &= $" {XP_REGISTERS(ACCUMULATOR_REGISTER)}, {BytesToHexadecimal({Operand, GetByte(Code, Position)}.ToList())}"
                   End Select
                Case &H6%, &HE%, &H16%, &H1E% : Instruction = $"PUSH {SG_REGISTERS((Opcode And &H18%) >> &H3%)}"
-                     Case &H7%, &H17%, &H1F% : Instruction = $"POP {SG_REGISTERS((Opcode And &H18%) >> &H3%)}"
+               Case &H7%, &H17%, &H1F% : Instruction = $"POP {SG_REGISTERS((Opcode And &H18%) >> &H3%)}"
                Case &H26%, &H2E%, &H36%, &H3E% : Instruction = SG_REGISTERS((Opcode And &H18%) >> &H3%)
                Case &H40% To &H47% : Instruction = $"INC {XP_REGISTERS(Opcode And &H7%)}"
                Case &H48% To &H4F% : Instruction = $"DEC {XP_REGISTERS(Opcode And &H7%)}"
                Case &H50% To &H57% : Instruction = $"PUSH {XP_REGISTERS(Opcode And &H7%)}"
                Case &H58% To &H5F% : Instruction = $"POP {XP_REGISTERS(Opcode And &H7%)}"
-               Case &H62%
-                  Operand = GetByte(Code, Position)
-                  If Operand < &HC0% Then Instruction = $"BOUND {XP_REGISTERS((Operand And &H38%) >> &H3%)}, {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
                Case &H64%, &H65% : Instruction = SG_REGISTERS(Opcode And &H7%)
-               Case &H68% : Instruction = $"PUSH WORD {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
-               Case &H6A% : Instruction = $"PUSH BYTE {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
-               Case &H6B%
-                  Operand = GetByte(Code, Position)
-                  Instruction &= $"IMUL {XP_REGISTERS((Operand And &H38%) >> &H3%)}, {GetOperand(Code, Position, Operand, XP_REGISTERS)}, {GetByte(Code, Position):X2}"
                Case &H70% To &H7F% : Instruction = $"{OPCODES_707F(Opcode And &HF%)} {NearAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
                Case &H80%
                   Operand = GetByte(Code, Position)
@@ -246,95 +218,22 @@ Public Class DisassemblerClass
                         Instruction &= $"{If(Operand < &HC0%, " WORD ", Nothing)}{GetOperand(Code, Position, Operand, XP_REGISTERS)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
                      End If
                   End If
-               Case &HC8% : Instruction = $"ENTER {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
                Case &HCA% : Instruction = $"RETF {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
                Case &HCC% : Instruction = $"INT {HEXADECIMAL_PREFIX}03"
                Case &HCD% : Instruction = $"INT {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
-               Case &HC0% To &HC1%, &HD0% To &HD3%
+               Case &HC0% To &HC1%, &HD2% To &HD3%
                   Operand = GetByte(Code, Position)
-                  Instruction = OPCODES_C0C1_D0D3((Operand And &H3F%) >> &H3%)
+                  Instruction = OPCODES_C0C1_D2D3((Operand And &H3F%) >> &H3%)
 
                   If Not Instruction = Nothing Then
                      If (Opcode And &H1%) = &H0% Then Instruction &= $" BYTE {GetOperand(Code, Position, Operand, LH_REGISTERS)}"
                      If (Opcode And &H1%) = &H1% Then Instruction &= $" WORD {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
 
                      If Opcode = &HC0% OrElse Opcode = &HC1% Then Instruction &= $", {HEXADECIMAL_PREFIX}{GetByte(Code, Position):X2}"
-                     If Opcode = &HD0% OrElse Opcode = &HD1% Then Instruction &= $", {HEXADECIMAL_PREFIX}01"
                      If Opcode = &HD2% OrElse Opcode = &HD3% Then Instruction &= $", {LH_REGISTERS(COUNTER_REGISTER)}"
                   End If
                Case &HD4% : Instruction = $"AAM {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
                Case &HD5% : Instruction = $"AAD {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
-               Case &HD8%, &HDC%
-                  Operand = GetByte(Code, Position)
-                  Instruction = OPCODES_D8_DC((Operand And &H3F%) >> &H3%)
-
-                  If Opcode = &HD8% Then Instruction &= " DWORD "
-                  If Opcode = &HDC% Then Instruction &= " QWORD "
-
-                  Instruction &= GetOperand(Code, Position, Operand, ST_REGISTERS)
-               Case &HD9%
-                  Operand = GetByte(Code, Position)
-
-                  If Operand = &HD0% Then
-                     Instruction = "FNOP"
-                  ElseIf Operand < &HE0% Then
-                     If Operand < &HC0% Then
-                        Instruction = OPCODES_D9__00BF((Operand And &H3F%) >> &H3%)
-                     ElseIf Operand < &HE0% Then
-                        Instruction = OPCODES_D9__C0DF((Operand And &H3F%) >> &H3%)
-                     End If
-
-                     If Not Instruction = Nothing Then Instruction &= $" {GetOperand(Code, Position, Operand, ST_REGISTERS)}"
-                  ElseIf Operand < &HFE% Then
-                     Instruction = OPCODES_D9__E0FD(Operand And &H1F%)
-                  End If
-               Case &HDA%
-                  Operand = GetByte(Code, Position)
-
-                  If Operand < &HC0% Then
-                     Instruction = OPCODES_DA__00BF((Operand And &H3F%) >> &H3%)
-                     If Not Instruction = Nothing Then Instruction &= $" {GetOperand(Code, Position, Operand)}"
-                  End If
-               Case &HDB%
-                  Operand = GetByte(Code, Position)
-
-                  If Operand < &HC0% Then
-                     Instruction = OPCODES_DB__00BF((Operand And &H3F%) >> &H3%)
-                     If Not Instruction = Nothing Then Instruction &= $" {GetOperand(Code, Position, Operand)}"
-                  Else
-                     If Operand = &HE0% Then Instruction = "FENI"
-                     If Operand = &HE1% Then Instruction = "FDISI"
-                     If Operand = &HE2% Then Instruction = "FCLEX"
-                     If Operand = &HE3% Then Instruction = "FINIT"
-                  End If
-               Case &HDD%
-                  Operand = GetByte(Code, Position)
-
-                  Instruction = If(Operand < &HC0%, OPCODES_DD__00BF((Operand And &H3F%) >> &H3%), OPCODES_DD__C0FF((Operand And &H3F%) >> &H3%))
-
-                  If Not Instruction = Nothing Then Instruction &= $" {GetOperand(Code, Position, Operand, ST_REGISTERS)}"
-               Case &HDE%
-                  Operand = GetByte(Code, Position)
-
-                  If Operand = &HD9% Then
-                     Instruction = "FCOMPP"
-                  ElseIf Operand < &HC0% Then
-                     Instruction = OPCODES_DE__00BF((Operand And &H3F%) >> &H3%)
-                  Else
-                     Instruction = OPCODES_DE__C0FF((Operand And &H3F%) >> &H3%)
-                  End If
-
-                  If Not Instruction = Nothing Then Instruction &= $" {GetOperand(Code, Position, Operand, ST_REGISTERS)}"
-               Case &HDF%
-                  Operand = GetByte(Code, Position)
-
-                  If Operand < &HC0% Then
-                     Instruction = OPCODES_DF__00BF((Operand And &H3F%) >> &H3%)
-                  ElseIf Operand < &HC8% Then
-                     Instruction = OPCODES_DF__C0C7((Operand And &H3F%) >> &H3%)
-                  End If
-
-                  If Not Instruction = Nothing Then Instruction &= $" {GetOperand(Code, Position, Operand, ST_REGISTERS)}"
                Case &HE0% : Instruction = $"LOOPNE {NearAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
                Case &HE1% : Instruction = $"LOOPE {NearAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
                Case &HE2% : Instruction = $"LOOP {NearAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
@@ -376,7 +275,10 @@ Public Class DisassemblerClass
                Position = PreviousPosition
             End If
 
-            If Instruction = Nothing Then Instruction = $"DB {BytesToHexadecimal({Opcode}.ToList())}"
+            If Instruction = Nothing Then
+               Instruction = $"DB {BytesToHexadecimal({Opcode}.ToList())}"
+               Position = PreviousPosition
+            End If
 
             Return Instruction
          End If

@@ -86,7 +86,6 @@ Public Class CPU8086Class
       AND_REG8_SRC = &H22%            'AND source with 8 bit register.
       AND_TGT_REG16 = &H21%           'AND 16 bit register with target.
       AND_TGT_REG8 = &H20%            'AND 8 bit register with target.
-      BOUND = &H62%                   'Compare register with array bounds in memory.
       CALL_FAR = &H9A%                'Call far.
       CALL_NEAR = &HE8%               'Call near.
       CBW = &H98%                     'Convert byte to word.
@@ -115,10 +114,8 @@ Public Class CPU8086Class
       DEC_SI = &H4E%                  'Decrement SI.
       DEC_SP = &H4C%                  'Decrement SP.
       DS = &H3E%                      'DS segment override.
-      ENTER = &HC8%                   'Enter stack frame.
       ES = &H26%                      'ES segment override.
       HLT = &HF4%                     'Halt.
-      IMUL_REG16_MEM16_BYTE = &H6B%   'Multiply word from memory with byte and store in register.
       IN_AL_BYTE = &HE4%              'Read from port to AL.
       IN_AL_DX = &HEC%                'Read from port to AL.
       IN_AX_DX = &HED%                'Read from port to AX.
@@ -131,8 +128,6 @@ Public Class CPU8086Class
       INC_DX = &H42%                  'Increment DX.
       INC_SI = &H46%                  'Increment SI.
       INC_SP = &H44%                  'Increment SP.
-      INSB = &H6C%                    'Read byte string from port indicated by DX to ES:DI.
-      INSW = &H6D%                    'Read word string from port indicated by DX to ES:DI.
       INT = &HCD%                     'Interrupt.
       INT3 = &HCC%                    'Interrupt 0x03.
       INTO = &HCE%                    'Interrupt 0x04 if OF is true.
@@ -160,7 +155,6 @@ Public Class CPU8086Class
       LAHF = &H9F%                    'Load AF, CF, PF, SF and ZF flags into AH.
       LDS = &HC5%                     'Load pointer from source into DS and target.
       LEA = &H8D%                     'Load pointer indicated by source into target.
-      LEAVE = &HC9%                   'Leave stack frame.
       LES = &HC4%                     'Load pointer from source into ES and target.
       LOCK = &HF0%                    'Lock the bus.
       LODSB = &HAC%                   'Load byte string from DS:SI to AL.
@@ -215,8 +209,6 @@ Public Class CPU8086Class
       OUT_DX_AL = &HEE%               'Write AL to port indicated by DX.
       OUT_DX_AX = &HEF%               'Write AX to port indicated by DX.
       OUT_WORD_AX = &HE7%             'Write AX to port indicated by word.
-      OUTSB = &H6E%                   'Write byte string from DS:SI to port indicated by DX.
-      OUTSW = &H6F%                   'Write word string from DS:SI to port indicated by DX.
       POP_AX = &H58%                  'Pop AX.
       POP_BP = &H5D%                  'Pop BP.
       POP_BX = &H5B%                  'Pop BX.
@@ -229,12 +221,9 @@ Public Class CPU8086Class
       POP_SP = &H5C%                  'Pop SP.
       POP_SS = &H17%                  'Pop SS.
       POP_TGT = &H8F%                 'Pop to target.
-      POPA = &H61%                    'Pop DI, SI, BP, AX, BX, DX, CX, and AX.
       POPF = &H9D%                    'Pop flags.
       PUSH_AX = &H50%                 'Push AX.
       PUSH_BP = &H55%                 'Push BP.
-      PUSH_BYTE = &H6A%               'Push byte.
-      PUSH_WORD = &H68%               'Push word.
       PUSH_BX = &H53%                 'Push BX.
       PUSH_CS = &HE%                  'Push CS.
       PUSH_CX = &H51%                 'Push CX.
@@ -245,7 +234,6 @@ Public Class CPU8086Class
       PUSH_SI = &H56%                 'Push SI.
       PUSH_SP = &H54%                 'Push SP.
       PUSH_SS = &H16%                 'Push SS.
-      PUSHA = &H60%                   'Push AX, CX, DX, BX, SP, BP, SI, and DI.
       PUSHF = &H9C%                   'Push flags.
       REPE = &HF3%                    'Repeat instruction until CX reads zero while the zero flag reads true.
       REPNE = &HF2%                   'Repeat instruction until CX reads zero while the zero flag reads false.
@@ -254,10 +242,8 @@ Public Class CPU8086Class
       RETN = &HC3%                    'Return near.
       RETN_BYTES = &HC2%              'Return near and release bytes.
       RSBITS_BYTE_1 = &HD0%           'Rotate or shift a byte's bits by one.
-      RSBITS_BYTE_BYTE = &HC0%        'Rotate or shift a byte's bits by another byte's value.
       RSBITS_BYTE_CL = &HD2%          'Rotate or shift a byte's bits by CL.
       RSBITS_WORD_1 = &HD1%           'Rotate or shift a word's bits by one.
-      RSBITS_WORD_BYTE = &HC1%        'Rotate or shift a word's bits by a byte's value.
       RSBITS_WORD_CL = &HD3%          'Rotate or shift a word's bits by CL.
       SAHF = &H9E%                    'Save AH to AF, CF, PF, SF and ZF flags.
       SBB_AL_BYTE = &H1C%             'Subtract byte from AL with borrow.
@@ -420,8 +406,7 @@ Public Class CPU8086Class
       Public Value2 As Integer     'Defines the value referred to be the second operand.
    End Structure
 
-   Private Const BOUND_RANGE_EXCEEDED As Integer = &H5%   'Defines the bound range exceeded interrupt number.
-   Private Const BREAKPOINT As Integer = &H3%             'Defines the break point interrupt number.
+   Private Const BREAK_POINT As Integer = &H3%            'Defines the break point interrupt number.
    Private Const DIVIDE_BY_ZERO As Integer = &H0%         'Defines the divide by zero interrupt number.
    Private Const LOW_FLAG_BITS As Integer = &HD7%         'Defines the bits used in the flag register's lower byte.
    Private Const OVERFLOW_TRAP As Integer = &H4%          'Defines the overflow trap interrupt number. 
@@ -657,7 +642,7 @@ Public Class CPU8086Class
             Case OpcodesE.INT
                If Number Is Nothing Then Number = GetByteCSIP()
             Case OpcodesE.INT3
-               Number = BREAKPOINT
+               Number = BREAK_POINT
             Case OpcodesE.INTO
                Number = OVERFLOW_TRAP
          End Select
@@ -948,16 +933,6 @@ Public Class CPU8086Class
                      SetNewValue(OperandPair)
                End Select
             End With
-         Case OpcodesE.BOUND
-            Operand = GetByteCSIP()
-            If Operand < &HC0% Then
-               OperandPair = GetValues(GetOperandPair(CByte(Opcode Xor &H1%), CByte(Operand)))
-               With OperandPair
-                  If .Value1 < GetWord(CInt(.Address)) OrElse .Value1 > GetWord(CInt(.Address) + &H2%) Then ExecuteInterrupt(OpcodesE.INT, Number:=BOUND_RANGE_EXCEEDED)
-               End With
-            Else
-               Return False
-            End If
          Case OpcodesE.CBW
             Registers(Registers16BitE.AX, ConvertWidening(CInt(Registers(SubRegisters8BitE.AL)), Is8Bit:=True))
          Case OpcodesE.CLC, OpcodesE.STC
@@ -999,16 +974,6 @@ Public Class CPU8086Class
             AdjustFlags(Value, NewValue, Is8Bit:=False)
          Case OpcodesE.HLT
             RaiseEvent Halt()
-         Case OpcodesE.IMUL_REG16_MEM16_BYTE
-            Operand = GetByteCSIP()
-            OperandPair = GetValues(GetOperandPair(Opcode, CByte(Operand)))
-            Value = GetByteCSIP()
-
-            With OperandPair
-               .NewValue = ConvertWidening(.Value2 * Value, .Is8Bit)
-               Registers(.Operand1, NewValue:= .NewValue)
-               AdjustFlags(.Value2, .NewValue, .Is8Bit)
-            End With
          Case OpcodesE.IN_AL_BYTE
             RaiseEvent ReadIOPort(GetByteCSIP(), NewValue, Is8Bit:=True)
             Registers(SubRegisters8BitE.AL, NewValue:=NewValue)
@@ -1110,7 +1075,7 @@ Public Class CPU8086Class
                ExecuteStringOpcode(Opcode)
                Registers(Registers16BitE.CX, NewValue:=CInt(Registers(Registers16BitE.CX)) - &H1%)
             Loop
-         Case OpcodesE.RSBITS_BYTE_BYTE To OpcodesE.RSBITS_WORD_CL
+         Case OpcodesE.RSBITS_WORD_CL
             Operand = GetByteCSIP()
             OperandPair = GetOperandPair(CByte(Opcode And &H1%), CByte(Operand))
             With OperandPair
@@ -1121,8 +1086,6 @@ Public Class CPU8086Class
                End If
 
                Select Case Opcode
-                  Case OpcodesE.RSBITS_BYTE_BYTE, OpcodesE.RSBITS_WORD_BYTE
-                     .Value2 = GetByteCSIP()
                   Case OpcodesE.RSBITS_BYTE_1, OpcodesE.RSBITS_WORD_1
                      .Value2 = &H1%
                   Case OpcodesE.RSBITS_BYTE_CL, OpcodesE.RSBITS_WORD_CL
@@ -1221,29 +1184,6 @@ Public Class CPU8086Class
       Dim StackFrameSize As New Integer
 
       Select Case Opcode
-         Case OpcodesE.ENTER
-            BP = CInt(Registers(Registers16BitE.BP))
-            SP = CInt(Registers(Registers16BitE.SP))
-            CurrentSP = SP
-            StackFrameSize = GetWordCSIP()
-            StackFrameNestingLevel = GetByteCSIP() Mod &H20%
-
-            Stack(Push:=BP)
-            If Not StackFrameNestingLevel = &H0% Then
-               If StackFrameNestingLevel > &H1% Then
-                  For FrameLevel As Integer = &H1% To StackFrameNestingLevel - &H1%
-                     BP = -&H2%
-                     Stack(Push:=GetWord(BP))
-                  Next FrameLevel
-               End If
-               Stack(Push:=CurrentSP)
-            End If
-
-            Registers(Registers16BitE.BP, NewValue:=(BP And &H8000%) Or (CurrentSP And &H7FFF%))
-            Registers(Registers16BitE.SP, NewValue:=SP - StackFrameSize)
-         Case OpcodesE.LEAVE
-            Registers(Registers16BitE.SP, NewValue:=Registers(Registers16BitE.BP))
-            Registers(Registers16BitE.BP, NewValue:=Stack())
          Case OpcodesE.POP_AX To OpcodesE.POP_DI
             Registers(DirectCast(Opcode And &H7%, Registers16BitE), NewValue:=Stack())
          Case OpcodesE.POP_ES, OpcodesE.POP_SS, OpcodesE.POP_DS
@@ -1252,24 +1192,12 @@ Public Class CPU8086Class
             With GetOperandPair(Opcode, GetByteCSIP())
                If TypeOf .Operand1 Is MemoryOperandsE Then PutWord(CInt(AddressFromOperand(DirectCast(.Operand1, MemoryOperandsE), .Literal)), Stack()) Else Registers(.Operand1, NewValue:=Stack())
             End With
-         Case OpcodesE.POPA
-            For Each Register As Registers16BitE In {Registers16BitE.DI, Registers16BitE.SI, Registers16BitE.BP, Registers16BitE.AX, Registers16BitE.BX, Registers16BitE.DX, Registers16BitE.CX, Registers16BitE.AX}
-               Registers(Register, NewValue:=Stack())
-            Next Register
          Case OpcodesE.POPF
             Registers(Register:=FlagRegistersE.All, NewValue:=Stack())
          Case OpcodesE.PUSH_AX To OpcodesE.PUSH_DI
             Stack(Push:=CInt(Registers(DirectCast(Opcode And &H7%, Registers16BitE))))
-         Case OpcodesE.PUSH_BYTE
-            Stack(Push:=ConvertWidening(GetByteCSIP(), Is8Bit:=True))
          Case OpcodesE.PUSH_ES, OpcodesE.PUSH_CS, OpcodesE.PUSH_SS, OpcodesE.PUSH_DS
             Stack(Push:=CInt(Registers(DirectCast((Opcode And &H18%) >> &H3%, SegmentRegistersE))))
-         Case OpcodesE.PUSH_WORD
-            Stack(Push:=GetWordCSIP())
-         Case OpcodesE.PUSHA
-            For Each Register As Registers16BitE In {Registers16BitE.AX, Registers16BitE.CX, Registers16BitE.DX, Registers16BitE.BX, Registers16BitE.SP, Registers16BitE.BP, Registers16BitE.SI, Registers16BitE.DI}
-               Stack(Push:=CInt(Registers(Register)))
-            Next Register
          Case OpcodesE.PUSHF
             Stack(Push:=CInt(Registers(Register:=FlagRegistersE.All)))
          Case Else
@@ -1300,12 +1228,6 @@ Public Class CPU8086Class
             TargetValue = GetWord((CInt(Registers(SegmentRegistersE.ES)) << &H4%) + CInt(Registers(Registers16BitE.DI)))
             NewValue = TargetValue - SourceValue
             AdjustFlags(TargetValue, NewValue, Is8Bit:=False)
-         Case OpcodesE.INSB
-            RaiseEvent ReadIOPort(CInt(Registers(Registers16BitE.DX)), NewValue, Is8Bit:=True)
-            Memory((CInt(Registers(SegmentRegistersE.ES)) << &H4%) + CInt(Registers(Registers16BitE.DI))) = CByte(NewValue)
-         Case OpcodesE.INSW
-            RaiseEvent ReadIOPort(CInt(Registers(Registers16BitE.DX)), NewValue, Is8Bit:=False)
-            PutWord((CInt(Registers(SegmentRegistersE.ES)) << &H4%) + CInt(Registers(Registers16BitE.DI)), NewValue)
          Case OpcodesE.LODSB
             Registers(SubRegisters8BitE.AL, NewValue:=Memory((CInt(Registers(SegmentRegistersE.DS)) << &H4%) + CInt(Registers(Registers16BitE.SI))))
          Case OpcodesE.LODSW
@@ -1314,10 +1236,6 @@ Public Class CPU8086Class
             Memory((CInt(Registers(SegmentRegistersE.ES)) << &H4%) + CInt(Registers(Registers16BitE.DI))) = Memory((CInt(Registers(SegmentRegistersE.DS)) << &H4%) + CInt(Registers(Registers16BitE.SI)))
          Case OpcodesE.MOVSW
             PutWord((CInt(Registers(SegmentRegistersE.ES)) << &H4%) + CInt(Registers(Registers16BitE.DI)), GetWord((CInt(Registers(SegmentRegistersE.DS)) << &H4%) + CInt(Registers(Registers16BitE.SI))))
-         Case OpcodesE.OUTSB
-            RaiseEvent WriteIOPort(CInt(Registers(Registers16BitE.DX)), Memory((CInt(Registers(SegmentRegistersE.DS)) << &H4%) + CInt(Registers(Registers16BitE.SI))), Is8Bit:=True)
-         Case OpcodesE.OUTSW
-            RaiseEvent WriteIOPort(CInt(Registers(Registers16BitE.DX)), GetWord((CInt(Registers(SegmentRegistersE.DS)) << &H4%) + CInt(Registers(Registers16BitE.SI))), Is8Bit:=False)
          Case OpcodesE.SCASB
             SourceValue = CInt(Registers(SubRegisters8BitE.AL))
             TargetValue = Memory((CInt(Registers(SegmentRegistersE.ES)) << &H4%) + CInt(Registers(Registers16BitE.DI)))
