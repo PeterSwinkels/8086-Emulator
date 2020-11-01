@@ -150,7 +150,7 @@ Public Class DisassemblerClass
                Case &H50% To &H57% : Instruction = $"PUSH {XP_REGISTERS(Opcode And &H7%)}"
                Case &H58% To &H5F% : Instruction = $"POP {XP_REGISTERS(Opcode And &H7%)}"
                Case &H64%, &H65% : Instruction = SG_REGISTERS(Opcode And &H7%)
-               Case &H70% To &H7F% : Instruction = $"{OPCODES_707F(Opcode And &HF%)} {NearAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
+               Case &H70% To &H7F% : Instruction = $"{OPCODES_707F(Opcode And &HF%)} {ShortAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
                Case &H80%
                   Operand = GetByte(Code, Position)
                   Instruction = $"{OPCODES_8083((Operand And &H3F%) >> &H3%)} {GetOperand(Code, Position, Operand, LH_REGISTERS)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
@@ -234,10 +234,10 @@ Public Class DisassemblerClass
                   End If
                Case &HD4% : Instruction = $"AAM {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
                Case &HD5% : Instruction = $"AAD {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
-               Case &HE0% : Instruction = $"LOOPNE {NearAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
-               Case &HE1% : Instruction = $"LOOPE {NearAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
-               Case &HE2% : Instruction = $"LOOP {NearAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
-               Case &HE3% : Instruction = $"JCXZ {NearAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
+               Case &HE0% : Instruction = $"LOOPNE {ShortAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
+               Case &HE1% : Instruction = $"LOOPE {ShortAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
+               Case &HE2% : Instruction = $"LOOP {ShortAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
+               Case &HE3% : Instruction = $"JCXZ {ShortAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
                Case &HE4% : Instruction = $"IN {LH_REGISTERS(ACCUMULATOR_REGISTER)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
                Case &HE5% : Instruction = $"IN {XP_REGISTERS(ACCUMULATOR_REGISTER)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
                Case &HE6% : Instruction = $"OUT {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}, {LH_REGISTERS(ACCUMULATOR_REGISTER)}"
@@ -245,7 +245,7 @@ Public Class DisassemblerClass
                Case &HE8% : Instruction = $"CALL NEAR {NearAddressToHexadecimal(GetBytes(Code, Position, Length:=2), Position)}"
                Case &HE9% : Instruction = $"JMP NEAR {NearAddressToHexadecimal(GetBytes(Code, Position, Length:=2), Position)}"
                Case &HEA% : Instruction = $"JMP FAR {FarAddressToHexadecimal(GetBytes(Code, Position, Length:=4))}"
-               Case &HEB% : Instruction = $"JMP SHORT {NearAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
+               Case &HEB% : Instruction = $"JMP SHORT {ShortAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
                Case &HEC% : Instruction = $"IN {LH_REGISTERS(ACCUMULATOR_REGISTER)}, {XP_REGISTERS(DATA_REGISTER)}"
                Case &HED% : Instruction = $"IN {XP_REGISTERS(ACCUMULATOR_REGISTER)}, {XP_REGISTERS(DATA_REGISTER)}"
                Case &HEE% : Instruction = $"OUT {XP_REGISTERS(DATA_REGISTER)}, {LH_REGISTERS(ACCUMULATOR_REGISTER)}"
@@ -291,10 +291,10 @@ Public Class DisassemblerClass
       Return Nothing
    End Function
 
-   'This procedure returns the specified far address as a hexadecimal segment and offset (0x0000:0000) representation.
+   'This procedure returns the specified far address as a hexadecimal segment and offset word:word (0x0000:0000) representation.
    Private Function FarAddressToHexadecimal(FarAddress As List(Of Byte)) As String
       Try
-         Return $"{BytesToHexadecimal({FarAddress(2), FarAddress(3)}.ToList())}:{BytesToHexadecimal({FarAddress(0), FarAddress(1)}.ToList(), NoPrefix:=True)}"
+         Return If(FarAddress.Count < &H4%, Nothing, $"{BytesToHexadecimal({FarAddress(&H2%), FarAddress(&H3%)}.ToList())}:{BytesToHexadecimal({FarAddress(&H0%), FarAddress(&H1%)}.ToList(), NoPrefix:=True)}")
       Catch ExceptionO As Exception
          RaiseEvent HandleError(ExceptionO)
       End Try
@@ -358,12 +358,10 @@ Public Class DisassemblerClass
       Return Nothing
    End Function
 
-   'This procedure returns the specified relative near address as a hexadecimal absolute byte/word (0x00 or 0x0000) representation.
+   'This procedure returns the specified relative near address as a hexadecimal absolute word (0x0000) representation.
    Private Function NearAddressToHexadecimal(NearAddress As List(Of Byte), Position As Integer) As String
       Try
-         Dim Hexadecimal As String = BytesToHexadecimal(NearAddress, NoPrefix:=True)
-
-         Return If(Hexadecimal.Length = 2, $"{((Position + ToSByte(Hexadecimal, fromBase:=16) And &HFFFF%)):X8}", $"{((Position + ToInt32(Hexadecimal, fromBase:=16) And &HFFFF%)):X8}")
+         Return If(NearAddress.Count < &H2%, Nothing, $"{((Position + ToInt32(BytesToHexadecimal(NearAddress, NoPrefix:=True), fromBase:=16) And &HFFFF%)):X8}")
       Catch ExceptionO As Exception
          RaiseEvent HandleError(ExceptionO)
       End Try
@@ -401,6 +399,17 @@ Public Class DisassemblerClass
          End If
 
          Return $"{Sign}{Signed}"
+      Catch ExceptionO As Exception
+         RaiseEvent HandleError(ExceptionO)
+      End Try
+
+      Return Nothing
+   End Function
+
+   'This procedure returns the specified relative short address as a hexadecimal absolute byte (0x00) representation.
+   Private Function ShortAddressToHexadecimal(ShortAddress As List(Of Byte), Position As Integer) As String
+      Try
+         Return If(ShortAddress.Count < &H1%, Nothing, $"{((Position + ToSByte(BytesToHexadecimal(ShortAddress, NoPrefix:=True), fromBase:=16) And &HFFFF%)):X4}")
       Catch ExceptionO As Exception
          RaiseEvent HandleError(ExceptionO)
       End Try
