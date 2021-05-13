@@ -1,4 +1,4 @@
-﻿'This class' imports and settings.
+﻿'This class's imports and settings.
 Option Compare Binary
 Option Explicit On
 Option Infer Off
