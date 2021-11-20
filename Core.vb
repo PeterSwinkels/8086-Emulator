@@ -13,6 +13,7 @@ Imports System.Globalization
 Imports System.Linq
 Imports System.Math
 Imports System.Text
+Imports System.Threading.Tasks
 Imports System.Windows.Forms
 
 'This module contains this program's core procedures.
@@ -41,6 +42,7 @@ Public Module CoreModule
    Private WithEvents Disassembler As New DisassemblerClass                         'Contains a reference to the disassembler.
 
    Public AssemblyModeOn As Boolean = False   'Indicates whether input is interpreted as assembly language.
+   Public CPUEvent As String = Nothing        'Contains CPU event specific text.
    Public Output As TextBox = Nothing         'Contains a reference to an output.
 
    Private ReadOnly GET_OPERAND As Func(Of String, String) = Function(Input As String) (Input.Substring(Input.IndexOf(ASSIGNMENT_OPERATOR) + 1))                                                                                                             'Returns the specified input's operand.
@@ -135,9 +137,9 @@ Public Module CoreModule
    'This procedure handles the emulated CPU's halt events.
    Private Sub CPU_Halt() Handles CPU.Halt
       Try
-         CPU.Clock.Stop()
+         CPU.StopExecution = True
          Tracer.Stop()
-         Output.AppendText($"Halted.{NewLine}")
+         CPUEvent = $"Halted.{NewLine}"
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -146,9 +148,9 @@ Public Module CoreModule
    'This procedure handles the emulated CPU's interrupt events.
    Private Sub CPU_Interrupt(Number As Integer, AH As Integer) Handles CPU.Interrupt
       Try
-         CPU.Clock.Stop()
+         CPU.StopExecution = True
          Tracer.Stop()
-         Output.AppendText($"INT {Number:x}, {AH:X}{NewLine}")
+         CPUEvent = $"INT {Number:x}, {AH:X}{NewLine}"
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -157,9 +159,9 @@ Public Module CoreModule
    'This procedure handles the emulated CPU's I/O read events.
    Private Sub CPU_ReadIOPort(Port As Integer, ByRef Value As Integer, Is8Bit As Boolean) Handles CPU.ReadIOPort
       Try
-         CPU.Clock.Stop()
+         CPU.StopExecution = True
          Tracer.Stop()
-         Output.AppendText($"IN {If(Is8Bit, "AL", "AX")}, {Port:X}{NewLine}")
+         CPUEvent = $"IN {If(Is8Bit, "AL", "AX")}, {Port:X}{NewLine}"
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -168,9 +170,9 @@ Public Module CoreModule
    'This procedure handles the emulated CPU's I/O write events.
    Private Sub CPU_WriteIOPort(Port As Integer, Value As Integer, Is8Bit As Boolean) Handles CPU.WriteIOPort
       Try
-         CPU.Clock.Stop()
+         CPU.StopExecution = True
          Tracer.Stop()
-         Output.AppendText($"OUT {Port:X}, {If(Is8Bit, $"{Value:X2}", $"{Value:X4}")}{NewLine}")
+         CPUEvent = $"OUT {Port:X}, {If(Is8Bit, $"{Value:X2}", $"{Value:X4}")}{NewLine}"
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -264,7 +266,7 @@ Public Module CoreModule
             End If
          End If
 
-            Return Literal
+         Return Literal
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -444,15 +446,23 @@ Public Module CoreModule
             ElseIf Command.ToUpper() = "C" Then
                Output.Clear()
             ElseIf Command.ToUpper() = "E" Then
-               Output.AppendText($"{If(CPU.Clock.Enabled, "Already executing.", "Execution started.")}{NewLine}")
-               CPU.Clock.Start()
+               If CPU.Clock.Status = TaskStatus.Running Then
+                  Output.AppendText("Already executing.")
+               Else
+                  CPU.Clock = New Task(AddressOf CPU.Execute)
+                  CPU.Clock.Start()
+                  Output.AppendText("Execution started.")
+               End If
+               Output.AppendText(NewLine)
             ElseIf Command.ToUpper() = "Q" Then
                Application.Exit()
             ElseIf Command.ToUpper() = "R" Then
                Output.AppendText($"{GetRegisterValues()}{NewLine}")
             ElseIf Command.ToUpper() = "S" Then
-               Output.AppendText($"{If(Not CPU.Clock.Enabled, "Execution already stopped.", "Execution stopped.")}{NewLine}")
-               CPU.Clock.Stop()
+               Output.AppendText($"{If(Not CPU.Clock.Status = TaskStatus.Running, "Execution already stopped.", "Execution stopped.")}{NewLine}")
+               CPU.StopExecution = True
+            ElseIf Command.ToUpper() = "SCR" Then
+               ScreenWindow.Show()
             ElseIf Command.ToUpper() = "ST" Then
                Output.AppendText(GetStack(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.SS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP))))
             ElseIf Command.ToUpper() = "T" Then
@@ -463,9 +473,6 @@ Public Module CoreModule
             ElseIf Command.ToUpper() = "TS" Then
                Output.AppendText($"{If(Not Tracer.Enabled, "Tracing already stopped.", "Tracing stopped.")}{NewLine}")
                Tracer.Stop()
-            ElseIf Command.ToUpper().StartsWith("EXE") Then
-               FileName = If(Command.Contains(" "c), Command.Substring(Command.IndexOf(" "c) + 1), RequestFileName("Load executable."))
-               If Not FileName = Nothing AndAlso Not LoadExecutable(FileName) Then Output.AppendText($"Invalid executable.{NewLine}")
             ElseIf Command.ToUpper().StartsWith("L") Then
                FileName = If(Command.Contains(" "c), Command.Substring(Command.IndexOf(" "c) + 1), RequestFileName("Load binary."))
                If Not FileName = Nothing Then LoadBinary(FileName, GetFlatCSIP())

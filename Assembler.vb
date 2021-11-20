@@ -293,6 +293,7 @@ Public Class AssemblerClass
          Dim RegisterIndex As New Integer
          Dim RightOperand As OperandStr = Nothing
          Dim Segment As New Integer
+         Dim SubOpcode As New Integer
 
          Instruction = RemoveWhiteSpace(Instruction).ToUpper()
 
@@ -447,22 +448,26 @@ Public Class AssemblerClass
                         Case OPCODES_C0D2.Contains(Instruction) AndAlso RightOperand.Type = OperandTypesE.Immediate
                            Opcodes.Add(ROTATE_SHIFT_BYTE_BYTE)
 
+                           SubOpcode = OPCODES_C0D2.IndexOf(Instruction) << &H3%
+
                            If LeftOperand.Type = OperandTypesE.Memory Then
-                              Opcodes.Add(ToByte(ParseMemoryOperand(LeftOperand.Operand, ImmediateBytes)))
+                              Opcodes.Add(ToByte(ParseMemoryOperand(LeftOperand.Operand, ImmediateBytes) Or SubOpcode))
                               If ImmediateBytes.Count > 0 Then Opcodes.AddRange(ImmediateBytes)
                            ElseIf LeftOperand.Type = OperandTypesE.Register8Bit Then
-                              Opcodes.Add(ToByte(LH_REGISTERS.IndexOf(LeftOperand.Operand) Or OperandOpcodesE.Registers))
+                              Opcodes.Add(ToByte(LH_REGISTERS.IndexOf(LeftOperand.Operand) Or OperandOpcodesE.Registers Or SubOpcode))
                            End If
 
                            Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=True))
                         Case OPCODES_C1D3.Contains(Instruction) AndAlso RightOperand.Type = OperandTypesE.Immediate
                            Opcodes.Add(ROTATE_SHIFT_WORD_BYTE)
 
+                           SubOpcode = OPCODES_C1D3.IndexOf(Instruction) << &H3%
+
                            If LeftOperand.Type = OperandTypesE.Memory Then
-                              Opcodes.Add(ToByte(ParseMemoryOperand(LeftOperand.Operand, ImmediateBytes)))
+                              Opcodes.Add(ToByte(ParseMemoryOperand(LeftOperand.Operand, ImmediateBytes) Or SubOpcode))
                               If ImmediateBytes.Count > 0 Then Opcodes.AddRange(ImmediateBytes)
                            ElseIf LeftOperand.Type = OperandTypesE.Register16Bit Then
-                              Opcodes.Add(ToByte(XP_REGISTERS.IndexOf(LeftOperand.Operand) Or OperandOpcodesE.Registers))
+                              Opcodes.Add(ToByte(XP_REGISTERS.IndexOf(LeftOperand.Operand) Or OperandOpcodesE.Registers Or SubOpcode))
                            End If
 
                            Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=True))
@@ -480,20 +485,24 @@ Public Class AssemblerClass
                         Case OPCODES_C0D2.Contains(Instruction) AndAlso RightOperand.Operand = LH_REGISTERS(COUNTER_REGISTER)
                            Opcodes.Add(ROTATE_SHIFT_BYTE_CL)
 
+                           SubOpcode = OPCODES_C0D2.IndexOf(Instruction) << &H3%
+
                            If LeftOperand.Type = OperandTypesE.Memory Then
-                              Opcodes.Add(ToByte(ParseMemoryOperand(LeftOperand.Operand, ImmediateBytes)))
+                              Opcodes.Add(ToByte(ParseMemoryOperand(LeftOperand.Operand, ImmediateBytes) Or SubOpcode))
                               If ImmediateBytes.Count > 0 Then Opcodes.AddRange(ImmediateBytes)
                            ElseIf LeftOperand.Type = OperandTypesE.Register8Bit Then
-                              Opcodes.Add(ToByte(LH_REGISTERS.IndexOf(LeftOperand.Operand) Or OperandOpcodesE.Registers))
+                              Opcodes.Add(ToByte(LH_REGISTERS.IndexOf(LeftOperand.Operand) Or OperandOpcodesE.Registers Or SubOpcode))
                            End If
                         Case OPCODES_C1D3.Contains(Instruction) AndAlso RightOperand.Operand = LH_REGISTERS(COUNTER_REGISTER)
                            Opcodes.Add(ROTATE_SHIFT_WORD_CL)
 
+                           SubOpcode = OPCODES_C1D3.IndexOf(Instruction) << &H3%
+
                            If LeftOperand.Type = OperandTypesE.Memory Then
-                              Opcodes.Add(ToByte(ParseMemoryOperand(LeftOperand.Operand, ImmediateBytes)))
+                              Opcodes.Add(ToByte(ParseMemoryOperand(LeftOperand.Operand, ImmediateBytes) Or SubOpcode))
                               If ImmediateBytes.Count > 0 Then Opcodes.AddRange(ImmediateBytes)
                            ElseIf LeftOperand.Type = OperandTypesE.Register16Bit Then
-                              Opcodes.Add(ToByte(XP_REGISTERS.IndexOf(LeftOperand.Operand) Or OperandOpcodesE.Registers))
+                              Opcodes.Add(ToByte(XP_REGISTERS.IndexOf(LeftOperand.Operand) Or OperandOpcodesE.Registers Or SubOpcode))
                            End If
                         Case OPCODES_F7_WORD.Contains(Instruction) AndAlso RightOperand.Type = OperandTypesE.Immediate
                            Opcodes.Add(VARIOUS_WORD_LITERAL)

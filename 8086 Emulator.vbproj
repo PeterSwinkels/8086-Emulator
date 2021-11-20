@@ -104,7 +104,7 @@
     <Compile Include="Interface.vb">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="MS-DOS.vb" />
+    <Compile Include="mda.vb" />
     <Compile Include="My Project\AssemblyInfo.vb" />
     <Compile Include="My Project\Application.Designer.vb">
       <AutoGen>True</AutoGen>
@@ -121,6 +121,12 @@
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
+    <Compile Include="Screen.Designer.vb">
+      <DependentUpon>Screen.vb</DependentUpon>
+    </Compile>
+    <Compile Include="Screen.vb">
+      <SubType>Form</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Interface.resx">
@@ -132,6 +138,9 @@
       <LastGenOutput>Resources.Designer.vb</LastGenOutput>
       <CustomToolNamespace>My.Resources</CustomToolNamespace>
       <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Screen.resx">
+      <DependentUpon>Screen.vb</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
@@ -149,6 +158,15 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Documents\Help.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Documents\cp437_bright.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Documents\cp437_normal.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Documents\cp437_reverse.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
 </Project>

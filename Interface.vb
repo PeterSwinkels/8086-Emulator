@@ -8,10 +8,14 @@ Imports System
 Imports System.ComponentModel
 Imports System.Environment
 Imports System.Linq
+Imports System.Threading.Tasks
 Imports System.Windows.Forms
 
 'This class contains this program's main interface window.
 Public Class InterfaceWindow
+   Private LastCommand As String = Nothing   'Contains the last command entered by the user.
+
+   Private WithEvents Updater As New Timer With {.Enabled = True, .Interval = 55}   'Contains the interface's updater.
 
    'This procedure initializes this window.
    Public Sub New()
@@ -29,7 +33,6 @@ Public Class InterfaceWindow
          ToolTip.SetToolTip(OutputBox, "This box displays CPU memory contents, register values, etc.")
 
          Output = Me.OutputBox
-         UpdateStatus()
 
          If GetCommandLineArgs.Count > 1 Then RunCommandScript(GetCommandLineArgs.Last)
       Catch ExceptionO As Exception
@@ -48,8 +51,9 @@ Public Class InterfaceWindow
             ParseCommand(CommandBox.Text)
          End If
 
+         LastCommand = CommandBox.Text
+
          CommandBox.Clear()
-         UpdateStatus()
          MouseCursorStatus(Busy:=False)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -65,31 +69,54 @@ Public Class InterfaceWindow
       End Try
    End Sub
 
-
    'This procedure ensures the emulated CPU is stopped and the output to the interface stopped when this window closes.
    Private Sub InterfaceWindow_Closing(sender As Object, e As CancelEventArgs) Handles MyBase.Closing
       Try
-         CPU.Clock.Stop()
+         CPU.StopExecution = True
+         Updater.Stop()
          Tracer.Stop()
          Output = Nothing
+         ScreenWindow.Close()
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
    End Sub
 
-   'This procedure responds to changes in the output.
-   Private Sub OutputBox_TextChanged(sender As Object, e As EventArgs) Handles OutputBox.TextChanged
+   'This procedure handles the user's keystrokes.
+   Private Sub InterfaceWindow_KeyUp(sender As Object, e As KeyEventArgs) Handles MyBase.KeyUp
       Try
-         UpdateStatus()
+         If e.KeyCode = Keys.F3 AndAlso Not LastCommand = Nothing Then CommandBox.Text = LastCommand
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
    End Sub
 
-   'This procedure updates the status bar.
-   Private Sub UpdateStatus()
+   'This procedure gives the command to load the file dropped into the data box.
+   Private Sub OutputBox_DragDrop(sender As Object, e As DragEventArgs) Handles OutputBox.DragDrop
       Try
-         CPUActiveLabel.Text = $"CPU {If(CPU.Clock.Enabled OrElse Tracer.Enabled, "active.", "halted.")}"
+         If e.Data.GetDataPresent(DataFormats.FileDrop) Then RunCommandScript(DirectCast(e.Data.GetData(DataFormats.FileDrop), String()).First)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure handles objects being dragged into the data box.
+   Private Sub OutputBox_DragEnter(sender As Object, e As DragEventArgs) Handles OutputBox.DragEnter
+      Try
+         If e.Data.GetDataPresent(DataFormats.FileDrop) Then e.Effect = DragDropEffects.All
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure updates the interface.
+   Private Sub UpdateStatus(sender As Object, e As EventArgs) Handles Updater.Tick
+      Try
+         CPUActiveLabel.Text = $"CPU {If(CPU.Clock.Status = TaskStatus.Running OrElse Tracer.Enabled, "active.", "halted.")}"
+         If Not CPUEvent = Nothing Then
+            OutputBox.AppendText(CPUEvent)
+            CPUEvent = Nothing
+         End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

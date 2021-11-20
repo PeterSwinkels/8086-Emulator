@@ -7,6 +7,7 @@ Option Strict On
 Imports System
 Imports System.Linq
 Imports System.Math
+Imports System.Threading.Tasks
 Imports System.Windows.Forms
 
 'This class contains the 8086 CPU emulator's procedures.
@@ -412,14 +413,14 @@ Public Class CPU8086Class
    Private Const OVERFLOW_TRAP As Integer = &H4%          'Defines the overflow trap interrupt number. 
    Public Const INVALID_OPCODE As Integer = &H6%         'Defines the invalid opcode interrupt number.
 
+   Public Clock As New Task(AddressOf Execute)                                     'Contains the CPU clock.
    Public Memory() As Byte = Enumerable.Repeat(CByte(&H0%), &H100000%).ToArray()   'Contains the memory used by the emulated 8086 CPU.
+   Public StopExecution As Boolean = False                                         'Indicates whether or not to stop the CPU.
 
    Public Event Halt()                                                                   'Defines the halt event.
    Public Event Interrupt(Number As Integer, AH As Integer)                              'Defines the interrupt event.
    Public Event ReadIOPort(Port As Integer, ByRef Value As Integer, Is8Bit As Boolean)   'Defines the IO port read event.
    Public Event WriteIOPort(Port As Integer, Value As Integer, Is8Bit As Boolean)        'Defines the IO port write event.
-
-   Public WithEvents Clock As New Timer With {.Enabled = False, .Interval = 1}   'Contains the emulated CPU's clock.
 
    'This procedure returns the memory address indicated by the specified operand and current data segment.
    Public Function AddressFromOperand(Operand As MemoryOperandsE, Optional Literal As Integer? = Nothing) As Integer?
@@ -511,11 +512,6 @@ Public Class CPU8086Class
       Return NewBits And If(Is8Bit, &HFF%, &HFFFF%)
    End Function
 
-   'This procedure gives the CPU the command to execute an instruction.
-   Private Sub Clock_Tick(sender As Object, e As EventArgs) Handles Clock.Tick
-      If Not ExecuteOpcode() Then ExecuteInterrupt(OpcodesE.INT, Number:=INVALID_OPCODE)
-   End Sub
-
    'This procedure converts the specified byte/word to a word/dword.
    Private Function ConvertWidening(Value As Integer, Is8Bit As Boolean) As Integer
       Value = Value And If(Is8Bit, &HFF%, &HFFFF%)
@@ -527,6 +523,20 @@ Public Class CPU8086Class
       End If
 
       Return Value And If(Is8Bit, &HFFFF%, &HFFFFFFFF%)
+   End Function
+
+   'This procedure gives the CPU the command to execute instructions.
+   Public Function Execute() As Task(Of Integer)
+      StopExecution = False
+
+      Do Until StopExecution
+         If Not ExecuteOpcode() Then
+            ExecuteInterrupt(OpcodesE.INT, Number:=INVALID_OPCODE)
+            Exit Do
+         End If
+      Loop
+
+      Return Task.FromResult(GetFlatCSIP())
    End Function
 
    'This procedure executes control flow instructions.
@@ -1075,7 +1085,7 @@ Public Class CPU8086Class
                ExecuteStringOpcode(Opcode)
                Registers(Registers16BitE.CX, NewValue:=CInt(Registers(Registers16BitE.CX)) - &H1%)
             Loop
-         Case OpcodesE.RSBITS_WORD_CL
+         Case OpcodesE.RSBITS_BYTE_CL, OpcodesE.RSBITS_WORD_CL
             Operand = GetByteCSIP()
             OperandPair = GetOperandPair(CByte(Opcode And &H1%), CByte(Operand))
             With OperandPair
