@@ -4,7 +4,6 @@ Option Explicit On
 Option Infer Off
 Option Strict On
 
-Imports System.Collections.Generic
 Imports System.Drawing
 
 'This class emulates an MDA graphics adapter.
