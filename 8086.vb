@@ -8,7 +8,6 @@ Imports System
 Imports System.Linq
 Imports System.Math
 Imports System.Threading.Tasks
-Imports System.Windows.Forms
 
 'This class contains the 8086 CPU emulator's procedures.
 Public Class CPU8086Class
@@ -465,7 +464,7 @@ Public Class CPU8086Class
          End Select
 
          If Literal IsNot Nothing Then Address += Literal
-         Address = ((CInt(If(Override Is Nothing, Registers(SegmentRegistersE.DS), Registers(Override))) << &H4%) + Address) And &HFFFF%
+         Address = ((CInt(If(Override Is Nothing, Registers(SegmentRegistersE.DS), Registers(Override))) << &H4%) + Address) And &HFFFFF%
       End If
 
       Return Address
@@ -1273,7 +1272,7 @@ Public Class CPU8086Class
    'This procedure returns the byte located at CS:IP and adjusts the IP register.
    Private Function GetByteCSIP() As Byte
       Dim IP As Integer = CInt(Registers(Registers16BitE.IP))
-      Dim [Byte] As Byte = Memory((CInt(Registers(SegmentRegistersE.CS)) << &H4%) + IP)
+      Dim [Byte] As Byte = Memory(((CInt(Registers(SegmentRegistersE.CS)) << &H4%) + IP) And &HFFFFF%)
 
       Registers(Registers16BitE.IP, NewValue:=(IP + &H1%) And &HFFFF%)
 
@@ -1374,7 +1373,7 @@ Public Class CPU8086Class
 
    'This procedure returns the word at the specified address.
    Public Function GetWord(Address As Integer) As Integer
-      Return Memory(Address) Or (CInt(Memory(Address + &H1%)) << &H8%)
+      Return Memory(Address And &HFFFFF%) Or (CInt(Memory((Address + &H1%) And &HFFFFF%)) << &H8%)
    End Function
 
    'This procedure returns the word located at CS:IP and adjusts the IP register.
@@ -1389,8 +1388,8 @@ Public Class CPU8086Class
 
    'This procedure writes the specified word to the specified address.
    Public Sub PutWord(Address As Integer, Word As Integer)
-      Memory(Address) = CByte(Word And &HFF%)
-      Memory(Address + &H1%) = CByte((Word And &HFF00%) >> &H8%)
+      Memory(Address And &HFFFFF%) = CByte(Word And &HFF%)
+      Memory((Address + &H1%) And &HFFFFF%) = CByte((Word And &HFF00%) >> &H8%)
    End Sub
 
    'This procedure sets or gets a register's value.
