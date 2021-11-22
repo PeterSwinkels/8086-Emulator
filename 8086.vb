@@ -410,6 +410,8 @@ Public Class CPU8086Class
    Private Const DIVIDE_BY_ZERO As Integer = &H0%         'Defines the divide by zero interrupt number.
    Private Const LOW_FLAG_BITS As Integer = &HD7%         'Defines the bits used in the flag register's lower byte.
    Private Const OVERFLOW_TRAP As Integer = &H4%          'Defines the overflow trap interrupt number. 
+
+   Public Const ADDRESS_MASK As Integer = &HFFFFF%       'Defines the 20 bits used to address memory.
    Public Const INVALID_OPCODE As Integer = &H6%         'Defines the invalid opcode interrupt number.
 
    Public Clock As New Task(AddressOf Execute)                                     'Contains the CPU clock.
@@ -464,7 +466,7 @@ Public Class CPU8086Class
          End Select
 
          If Literal IsNot Nothing Then Address += Literal
-         Address = ((CInt(If(Override Is Nothing, Registers(SegmentRegistersE.DS), Registers(Override))) << &H4%) + Address) And &HFFFFF%
+         Address = ((CInt(If(Override Is Nothing, Registers(SegmentRegistersE.DS), Registers(Override))) << &H4%) + Address) And ADDRESS_MASK
       End If
 
       Return Address
@@ -1272,7 +1274,7 @@ Public Class CPU8086Class
    'This procedure returns the byte located at CS:IP and adjusts the IP register.
    Private Function GetByteCSIP() As Byte
       Dim IP As Integer = CInt(Registers(Registers16BitE.IP))
-      Dim [Byte] As Byte = Memory(((CInt(Registers(SegmentRegistersE.CS)) << &H4%) + IP) And &HFFFFF%)
+      Dim [Byte] As Byte = Memory(((CInt(Registers(SegmentRegistersE.CS)) << &H4%) + IP) And ADDRESS_MASK)
 
       Registers(Registers16BitE.IP, NewValue:=(IP + &H1%) And &HFFFF%)
 
@@ -1373,7 +1375,7 @@ Public Class CPU8086Class
 
    'This procedure returns the word at the specified address.
    Public Function GetWord(Address As Integer) As Integer
-      Return Memory(Address And &HFFFFF%) Or (CInt(Memory((Address + &H1%) And &HFFFFF%)) << &H8%)
+      Return Memory(Address And ADDRESS_MASK) Or (CInt(Memory((Address + &H1%) And ADDRESS_MASK)) << &H8%)
    End Function
 
    'This procedure returns the word located at CS:IP and adjusts the IP register.
@@ -1388,8 +1390,8 @@ Public Class CPU8086Class
 
    'This procedure writes the specified word to the specified address.
    Public Sub PutWord(Address As Integer, Word As Integer)
-      Memory(Address And &HFFFFF%) = CByte(Word And &HFF%)
-      Memory((Address + &H1%) And &HFFFFF%) = CByte((Word And &HFF00%) >> &H8%)
+      Memory(Address And ADDRESS_MASK) = CByte(Word And &HFF%)
+      Memory((Address + &H1%) And ADDRESS_MASK) = CByte((Word And &HFF00%) >> &H8%)
    End Sub
 
    'This procedure sets or gets a register's value.

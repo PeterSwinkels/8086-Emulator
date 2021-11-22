@@ -179,7 +179,7 @@ Public Module CoreModule
    End Sub
 
    'This procedure disassembles the specified code and returns the resulting lines of code.
-   Private Function Disasemble(Code As List(Of Byte), Position As Integer, Optional Count As Integer? = Nothing) As String
+   Private Function Disassemble(Code As List(Of Byte), Position As Integer, Optional Count As Integer? = Nothing) As String
       Try
          Dim Disassembly As New StringBuilder
          Dim EndPosition As New Integer
@@ -192,7 +192,7 @@ Public Module CoreModule
          EndPosition = If(CInt(Count) = &H0%, Code.Count, Position + CInt(Count))
 
          With Disassembler
-            Do Until Position >= EndPosition
+            Do Until Position >= EndPosition OrElse Position > CPU.Memory.GetUpperBound(0)
                PreviousPosition = Position + &H1%
                Instruction = .Disassemble(Code, Position)
                HexadecimalCode = .BytesToHexadecimal(.GetBytes(Code, PreviousPosition - &H1%, (Position - PreviousPosition) + &H1%), NoPrefix:=True, Reverse:=False)
@@ -235,7 +235,7 @@ Public Module CoreModule
    'This procedure returns the flat memory address for the emulated CPU's CS:IP registers.
    Public Function GetFlatCSIP() As Integer
       Try
-         Return (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)) << &H4%) Or CInt(CPU.Registers(CPU8086Class.Registers16BitE.IP))
+         Return (CInt(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.IP)) And CPU8086Class.ADDRESS_MASK)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -497,7 +497,7 @@ Public Module CoreModule
                End If
 
                If Command.ToUpper().StartsWith("MD") Then
-                  Output.AppendText(Disasemble(CPU.Memory.ToList(), CInt(Address), Count))
+                  Output.AppendText(Disassemble(CPU.Memory.ToList(), CInt(Address), Count))
                Else
                   Output.AppendText(GetMemoryDump(AllHexadecimal:=Not Command.ToUpper().StartsWith("MT"), CInt(Address), Count))
                End If
@@ -606,7 +606,7 @@ Public Module CoreModule
    Private Sub Tracer_Tick(sender As Object, e As EventArgs) Handles Tracer.Tick
       Try
          Dim Address As New Integer
-         Dim Code As String = Disasemble(CPU.Memory.ToList(), GetFlatCSIP(), Count:=&H1%)
+         Dim Code As String = Disassemble(CPU.Memory.ToList(), GetFlatCSIP(), Count:=&H1%)
 
          If Not CPU.ExecuteOpcode() Then CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Number:=CPU8086Class.INVALID_OPCODE)
 
