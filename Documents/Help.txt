@@ -9,7 +9,6 @@ Register                      Displays the specified register's value.
 Register = Value              Set the specified register to the specified byte/word.
 C                             Clears the output window.
 E                             Causes the emulated CPU to start executing code.
-EXE [Path]                    Loads an MS-DOS executable. (Limited support!)
 L [Path]                      Loads a file into the emulated memory at CS:IP.
 M [Offset:Segment] [Count]    Display memory starting at CS:IP.
 MA [Offset:Segment]           Allows the user to enter assembly instructions.
@@ -19,6 +18,7 @@ MT [Offset:Segment] [Count]   Display memory starting at CS:IP.
 Q                             Quits the emulator.
 R                             Display all registers and their values.
 S                             Causes the emulated CPU to stop executing code.
+SCR                           Displays the screen output.
 ST                            Displays all word values from SS:SP to SS:FFFF.
 T                             Executes and displays a single instruction.
 TE                            Executes and displays instructions.
@@ -34,3 +34,4 @@ Notes:
  -Strings - for memory locations only.
 -The commandline can be used to specify a script that is executed at start up.
 -All script files must have the following text as their first line (no preceding blank lines allowed): "[SCRIPT]".
+-The F3 key recalls the most recently given command.

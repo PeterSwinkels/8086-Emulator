@@ -10,7 +10,7 @@ Imports System.Windows.Forms
 
 'This class contains the screen output window.
 Public Class ScreenWindow
-   Private ReadOnly VideoAdapter As New MDAClass   'Contains a reference to the video adapter used.
+   Private ReadOnly VideoAdapter As New VGAMode0x13Class   'Contains a reference to the video adapter used.
 
    Private WithEvents Refresher As New Timer With {.Enabled = True, .Interval = 56}   'Contains the screen refresher.
 
@@ -41,7 +41,6 @@ Public Class ScreenWindow
    Private Sub ScreenWindow_Paint(sender As Object, e As PaintEventArgs) Handles MyBase.Paint
       Try
          VideoAdapter.Display(Me.BackgroundImage, CPU.Memory)
-
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

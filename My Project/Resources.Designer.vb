@@ -61,13 +61,43 @@ Namespace My.Resources
         End Property
         
         '''<summary>
-        '''  Looks up a localized string similar to ?                             Display this summary.
-        '''$ Path                        Execute the commands in the specified file.
-        '''[Segment:Offset] = Value      Set the byte at the specified memory address to the specified value.
-        '''Register                      Displays the specified register&apos;s value.
-        '''Register = Value              Set the specified register to the specified value.
-        '''C                             Clears the output window.
-        '''E                             Causes the emulated CPU to start executing  [rest of string was truncated]&quot;;.
+        '''  Looks up a localized resource of type System.Drawing.Bitmap.
+        '''</summary>
+        Friend ReadOnly Property cp437_bright() As System.Drawing.Bitmap
+            Get
+                Dim obj As Object = ResourceManager.GetObject("cp437_bright", resourceCulture)
+                Return CType(obj,System.Drawing.Bitmap)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized resource of type System.Drawing.Bitmap.
+        '''</summary>
+        Friend ReadOnly Property cp437_normal() As System.Drawing.Bitmap
+            Get
+                Dim obj As Object = ResourceManager.GetObject("cp437_normal", resourceCulture)
+                Return CType(obj,System.Drawing.Bitmap)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized resource of type System.Drawing.Bitmap.
+        '''</summary>
+        Friend ReadOnly Property cp437_reverse() As System.Drawing.Bitmap
+            Get
+                Dim obj As Object = ResourceManager.GetObject("cp437_reverse", resourceCulture)
+                Return CType(obj,System.Drawing.Bitmap)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to [Help]
+        '''?                             Displays this summary.
+        '''$ Path                        Executes the commands in the specified file.
+        '''[Segment:Offset]              Displays the specified memory location contents as a byte, word, and first two bytes as characters.
+        '''[Segment:Offset] = Value      Writes the specified byte/word/character to the specified memory address.
+        '''[Segment:Offset] = {values}   Writes the specified values of any supported type (except strings) to the specified memory address.
+        '''[Segmen [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property Help() As String
             Get

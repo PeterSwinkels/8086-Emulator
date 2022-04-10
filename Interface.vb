@@ -15,7 +15,7 @@ Imports System.Windows.Forms
 Public Class InterfaceWindow
    Private LastCommand As String = Nothing   'Contains the last command entered by the user.
 
-   Private WithEvents Updater As New Timer With {.Enabled = True, .Interval = 55}   'Contains the interface's updater.
+   Private WithEvents Updater As New Timer With {.Enabled = True, .Interval = 56}   'Contains the interface's updater.
 
    'This procedure initializes this window.
    Public Sub New()

@@ -127,6 +127,7 @@
     <Compile Include="Screen.vb">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="VGAModex13.vb" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Interface.resx">
