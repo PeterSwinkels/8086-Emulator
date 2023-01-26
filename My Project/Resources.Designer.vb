@@ -22,7 +22,7 @@ Namespace My.Resources
     '''<summary>
     '''  A strongly-typed resource class, for looking up localized strings, etc.
     '''</summary>
-    <Global.System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0"),  _
+    <Global.System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0"),  _
      Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
      Global.System.Runtime.CompilerServices.CompilerGeneratedAttribute(),  _
      Global.Microsoft.VisualBasic.HideModuleNameAttribute()>  _
@@ -58,6 +58,22 @@ Namespace My.Resources
             Set
                 resourceCulture = value
             End Set
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to [Assembler]
+        '''-Only 8086 instructions are supported.
+        '''-A flat address target must be prefixed with an at sign (&quot;@&quot;) and is only supported for control flow instruction.
+        '''-Single characters enclosed in quotes (&quot;&quot;&quot;) may be used in place of a hexadecimal byte.
+        '''-Double characters enclosed in quotes (&quot;&quot;&quot;) may be used in place of a hexadecimal word.
+        '''-Comments prefixed with a semi colon (&quot;;&quot;) are allowed.
+        '''-Enter an asterisk (&quot;*&quot;) to overwrite the most recent instruction.
+        '''.
+        '''</summary>
+        Friend ReadOnly Property Assembler() As String
+            Get
+                Return ResourceManager.GetString("Assembler", resourceCulture)
+            End Get
         End Property
         
         '''<summary>
