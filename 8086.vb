@@ -235,8 +235,8 @@ Public Class CPU8086Class
       PUSH_SP = &H54%                 'Push SP.
       PUSH_SS = &H16%                 'Push SS.
       PUSHF = &H9C%                   'Push flags.
-      REPE = &HF3%                    'Repeat instruction until CX reads zero while the zero flag reads true.
       REPNE = &HF2%                   'Repeat instruction until CX reads zero while the zero flag reads false.
+      REPZ = &HF3%                    'Repeat instruction until CX reads zero while the zero flag reads true.
       RETF = &HCB%                    'Return far.
       RETF_BYTES = &HCA%              'Return far and release bytes.
       RETN = &HC3%                    'Return near.
@@ -1072,11 +1072,11 @@ Public Class CPU8086Class
             RaiseEvent WriteIOPort(Port:=CInt(Registers(Registers16BitE.DX)), Value:=CInt(Registers(Registers16BitE.AX)), Is8Bit:=False)
          Case OpcodesE.OUT_WORD_AX
             RaiseEvent WriteIOPort(GetWordCSIP(), Value:=CInt(Registers(Registers16BitE.AX)), Is8Bit:=False)
-         Case OpcodesE.REPE, OpcodesE.REPNE
-            If Opcode = OpcodesE.REPE Then
-               CFStopValue = False
-            ElseIf Opcode = OpcodesE.REPNE Then
+         Case OpcodesE.REPNE, OpcodesE.REPZ
+            If Opcode = OpcodesE.REPNE Then
                CFStopValue = True
+            ElseIf Opcode = OpcodesE.REPZ Then
+               CFStopValue = False
             End If
 
             Registers(FlagRegistersE.ZF, NewValue:=Not CFStopValue)

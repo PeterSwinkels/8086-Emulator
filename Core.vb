@@ -52,19 +52,6 @@ Public Module CoreModule
    Private ReadOnly IS_VALUES_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(VALUES_OPERAND_START) AndAlso Operand.Trim().EndsWith(VALUES_OPERAND_END))                                                        'Indicates whether the specified operand is an array of values.
    Private ReadOnly WITHOUT_DELIMITERS As Func(Of String, String) = Function(Operand As String) (Operand.Substring(1, Operand.Length - 2))                                                                                                                   'Returns the specified operand with its first and last characters removed.
 
-   'This procedure is executed when this program is started.
-   Public Sub Main()
-      Try
-         InterfaceWindow.Show()
-
-         Do While InterfaceWindow.Visible
-            Application.DoEvents()
-         Loop
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
-   End Sub
-
    'This procedure translates the specified memory operands to a flat memory address.
    Private Function AddressFromOperand(Operand As String) As Integer?
       Try
@@ -95,13 +82,19 @@ Public Module CoreModule
       Try
          Dim Opcodes As New List(Of Byte)
          Static Address As New Integer
+         Static PreviousAddress As New Integer
 
          If AssemblyModeOn Then
             If Input.Trim() = Nothing Then
                AssemblyModeOn = False
                Output.AppendText($"Done.{NewLine}")
+            ElseIf Input.Trim() = "*"c Then
+               Address = PreviousAddress
+               Output.AppendText($"Address reset to: {Address:X8}.{NewLine}")
+            ElseIf input.Trim() = "?"c Then
+               Output.AppendText($"{My.Resources.Assembler}{NewLine}")
             Else
-               Opcodes = Assembler.Assemble(Input)
+               Opcodes = Assembler.Assemble(Address, Input)
                If Opcodes Is Nothing Then
                   Output.AppendText($"{Input}{NewLine}")
                ElseIf Opcodes.Count = 0 Then
@@ -110,13 +103,15 @@ Public Module CoreModule
                Else
                   Output.AppendText($"{Address:X8}   {Input,-25} -> {String.Join(Nothing, (From Opcode In Opcodes Select Opcode.ToString("X2")).ToArray())}{NewLine}")
                   Array.Copy(Opcodes.ToArray(), 0, CPU.Memory, Address, Opcodes.Count)
-                  Address += Opcodes.Count
+                  PreviousAddress = Address
+                  Address = (Address + Opcodes.Count) And CPU8086Class.ADDRESS_MASK
                End If
             End If
          ElseIf StartAddress IsNot Nothing Then
-            Address = CInt(StartAddress)
+            Address = CInt(StartAddress) And CPU8086Class.ADDRESS_MASK
+            PreviousAddress = Address
             AssemblyModeOn = True
-            Output.AppendText($"Assembler started.{NewLine}")
+            Output.AppendText($"Assembler started at {Address:X8}.{NewLine}")
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -404,6 +399,19 @@ Public Module CoreModule
       End Try
    End Sub
 
+   'This procedure is executed when this program is started.
+   Public Sub Main()
+      Try
+         InterfaceWindow.Show()
+
+         Do While InterfaceWindow.Visible
+            Application.DoEvents()
+         Loop
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
    'This procedure manages the mouse cursor status.
    Public Sub MouseCursorStatus(Busy As Boolean)
       Try
@@ -416,36 +424,47 @@ Public Module CoreModule
       End Try
    End Sub
 
-   'This procedure parses the user's commands.
-   Public Sub ParseCommand(Command As String)
+   'This procedure parses the specified command.
+   Public Sub ParseCommand(Input As String)
       Try
          Dim Address As New Integer?
+         Dim Command As String = Nothing
          Dim Count As New Integer?
          Dim FileName As String = Nothing
          Dim Is8Bit As New Boolean
          Dim NewValue As New Integer?
+         Dim Operands As String = Nothing
          Dim Parsed As New ParsedStr
-         Dim Register As Object = GetRegisterByName(Command.Trim().ToUpper(), Is8Bit)
+         Dim Position As New Integer
+         Dim Register As Object = GetRegisterByName(Input.Trim().ToUpper(), Is8Bit)
          Dim Value As String = Nothing
 
-         Command = Command.Trim()
-         Output.AppendText($"{Command}{NewLine}")
+         Input = Input.Trim()
+         Position = Input.IndexOf(" "c)
+         If Position < 0 Then
+            Command = Input.ToUpper()
+         Else
+            Command = Input.Substring(0, Position).ToUpper()
+            Operands = Input.Substring(Position + 1).Trim()
+         End If
 
-         If Not Command = Nothing Then
+         Output.AppendText($"{Input}{NewLine}")
+
+         If Not Input = Nothing Then
             If Register IsNot Nothing Then
                Output.AppendText($"{Register} = {If(Is8Bit, $"{CInt(CPU.Registers(Register)):X2}", $"{CInt(CPU.Registers(Register)):X4}") }{NewLine}")
-            ElseIf IS_MEMORY_OPERAND(Command) Then
-               Address = AddressFromOperand(Command)
+            ElseIf IS_MEMORY_OPERAND(Input) Then
+               Address = AddressFromOperand(Input)
                If Address Is Nothing Then
                   Output.AppendText($"Invalid address.{NewLine}")
                Else
                   Output.AppendText(GetMemoryValue(CInt(Address)))
                End If
-            ElseIf Command = "?" Then
+            ElseIf Input = "?" Then
                Output.AppendText($"{My.Resources.Help}{NewLine}")
-            ElseIf Command.ToUpper() = "C" Then
+            ElseIf Command = "C" Then
                Output.Clear()
-            ElseIf Command.ToUpper() = "E" Then
+            ElseIf Command = "E" Then
                If CPU.Clock.Status = TaskStatus.Running Then
                   Output.AppendText("Already executing.")
                Else
@@ -454,36 +473,36 @@ Public Module CoreModule
                   Output.AppendText("Execution started.")
                End If
                Output.AppendText(NewLine)
-            ElseIf Command.ToUpper() = "Q" Then
+            ElseIf Command = "Q" Then
                Application.Exit()
-            ElseIf Command.ToUpper() = "R" Then
+            ElseIf Command = "R" Then
                Output.AppendText($"{GetRegisterValues()}{NewLine}")
-            ElseIf Command.ToUpper() = "S" Then
+            ElseIf Command = "S" Then
                Output.AppendText($"{If(Not CPU.Clock.Status = TaskStatus.Running, "Execution already stopped.", "Execution stopped.")}{NewLine}")
                CPU.StopExecution = True
-            ElseIf Command.ToUpper() = "SCR" Then
+            ElseIf Command = "SCR" Then
                ScreenWindow.Show()
-            ElseIf Command.ToUpper() = "ST" Then
+            ElseIf Command = "ST" Then
                Output.AppendText(GetStack(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.SS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP))))
-            ElseIf Command.ToUpper() = "T" Then
+            ElseIf Command = "T" Then
                Tracer_Tick(Nothing, Nothing)
-            ElseIf Command.ToUpper() = "TE" Then
+            ElseIf Command = "TE" Then
                Output.AppendText($"{If(Tracer.Enabled, "Already tracing.", "Tracing started.")}{NewLine}")
                Tracer.Start()
-            ElseIf Command.ToUpper() = "TS" Then
+            ElseIf Command = "TS" Then
                Output.AppendText($"{If(Not Tracer.Enabled, "Tracing already stopped.", "Tracing stopped.")}{NewLine}")
                Tracer.Stop()
-            ElseIf Command.ToUpper().StartsWith("L") Then
-               FileName = If(Command.Contains(" "c), Command.Substring(Command.IndexOf(" "c) + 1), RequestFileName("Load binary."))
+            ElseIf Command = "L" Then
+               FileName = If(Operands Is Nothing, RequestFileName("Load binary."), Operands)
                If Not FileName = Nothing Then LoadBinary(FileName, GetFlatCSIP())
-            ElseIf Command.ToUpper().StartsWith("MA") Then
-               Parsed.Remainder = Command
+            ElseIf Command = "MA" Then
+               Parsed.Remainder = Input
                Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=" "c, Ending:=" "c)
                Address = AddressFromOperand(Parsed.Element)
                If Address Is Nothing Then Address = GetFlatCSIP()
                Assemble(, StartAddress:=Address)
-            ElseIf Command.ToUpper().StartsWith("M") OrElse Command.ToUpper().StartsWith("MD") OrElse Command.ToUpper().StartsWith("MT") Then
-               Parsed.Remainder = Command
+            ElseIf Command = "M" OrElse command = "MD" OrElse command = "MT" Then
+               Parsed.Remainder = Input
 
                Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=" "c, Ending:=" "c)
                Address = AddressFromOperand(Parsed.Element)
@@ -492,28 +511,28 @@ Public Module CoreModule
                Count = GetLiteral(Parsed.Element)
 
                If Address Is Nothing Then
-                  Output.AppendText($"Invalid Or no address specified. CS:IP used instead.{NewLine}")
+                  Output.AppendText($"Invalid or no address specified. CS:IP used instead.{NewLine}")
                   Address = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)) << &H4%) Or CInt(CPU.Registers(CPU8086Class.Registers16BitE.IP))
                End If
 
-               If Command.ToUpper().StartsWith("MD") Then
+               If Input.ToUpper().StartsWith("MD") Then
                   Output.AppendText(Disassemble(CPU.Memory.ToList(), CInt(Address), Count))
                Else
-                  Output.AppendText(GetMemoryDump(AllHexadecimal:=Not Command.ToUpper().StartsWith("MT"), CInt(Address), Count))
+                  Output.AppendText(GetMemoryDump(AllHexadecimal:=Not Input.ToUpper().StartsWith("MT"), CInt(Address), Count))
                End If
-            ElseIf Command.StartsWith("$"c) Then
-               FileName = If(Command.Contains(" "c), Command.Substring(Command.IndexOf(" "c) + 1), RequestFileName("Run script."))
+            ElseIf Command = "$" Then
+               FileName = If(Operands Is Nothing, RequestFileName("Run script."), Operands)
                If Not FileName = Nothing Then RunCommandScript(FileName)
-            ElseIf Command.Contains(ASSIGNMENT_OPERATOR) Then
-               If Command.StartsWith(MEMORY_OPERAND_START) AndAlso Command.Contains(MEMORY_OPERAND_END) Then
-                  Parsed.Remainder = Command
+            ElseIf Input.Contains(ASSIGNMENT_OPERATOR) Then
+               If Input.StartsWith(MEMORY_OPERAND_START) AndAlso Input.Contains(MEMORY_OPERAND_END) Then
+                  Parsed.Remainder = Input
                   Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=Nothing, Ending:=ASSIGNMENT_OPERATOR)
                   Address = AddressFromOperand(Parsed.Element.Trim())
 
                   If Address Is Nothing Then
                      Output.AppendText($"Invalid address.{NewLine}")
                   Else
-                     Value = GET_OPERAND(Command).Trim()
+                     Value = GET_OPERAND(Input).Trim()
                      If IS_VALUES_OPERAND(Value) Then
                         Value = WITHOUT_DELIMITERS(Value)
                         Output.AppendText($"Finished writing values at 0x{WriteValuesToMemory(Value, CInt(Address)):X8}.{NewLine}")
@@ -530,8 +549,8 @@ Public Module CoreModule
                      End If
                   End If
                Else
-                  Register = GetRegisterByName(Command.ToUpper().Substring(0, Command.IndexOf(ASSIGNMENT_OPERATOR)).Trim(), Is8Bit)
-                  Value = GET_OPERAND(Command).Trim()
+                  Register = GetRegisterByName(Input.ToUpper().Substring(0, Input.IndexOf(ASSIGNMENT_OPERATOR)).Trim(), Is8Bit)
+                  Value = GET_OPERAND(Input).Trim()
                   If Register Is Nothing Then
                      Output.AppendText($"Invalid register.{NewLine}")
                   Else

@@ -169,5 +169,8 @@
   <ItemGroup>
     <None Include="Documents\cp437_reverse.png" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Documents\Assembler.txt" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
 </Project>

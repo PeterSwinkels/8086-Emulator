@@ -15,6 +15,8 @@ Public Class AssemblerClass
    Private Const ACCUMULATOR As Integer = &H0%                        'Defines the accumulator register.
    Private Const ACCUMULATOR_TARGET As Integer = &H4%                 'Indicates that the accumulator register is the target with an immediate numeric value as the source.
    Private Const BASE_POINTER As Integer = &H6%                       'Defines the base pointer register.
+   Private Const CHARACTER_STRING As Char = """"c                     'Defines the character used to enclose a string of characters.
+   Private Const COMMENT_CHARACTER As Char = ";"c                     'Defines the character used to indicate a comment.
    Private Const COUNTER_REGISTER As Integer = &H1%                   'Defines the counter register
    Private Const DEFINE_BYTE As String = "DB"                         'Defines the "define byte" macro instruction.
    Private Const DEFINE_WORD As String = "DW"                         'Defines the "define word" macro instruction.
@@ -53,8 +55,9 @@ Public Class AssemblerClass
    'This enumeration lists the supported operand types.
    Private Enum OperandTypesE As Integer
       Unknown         'Unknown.
-      Immediate       'Numeric immediate value.
+      Characters      'One or two characters.
       Memory          'Memory location.
+      Numeric         'Numeric immediate value.
       Register8Bit    '8 bit register.
       Register16Bit   '16 bit register.
       Segment         'Segment register.
@@ -253,18 +256,19 @@ Public Class AssemblerClass
    Private ReadOnly IS_16_BIT_REGISTER_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (XP_REGISTERS.Contains(Operand.Trim().ToUpper()))                                                        'Indicates whether the specified operand is an 16 bit register.
    Private ReadOnly IS_8_BIT_IMMEDIATE As Func(Of String, Boolean) = Function(Immediate As String) (ToInt32(Immediate, fromBase:=16) < &H100%)                                                                    'Indicates whether the specified immediate is an 8 bit value.
    Private ReadOnly IS_8_BIT_REGISTER_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (LH_REGISTERS.Contains(Operand.Trim().ToUpper()))                                                         'Indicates whether the specified operand is an 8 bit register.
-   Private ReadOnly IS_IMMEDIATE_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Integer.TryParse(Operand, NumberStyles.HexNumber, Nothing, Nothing))                                          'Indicates whether the specified operand is an immediate numeric value.
-   Private ReadOnly IS_MEMORY_IMMEDIATE As Func(Of String, Boolean) = Function(Operand As String) (IS_MEMORY_OPERAND(Operand) AndAlso IS_IMMEDIATE_OPERAND(Operand.Substring(1, Operand.Length - 2)))             'Indicates whether the specified operand is a memory immediate numeric value.
+   Private ReadOnly IS_CHARACTERS_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(CHARACTER_STRING) AndAlso Operand.Trim().EndsWith(CHARACTER_STRING))               'Indicates whether the specified operand is a string of characters.
+   Private ReadOnly IS_MEMORY_IMMEDIATE As Func(Of String, Boolean) = Function(Operand As String) (IS_MEMORY_OPERAND(Operand) AndAlso IS_NUMERIC_OPERAND(Operand.Substring(1, Operand.Length - 2)))               'Indicates whether the specified operand is a memory immediate numeric value.
    Private ReadOnly IS_MEMORY_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(MEMORY_OPERAND_START) AndAlso Operand.Trim().EndsWith(MEMORY_OPERAND_END))             'Indicates whether the specified operand refers to a memory location.
+   Private ReadOnly IS_NUMERIC_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Integer.TryParse(Operand, NumberStyles.HexNumber, Nothing, Nothing))                                            'Indicates whether the specified operand is an immediate numeric value.
    Private ReadOnly IS_REGISTER_OPERAND As Func(Of OperandTypesE, Boolean) = Function(OperandType As OperandTypesE) (OperandType = OperandTypesE.Register16Bit OrElse OperandType = OperandTypesE.Register8Bit)   'Indicates whether the specified operand type refers to a register.
    Private ReadOnly IS_SEGMENT_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (SG_REGISTERS.Contains(Operand.Trim().ToUpper()))                                                                'Indicates whether the specified operand is a segment register.
    Private ReadOnly LH_REGISTERS As New List(Of String)({"AL", "CL", "DL", "BL", "AH", "CH", "DH", "BH"})                                                                                                         'Contains the 8086's 8 bit general purpose registers.
    Private ReadOnly MEMORY_IMMEDIATE_OPERANDS As New List(Of String)({"BX+SI+", "BX+DI+", "BP+SI+", "BP+DI+", "SI+", "DI+", "BP+", "BX+"})                                                                        'Contains the 8086's memory oparands that include an immediate numeric value.
    Private ReadOnly MEMORY_OPERANDS As New List(Of String)({"BX+SI", "BX+DI", "BP+SI", "BP+DI", "SI", "DI", "", "BX"})                                                                                            'Contains the 8086's memory oparands.
-   Private ReadOnly OPCODES_C0D2 As New List(Of String)({"ROL BYTE", "ROR BYTE", "RCL BYTE", "RCR BYTE", "SHL BYTE", "SHR BYTE", Nothing, "SAR BYTE"})                                                            'Contains the rotate/shift byte instructions.
-   Private ReadOnly OPCODES_C1D3 As New List(Of String)({"ROL WORD", "ROR WORD", "RCL WORD", "RCR WORD", "SHL WORD", "SHR WORD", Nothing, "SAR WORD"})                                                            'Contains the rotate/shift word instructions.
    Private ReadOnly OPCODES_80 As New List(Of String)({"ADD BYTE", "OR BYTE", "ADC BYTE", "SBB BYTE", "AND BYTE", "SUB BYTE", "XOR BYTE", "CMP BYTE"})                                                            'Contains various byte instructions.
    Private ReadOnly OPCODES_8183 As New List(Of String)({"ADD WORD", "OR WORD", "ADC WORD", "SBB WORD", "AND WORD", "SUB WORD", "XOR WORD", "CMP WORD"})                                                          'Contains various word instructions.
+   Private ReadOnly OPCODES_C0D2 As New List(Of String)({"ROL BYTE", "ROR BYTE", "RCL BYTE", "RCR BYTE", "SHL BYTE", "SHR BYTE", Nothing, "SAR BYTE"})                                                            'Contains the rotate/shift byte instructions.
+   Private ReadOnly OPCODES_C1D3 As New List(Of String)({"ROL WORD", "ROR WORD", "RCL WORD", "RCR WORD", "SHL WORD", "SHR WORD", Nothing, "SAR WORD"})                                                            'Contains the rotate/shift word instructions.
    Private ReadOnly OPCODES_F6 As New List(Of String)({Nothing, Nothing, "NOT BYTE", "NEG BYTE", Nothing, Nothing, Nothing, Nothing})                                                                             'Contains various byte instructions.
    Private ReadOnly OPCODES_F6_BYTE As New List(Of String)({"TEST BYTE", Nothing, Nothing, Nothing, "MUL BYTE", "IMUL BYTE", "DIV BYTE", "IDIV BYTE"})                                                            'Contains various byte instructions.
    Private ReadOnly OPCODES_F7 As New List(Of String)({Nothing, Nothing, "NOT WORD", "NEG WORD", Nothing, Nothing, Nothing, Nothing})                                                                             'Contains various word instructions.
@@ -276,13 +280,27 @@ Public Class AssemblerClass
    Private ReadOnly SG_REGISTERS As New List(Of String)({"ES", "CS", "SS", "DS"})                                                                                                                                 'Contains the 8086's segment registers.
    Private ReadOnly XP_REGISTERS As New List(Of String)({"AX", "CX", "DX", "BX", "SP", "BP", "SI", "DI"})                                                                                                         'Contains the 8086's 16 bit general purpose registers.
 
-   Private ReadOnly ILLEGAL_OPCODES As New List(Of Byte)({&HF%})   'This list defines opcodes resulting from an invalid combination of operands and instructions.
+   Private Const ABSOLUTE_ADDRESS_PREFIX As Char = "@"c            'Defines the prefix for absolute addresses to be converted to a relative address.
+   Private Const JUMP_NEAR_OPCODE_LENGTH As Integer = &H3%         'Defines the length of a near jump opcode and operator in bytes.
+   Private Const JUMP_SHORT_OPCODE_LENGTH As Integer = &H2%        'Defines the length of a short jump opcode and operator in bytes.
+   Private ReadOnly ILLEGAL_OPCODES As New List(Of Byte)({&HF%})   'This list contains the opcodes resulting from an invalid combination of operands and instructions.
 
    'The definitions for events that can be raised by this class.
    Public Event HandleError(ExceptionO As Exception)
 
+   'This procedure converts an absolute address to a relative address and returns it.
+   Private Function AbsoluteToRelativeAddress(Offset As Integer, AbsoluteTargetAddress As String, IsShort As Boolean) As String
+      If IsShort Then
+         Return ((ToByte(AbsoluteTargetAddress.Substring(1), fromBase:=16) - Offset) And &HFF%).ToString("X2")
+      Else
+         Return ((ToUInt16(AbsoluteTargetAddress.Substring(1), fromBase:=16) - Offset) And &HFFFF%).ToString("X4")
+      End If
+
+      Return ""
+   End Function
+
    'This procedure accepts the specified assembly language instruction and returns the appropriate opcodes.
-   Public Function Assemble(Instruction As String) As List(Of Byte)
+   Public Function Assemble(Address As Integer, Instruction As String) As List(Of Byte)
       Try
          Dim ExtraOperand As OperandStr = Nothing
          Dim ImmediateBytes As New List(Of Byte)
@@ -295,7 +313,7 @@ Public Class AssemblerClass
          Dim Segment As New Integer
          Dim SubOpcode As New Integer
 
-         Instruction = RemoveWhiteSpace(Instruction).ToUpper()
+         Instruction = RemoveComment(RemoveWhiteSpace(Instruction).ToUpper())
 
          Select Case True
             Case NO_OPERAND_OPCODES.ContainsKey(Instruction)
@@ -311,6 +329,13 @@ Public Class AssemblerClass
                   RightOperand = New OperandStr With {.Operand = GetRightMostOperand(Instruction, Delimiter:=" "c), .Type = OperandType(.Operand)}
                End If
 
+               With RightOperand
+                  If .Type = OperandTypesE.Characters Then
+                     .Operand = CharactersToHexadecimal(.Operand.Substring(1, .Operand.Length - 2))
+                     .Type = OperandTypesE.Numeric
+                  End If
+               End With
+
                Select Case True
                   Case Instruction = DEFINE_BYTE
                      Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=True))
@@ -322,6 +347,7 @@ Public Class AssemblerClass
                      Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand.Split(":"c).First(), Is8Bit:=False))
                   Case NEAR_JUMP_OPCODES.ContainsKey(Instruction)
                      Opcodes.Add(NEAR_JUMP_OPCODES(Instruction))
+                     If RightOperand.Operand.StartsWith(ABSOLUTE_ADDRESS_PREFIX) Then RightOperand.Operand = AbsoluteToRelativeAddress(Address + JUMP_NEAR_OPCODE_LENGTH, RightOperand.Operand, IsShort:=False)
                      Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=False))
                   Case OPCODES_F6.Contains(Instruction)
                      Opcodes.Add(VARIOUS_BYTE_LITERAL)
@@ -345,8 +371,9 @@ Public Class AssemblerClass
                      Opcodes.Add(SEGMENT_PREFIX_OPCODES(Instruction))
                   Case SHORT_JUMP_OPCODES.ContainsKey(Instruction)
                      Opcodes.Add(SHORT_JUMP_OPCODES(Instruction))
+                     If RightOperand.Operand.StartsWith(ABSOLUTE_ADDRESS_PREFIX) Then RightOperand.Operand = AbsoluteToRelativeAddress(Address + JUMP_SHORT_OPCODE_LENGTH, RightOperand.Operand, IsShort:=True)
                      Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=True))
-                  Case BYTE_OPERAND_OPCODES.ContainsKey(Instruction) AndAlso RightOperand.Type = OperandTypesE.Immediate
+                  Case BYTE_OPERAND_OPCODES.ContainsKey(Instruction) AndAlso RightOperand.Type = OperandTypesE.Numeric
                      Opcodes.Add(BYTE_OPERAND_OPCODES(Instruction))
                      Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=True))
                   Case OPCODES_FE__00BF.Contains(Instruction) AndAlso RightOperand.Type = OperandTypesE.Memory
@@ -367,15 +394,19 @@ Public Class AssemblerClass
                      Opcodes.Add(POP_MEMORY_OPCODE(Instruction))
                      Opcodes.Add(ToByte(ParseMemoryOperand(RightOperand.Operand, ImmediateBytes)))
                      Opcodes.AddRange(ImmediateBytes)
-                  Case WORD_OPERAND_OPCODES.ContainsKey(Instruction) AndAlso RightOperand.Type = OperandTypesE.Immediate
+                  Case WORD_OPERAND_OPCODES.ContainsKey(Instruction) AndAlso RightOperand.Type = OperandTypesE.Numeric
                      Opcodes.Add(WORD_OPERAND_OPCODES(Instruction))
                      Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=False))
-                  Case SEGMENT_OPERAND_OPCODES.ContainsKey(Instruction) AndAlso SG_REGISTERS.Contains(RightOperand.Operand)
-                     RegisterIndex = SG_REGISTERS.IndexOf(RightOperand.Operand)
-                     Opcodes.Add(ToByte(RegisterIndex << &H3%) Or SEGMENT_OPERAND_OPCODES(Instruction))
-                  Case XP_OPERAND_OPCODES.ContainsKey(Instruction) AndAlso XP_REGISTERS.Contains(RightOperand.Operand)
-                     RegisterIndex = XP_REGISTERS.IndexOf(RightOperand.Operand)
-                     If RegisterIndex >= &H0% Then Opcodes.Add(ToByte(XP_OPERAND_OPCODES(Instruction) Or RegisterIndex))
+                  Case SEGMENT_OPERAND_OPCODES.ContainsKey(Instruction), XP_OPERAND_OPCODES.ContainsKey(Instruction)
+                     If SEGMENT_OPERAND_OPCODES.ContainsKey(Instruction) AndAlso SG_REGISTERS.Contains(RightOperand.Operand) Then
+                        RegisterIndex = SG_REGISTERS.IndexOf(RightOperand.Operand)
+                        Opcodes.Add(ToByte(RegisterIndex << &H3%) Or SEGMENT_OPERAND_OPCODES(Instruction))
+                     ElseIf XP_OPERAND_OPCODES.ContainsKey(Instruction) AndAlso XP_REGISTERS.Contains(RightOperand.Operand) Then
+                        RegisterIndex = XP_REGISTERS.IndexOf(RightOperand.Operand)
+                        If RegisterIndex >= &H0% Then Opcodes.Add(ToByte(XP_OPERAND_OPCODES(Instruction) Or RegisterIndex))
+                     Else
+                        Throw New Exception("Invalid register.")
+                     End If
                   Case Else
                      LeftOperand = New OperandStr With {.Operand = GetRightMostOperand(Instruction, Delimiter:=" "c), .Type = OperandType(.Operand)}
 
@@ -399,11 +430,11 @@ Public Class AssemblerClass
                            Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=True))
                         Case MOV_OPCODE.ContainsKey(Instruction)
                            If Not (IS_REGISTER_OPERAND(LeftOperand.Type) AndAlso IS_REGISTER_OPERAND(RightOperand.Type) AndAlso Not LeftOperand.Type = RightOperand.Type) Then
-                              If LeftOperand.Type = OperandTypesE.Register8Bit AndAlso RightOperand.Type = OperandTypesE.Immediate Then
+                              If LeftOperand.Type = OperandTypesE.Register8Bit AndAlso RightOperand.Type = OperandTypesE.Numeric Then
                                  Opcode = MOVE_IMMEDIATE_8 Or LH_REGISTERS.IndexOf(LeftOperand.Operand)
                                  Opcodes.Add(ToByte(Opcode))
                                  Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=True))
-                              ElseIf LeftOperand.Type = OperandTypesE.Register16Bit AndAlso RightOperand.Type = OperandTypesE.Immediate Then
+                              ElseIf LeftOperand.Type = OperandTypesE.Register16Bit AndAlso RightOperand.Type = OperandTypesE.Numeric Then
                                  Opcode = MOVE_IMMEDIATE_16 Or XP_REGISTERS.IndexOf(LeftOperand.Operand)
                                  Opcodes.Add(ToByte(Opcode))
                                  Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=False))
@@ -445,7 +476,7 @@ Public Class AssemblerClass
                            Opcodes.Add(ToByte(CInt(ParseMemoryOperand(LeftOperand.Operand, ImmediateBytes)) Or OPCODES_8183.IndexOf(Instruction) << &H3%))
                            If ImmediateBytes.Count > 0 Then Opcodes.AddRange(ImmediateBytes)
                            Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=False))
-                        Case OPCODES_C0D2.Contains(Instruction) AndAlso RightOperand.Type = OperandTypesE.Immediate
+                        Case OPCODES_C0D2.Contains(Instruction) AndAlso RightOperand.Type = OperandTypesE.Numeric
                            Opcodes.Add(ROTATE_SHIFT_BYTE_BYTE)
 
                            SubOpcode = OPCODES_C0D2.IndexOf(Instruction) << &H3%
@@ -458,7 +489,7 @@ Public Class AssemblerClass
                            End If
 
                            Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=True))
-                        Case OPCODES_C1D3.Contains(Instruction) AndAlso RightOperand.Type = OperandTypesE.Immediate
+                        Case OPCODES_C1D3.Contains(Instruction) AndAlso RightOperand.Type = OperandTypesE.Numeric
                            Opcodes.Add(ROTATE_SHIFT_WORD_BYTE)
 
                            SubOpcode = OPCODES_C1D3.IndexOf(Instruction) << &H3%
@@ -471,7 +502,7 @@ Public Class AssemblerClass
                            End If
 
                            Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=True))
-                        Case OPCODES_F6_BYTE.Contains(Instruction) AndAlso RightOperand.Type = OperandTypesE.Immediate
+                        Case OPCODES_F6_BYTE.Contains(Instruction) AndAlso RightOperand.Type = OperandTypesE.Numeric
                            Opcodes.Add(VARIOUS_BYTE_LITERAL)
 
                            If LeftOperand.Type = OperandTypesE.Memory Then
@@ -504,7 +535,7 @@ Public Class AssemblerClass
                            ElseIf LeftOperand.Type = OperandTypesE.Register16Bit Then
                               Opcodes.Add(ToByte(XP_REGISTERS.IndexOf(LeftOperand.Operand) Or OperandOpcodesE.Registers Or SubOpcode))
                            End If
-                        Case OPCODES_F7_WORD.Contains(Instruction) AndAlso RightOperand.Type = OperandTypesE.Immediate
+                        Case OPCODES_F7_WORD.Contains(Instruction) AndAlso RightOperand.Type = OperandTypesE.Numeric
                            Opcodes.Add(VARIOUS_WORD_LITERAL)
 
                            If LeftOperand.Type = OperandTypesE.Memory Then
@@ -522,10 +553,10 @@ Public Class AssemblerClass
                            If Not (IS_REGISTER_OPERAND(LeftOperand.Type) AndAlso IS_REGISTER_OPERAND(RightOperand.Type) AndAlso Not LeftOperand.Type = RightOperand.Type) Then
                               Opcode = VARIOUS_TARGET_SOURCE_OPCODES(Instruction)
 
-                              If LeftOperand.Operand = LH_REGISTERS(ACCUMULATOR) AndAlso RightOperand.Type = OperandTypesE.Immediate Then
+                              If LeftOperand.Operand = LH_REGISTERS(ACCUMULATOR) AndAlso RightOperand.Type = OperandTypesE.Numeric Then
                                  Opcodes.Add(ToByte(SetOpcodeProperties(Opcode, LeftOperand, RightOperand) Or ACCUMULATOR_TARGET))
                                  Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=True))
-                              ElseIf LeftOperand.Operand = XP_REGISTERS(ACCUMULATOR) AndAlso RightOperand.Type = OperandTypesE.Immediate Then
+                              ElseIf LeftOperand.Operand = XP_REGISTERS(ACCUMULATOR) AndAlso RightOperand.Type = OperandTypesE.Numeric Then
                                  Opcodes.Add(ToByte(SetOpcodeProperties(Opcode, LeftOperand, RightOperand) Or ACCUMULATOR_TARGET))
                                  Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=False))
                               Else
@@ -539,7 +570,12 @@ Public Class AssemblerClass
                End Select
          End Select
 
-         If Opcodes.Count > &H0% AndAlso ILLEGAL_OPCODES.Contains(Opcodes.First()) Then Opcodes.Clear()
+         If Opcodes.Count = &H0% Then
+            Throw New Exception("Unknown instruction.")
+         ElseIf ILLEGAL_OPCODES.Contains(Opcodes.First()) Then
+            Throw New Exception("Illegal instruction.")
+            Opcodes.Clear()
+         End If
 
          Return Opcodes
       Catch ExceptionO As Exception
@@ -552,6 +588,24 @@ Public Class AssemblerClass
    'This procedure converts the specified hexadecimal to bytes and returns these.
    Private Function BytesFromHexadecimal(Number As String, Is8Bit As Boolean) As Byte()
       Return If(Is8Bit, {ToByte(Number.Trim(), fromBase:=16)}, BitConverter.GetBytes(ToUInt16(Number.Trim(), fromBase:=16)))
+   End Function
+
+   'This procedure converts one or two characters to a hexadecimal byte or word and returns the result.
+   Private Function CharactersToHexadecimal(Text As String) As String
+      With Text.ToCharArray()
+         Select Case .Count
+            Case 0
+               Throw New Exception("Not enough characters.")
+            Case 1
+               Return ToInt32(.First).ToString("X2")
+            Case 2
+               Return $"{ToInt32(.Last).ToString("X2")}{ToInt32(.First).ToString("X2")}"
+            Case Else
+               Throw New Exception("Too many characters.")
+         End Select
+      End With
+
+      Return ""
    End Function
 
    'This procedure removes the right most operand from the specified instruction using the specified delimiter and returns the results.
@@ -574,10 +628,12 @@ Public Class AssemblerClass
             Return OperandTypesE.Register16Bit
          Case IS_8_BIT_REGISTER_OPERAND(Operand)
             Return OperandTypesE.Register8Bit
-         Case IS_IMMEDIATE_OPERAND(Operand)
-            Return OperandTypesE.Immediate
+         Case IS_CHARACTERS_OPERAND(Operand)
+            Return OperandTypesE.Characters
          Case IS_MEMORY_OPERAND(Operand)
             Return OperandTypesE.Memory
+         Case IS_NUMERIC_OPERAND(Operand)
+            Return OperandTypesE.Numeric
          Case IS_SEGMENT_OPERAND(Operand)
             Return OperandTypesE.Segment
       End Select
@@ -593,7 +649,7 @@ Public Class AssemblerClass
       Dim Opcodes As New List(Of Byte)
       Dim RightOpcode As New Integer
 
-      If RightOperand.Type = OperandTypesE.Immediate AndAlso Is8Bit IsNot Nothing Then
+      If RightOperand.Type = OperandTypesE.Numeric AndAlso Is8Bit IsNot Nothing Then
          If LeftOperand.Type = OperandTypesE.Memory Then
             LeftOpcode = CInt(ParseMemoryOperand(LeftOperand.Operand, ImmediateBytes))
             RightOpcode = &H0%
@@ -624,13 +680,13 @@ Public Class AssemblerClass
    End Function
 
    'This procedure parses the specified memory operand and returns the resulting opcode and any immediate numeric value present.
-   Private Function ParseMemoryOperand(MemoryOperand As String, ByRef ImmediateBytes As List(Of Byte)) As Integer?
+   Private Function ParseMemoryOperand(MemoryOperand As String, ByRef ImmediateBytes As List(Of Byte)) As Integer
       Dim Immediate As String = Nothing
       Dim ImmediateIs8Bit As New Boolean
       Dim Opcode As New Integer?
 
       MemoryOperand = MemoryOperand.Substring(1, MemoryOperand.Length - 2).Trim()
-      If IS_IMMEDIATE_OPERAND(MemoryOperand) Then
+      If IS_NUMERIC_OPERAND(MemoryOperand) Then
          Opcode = BASE_POINTER
          ImmediateBytes.AddRange(BytesFromHexadecimal(MemoryOperand, Is8Bit:=False))
       ElseIf Not MemoryOperand = Nothing Then
@@ -645,28 +701,39 @@ Public Class AssemblerClass
          End If
       End If
 
-      Return Opcode
+      If Opcode Is Nothing Then Throw New Exception("Invalid memory operand.")
+
+      Return Opcode.Value
    End Function
 
    'This procedure returns the specified register operand's index.
-   Private Function RegisterOperandToIndex(RegisterOperand As OperandStr) As Integer?
-      Try
-         Dim Index As New Integer?
+   Private Function RegisterOperandToIndex(RegisterOperand As OperandStr) As Integer
+      Dim Index As New Integer?
 
-         If RegisterOperand.Type = OperandTypesE.Register8Bit Then
-            Index = LH_REGISTERS.IndexOf(RegisterOperand.Operand)
-         ElseIf RegisterOperand.Type = OperandTypesE.Register16Bit Then
-            Index = XP_REGISTERS.IndexOf(RegisterOperand.Operand)
-         ElseIf RegisterOperand.Type = OperandTypesE.Segment Then
-            Index = SG_REGISTERS.IndexOf(RegisterOperand.Operand)
-         End If
+      If RegisterOperand.Type = OperandTypesE.Register8Bit Then
+         Index = LH_REGISTERS.IndexOf(RegisterOperand.Operand)
+      ElseIf RegisterOperand.Type = OperandTypesE.Register16Bit Then
+         Index = XP_REGISTERS.IndexOf(RegisterOperand.Operand)
+      ElseIf RegisterOperand.Type = OperandTypesE.Segment Then
+         Index = SG_REGISTERS.IndexOf(RegisterOperand.Operand)
+      End If
 
-         Return Index
-      Catch ExceptionO As Exception
-         RaiseEvent HandleError(ExceptionO)
-      End Try
+      If Index Is Nothing Then
+         Throw New Exception("Invalid register.")
+      End If
 
-      Return Nothing
+      Return Index.Value
+   End Function
+
+   'This procedure removes any comments from the specified instruction and returns it.
+   Private Function RemoveComment(Instruction As String) As String
+      Dim Position As Integer = Instruction.LastIndexOf(";")
+
+      If Position > Instruction.LastIndexOf(CHARACTER_STRING) Then
+         Instruction = Instruction.Substring(0, Position).Trim()
+      End If
+
+      Return Instruction
    End Function
 
    'This procedure removes unnecessary white space from the specified instruction and returns it.
