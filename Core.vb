@@ -111,7 +111,7 @@ Public Module CoreModule
             Address = CInt(StartAddress) And CPU8086Class.ADDRESS_MASK
             PreviousAddress = Address
             AssemblyModeOn = True
-            Output.AppendText($"Assembler started at {Address:X8}.{NewLine}")
+            Output.AppendText($"Assembler started at 0x{Address:X8}.{NewLine}")
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -448,9 +448,9 @@ Public Module CoreModule
             Operands = Input.Substring(Position + 1).Trim()
          End If
 
-         Output.AppendText($"{Input}{NewLine}")
-
          If Not Input = Nothing Then
+            Output.AppendText($"{Input}{NewLine}")
+
             If Register IsNot Nothing Then
                Output.AppendText($"{Register} = {If(Is8Bit, $"{CInt(CPU.Registers(Register)):X2}", $"{CInt(CPU.Registers(Register)):X4}") }{NewLine}")
             ElseIf IS_MEMORY_OPERAND(Input) Then
@@ -460,110 +460,123 @@ Public Module CoreModule
                Else
                   Output.AppendText(GetMemoryValue(CInt(Address)))
                End If
-            ElseIf Input = "?" Then
-               Output.AppendText($"{My.Resources.Help}{NewLine}")
-            ElseIf Command = "C" Then
-               Output.Clear()
-            ElseIf Command = "E" Then
-               If CPU.Clock.Status = TaskStatus.Running Then
-                  Output.AppendText("Already executing.")
-               Else
-                  CPU.Clock = New Task(AddressOf CPU.Execute)
-                  CPU.Clock.Start()
-                  Output.AppendText("Execution started.")
-               End If
-               Output.AppendText(NewLine)
-            ElseIf Command = "Q" Then
-               Application.Exit()
-            ElseIf Command = "R" Then
-               Output.AppendText($"{GetRegisterValues()}{NewLine}")
-            ElseIf Command = "S" Then
-               Output.AppendText($"{If(Not CPU.Clock.Status = TaskStatus.Running, "Execution already stopped.", "Execution stopped.")}{NewLine}")
-               CPU.StopExecution = True
-            ElseIf Command = "SCR" Then
-               ScreenWindow.Show()
-            ElseIf Command = "ST" Then
-               Output.AppendText(GetStack(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.SS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP))))
-            ElseIf Command = "T" Then
-               Tracer_Tick(Nothing, Nothing)
-            ElseIf Command = "TE" Then
-               Output.AppendText($"{If(Tracer.Enabled, "Already tracing.", "Tracing started.")}{NewLine}")
-               Tracer.Start()
-            ElseIf Command = "TS" Then
-               Output.AppendText($"{If(Not Tracer.Enabled, "Tracing already stopped.", "Tracing stopped.")}{NewLine}")
-               Tracer.Stop()
-            ElseIf Command = "L" Then
-               FileName = If(Operands Is Nothing, RequestFileName("Load binary."), Operands)
-               If Not FileName = Nothing Then LoadBinary(FileName, GetFlatCSIP())
-            ElseIf Command = "MA" Then
-               Parsed.Remainder = Input
-               Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=" "c, Ending:=" "c)
-               Address = AddressFromOperand(Parsed.Element)
-               If Address Is Nothing Then Address = GetFlatCSIP()
-               Assemble(, StartAddress:=Address)
-            ElseIf Command = "M" OrElse command = "MD" OrElse command = "MT" Then
-               Parsed.Remainder = Input
-
-               Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=" "c, Ending:=" "c)
-               Address = AddressFromOperand(Parsed.Element)
-
-               Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=Nothing, Ending:=Nothing)
-               Count = GetLiteral(Parsed.Element)
-
-               If Address Is Nothing Then
-                  Output.AppendText($"Invalid or no address specified. CS:IP used instead.{NewLine}")
-                  Address = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)) << &H4%) Or CInt(CPU.Registers(CPU8086Class.Registers16BitE.IP))
-               End If
-
-               If Input.ToUpper().StartsWith("MD") Then
-                  Output.AppendText(Disassemble(CPU.Memory.ToList(), CInt(Address), Count))
-               Else
-                  Output.AppendText(GetMemoryDump(AllHexadecimal:=Not Input.ToUpper().StartsWith("MT"), CInt(Address), Count))
-               End If
-            ElseIf Command = "$" Then
-               FileName = If(Operands Is Nothing, RequestFileName("Run script."), Operands)
-               If Not FileName = Nothing Then RunCommandScript(FileName)
-            ElseIf Input.Contains(ASSIGNMENT_OPERATOR) Then
-               If Input.StartsWith(MEMORY_OPERAND_START) AndAlso Input.Contains(MEMORY_OPERAND_END) Then
-                  Parsed.Remainder = Input
-                  Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=Nothing, Ending:=ASSIGNMENT_OPERATOR)
-                  Address = AddressFromOperand(Parsed.Element.Trim())
-
-                  If Address Is Nothing Then
-                     Output.AppendText($"Invalid address.{NewLine}")
-                  Else
-                     Value = GET_OPERAND(Input).Trim()
-                     If IS_VALUES_OPERAND(Value) Then
-                        Value = WITHOUT_DELIMITERS(Value)
-                        Output.AppendText($"Finished writing values at 0x{WriteValuesToMemory(Value, CInt(Address)):X8}.{NewLine}")
-                     ElseIf IS_STRING_OPERAND(Value) Then
-                        Value = WITHOUT_DELIMITERS(Value)
-                        Output.AppendText($"Finished writing values at 0x{WriteStringToMemory(Value, CInt(Address)):X8}.{NewLine}")
-                     Else
-                        NewValue = GetLiteral(Value)
-                        If NewValue Is Nothing Then
-                           Output.AppendText($"Invalid parameter.{NewLine}")
-                        Else
-                           WriteValueToMemory(CInt(NewValue), CInt(Address), (CInt(NewValue) < &H100%))
-                        End If
-                     End If
-                  End If
-               Else
-                  Register = GetRegisterByName(Input.ToUpper().Substring(0, Input.IndexOf(ASSIGNMENT_OPERATOR)).Trim(), Is8Bit)
-                  Value = GET_OPERAND(Input).Trim()
-                  If Register Is Nothing Then
-                     Output.AppendText($"Invalid register.{NewLine}")
-                  Else
-                     NewValue = GetLiteral(Value, Is8Bit)
-                     If NewValue Is Nothing Then
-                        Output.AppendText($"Invalid parameter.{NewLine}")
-                     Else
-                        CPU.Registers(Register, NewValue:=NewValue)
-                     End If
-                  End If
-               End If
             Else
-               Output.AppendText($"Error.{NewLine}")
+               Select Case Command
+                  Case "$"
+                     FileName = If(Operands Is Nothing, RequestFileName("Run script."), Operands)
+                     If Not FileName = Nothing Then RunCommandScript(FileName)
+                  Case "?"
+                     Output.AppendText($"{My.Resources.Help}{NewLine}")
+                  Case = "C"
+                     Output.Clear()
+                  Case "E"
+                     If CPU.Clock.Status = TaskStatus.Running Then
+                        Output.AppendText("Already executing.")
+                     Else
+                        CPU.Clock = New Task(AddressOf CPU.Execute)
+                        CPU.Clock.Start()
+                        Output.AppendText("Execution started.")
+                     End If
+                     Output.AppendText(NewLine)
+                  Case "EXE"
+                     FileName = If(Operands Is Nothing, RequestFileName("Load Executable."), Operands)
+                     If Not FileName = Nothing Then LoadMSDOSEXE(FileName)
+                  Case "IRET"
+                     CPU.ExecuteOpcode(CPU8086Class.OpcodesE.IRET)
+                     CPU.Clock = New Task(AddressOf CPU.Execute)
+                     CPU.Clock.Start()
+                     Output.AppendText($"Execution started.{NewLine}")
+                  Case "L"
+                     FileName = If(Operands Is Nothing, RequestFileName("Load binary."), Operands)
+                     If Not FileName = Nothing Then LoadBinary(FileName, GetFlatCSIP())
+                  Case "M", "MD", "MT"
+                     Parsed.Remainder = Input
+
+                     Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=" "c, Ending:=" "c)
+                     Address = AddressFromOperand(Parsed.Element)
+
+                     Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=Nothing, Ending:=Nothing)
+                     Count = GetLiteral(Parsed.Element)
+
+                     If Address Is Nothing Then
+                        Output.AppendText($"Invalid or no address specified. CS:IP used instead.{NewLine}")
+                        Address = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)) << &H4%) Or CInt(CPU.Registers(CPU8086Class.Registers16BitE.IP))
+                     End If
+
+                     If Input.ToUpper().StartsWith("MD") Then
+                        Output.AppendText(Disassemble(CPU.Memory.ToList(), CInt(Address), Count))
+                     Else
+                        Output.AppendText(GetMemoryDump(AllHexadecimal:=Not Input.ToUpper().StartsWith("MT"), CInt(Address), Count))
+                     End If
+                  Case "MA"
+                     Parsed.Remainder = Input
+                     Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=" "c, Ending:=" "c)
+                     Address = AddressFromOperand(Parsed.Element)
+                     If Address Is Nothing Then Address = GetFlatCSIP()
+                     Assemble(, StartAddress:=Address)
+                  Case "Q"
+                     Application.Exit()
+                  Case "R"
+                     Output.AppendText($"{GetRegisterValues()}{NewLine}")
+                  Case "S"
+                     Output.AppendText($"{If(Not CPU.Clock.Status = TaskStatus.Running, "Execution already stopped.", "Execution stopped.")}{NewLine}")
+                     CPU.StopExecution = True
+                  Case "SCR"
+                     ScreenWindow.Show()
+                  Case "ST"
+                     Output.AppendText(GetStack(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.SS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP))))
+                  Case "T"
+                     Tracer_Tick(Nothing, Nothing)
+                  Case "TE"
+                     Output.AppendText($"{If(Tracer.Enabled, "Already tracing.", "Tracing started.")}{NewLine}")
+                     Tracer.Start()
+                  Case "TS"
+                     Output.AppendText($"{If(Not Tracer.Enabled, "Tracing already stopped.", "Tracing stopped.")}{NewLine}")
+                     Tracer.Stop()
+                  Case Else
+                     If Input.Contains(ASSIGNMENT_OPERATOR) Then
+                        If Input.StartsWith(MEMORY_OPERAND_START) AndAlso Input.Contains(MEMORY_OPERAND_END) Then
+                           Parsed.Remainder = Input
+                           Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=Nothing, Ending:=ASSIGNMENT_OPERATOR)
+                           Address = AddressFromOperand(Parsed.Element.Trim())
+
+                           If Address Is Nothing Then
+                              Output.AppendText($"Invalid address.{NewLine}")
+                           Else
+                              Value = GET_OPERAND(Input).Trim()
+                              If IS_VALUES_OPERAND(Value) Then
+                                 Value = WITHOUT_DELIMITERS(Value)
+                                 Output.AppendText($"Finished writing values at 0x{WriteValuesToMemory(Value, CInt(Address)):X8}.{NewLine}")
+                              ElseIf IS_STRING_OPERAND(Value) Then
+                                 Value = WITHOUT_DELIMITERS(Value)
+                                 Output.AppendText($"Finished writing values at 0x{WriteStringToMemory(Value, CInt(Address)):X8}.{NewLine}")
+                              Else
+                                 NewValue = GetLiteral(Value)
+                                 If NewValue Is Nothing Then
+                                    Output.AppendText($"Invalid parameter.{NewLine}")
+                                 Else
+                                    WriteValueToMemory(CInt(NewValue), CInt(Address), (CInt(NewValue) < &H100%))
+                                 End If
+                              End If
+                           End If
+                        Else
+                           Register = GetRegisterByName(Input.ToUpper().Substring(0, Input.IndexOf(ASSIGNMENT_OPERATOR)).Trim(), Is8Bit)
+                           Value = GET_OPERAND(Input).Trim()
+                           If Register Is Nothing Then
+                              Output.AppendText($"Invalid register.{NewLine}")
+                           Else
+                              NewValue = GetLiteral(Value, Is8Bit)
+                              If NewValue Is Nothing Then
+                                 Output.AppendText($"Invalid parameter.{NewLine}")
+                              Else
+                                 CPU.Registers(Register, NewValue:=NewValue)
+                              End If
+                           End If
+                        End If
+                     Else
+                        Output.AppendText($"Error.{NewLine}")
+                     End If
+               End Select
             End If
          End If
       Catch ExceptionO As Exception

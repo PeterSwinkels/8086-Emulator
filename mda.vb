@@ -8,6 +8,8 @@ Imports System.Drawing
 
 'This class emulates an MDA graphics adapter.
 Public Class MDAClass
+   Implements VideoAdapterClass
+
    'Defines the supported character attributes.
    Private Enum AttributesE As Byte
       Invisible          'Invisible.
@@ -29,10 +31,8 @@ Public Class MDAClass
    Private ReadOnly CHARACTER_SIZE As Size = New Size(9, 14)                       'Defines the characters's sizes.
    Private ReadOnly TEXT_SCREEN_SIZE As Size = New Size(80, 25)                    'Defines the screen size measured in characters.
 
-   Public ReadOnly SCREEN_SIZE As Size = New Size(TEXT_SCREEN_SIZE.Width * CHARACTER_SIZE.Width, TEXT_SCREEN_SIZE.Height * CHARACTER_SIZE.Height)   'Contains the screen size measured in pixels.
-
    'This procedure draws the specified video buffer's context on the specified image.
-   Public Sub Display(Screen As Image, Memory() As Byte)
+   Public Sub Display(Screen As Image, Memory() As Byte) Implements VideoAdapterClass.Display
       Dim Character As New Byte
       Dim Source As New Point
       Dim Target As New Point(1, 1)
@@ -75,4 +75,9 @@ Public Class MDAClass
          Next Position
       End With
    End Sub
+
+   'This procedure returns the screen size used by a video adapter.
+   Public Function ScreenSize() As Size Implements VideoAdapterClass.ScreenSize
+      Return New Size(TEXT_SCREEN_SIZE.Width * CHARACTER_SIZE.Width, TEXT_SCREEN_SIZE.Height * CHARACTER_SIZE.Height)
+   End Function
 End Class

@@ -661,8 +661,8 @@ Public Class CPU8086Class
          Stack(Push:=CInt(Registers(SegmentRegistersE.CS)))
          Stack(Push:=CInt(Registers(Registers16BitE.IP)))
          Address = CInt(Number) * &H4%
-         Registers(SegmentRegistersE.CS, NewValue:=GetWord(Address))
-         Registers(Registers16BitE.IP, NewValue:=GetWord(Address + &H2%))
+         Registers(SegmentRegistersE.CS, NewValue:=GetWord(Address + &H2%))
+         Registers(Registers16BitE.IP, NewValue:=GetWord(Address))
          RaiseEvent Interrupt(CInt(Number), CInt(Registers(SubRegisters8BitE.AH)))
       End If
    End Sub
@@ -848,15 +848,16 @@ Public Class CPU8086Class
    End Function
 
    'This procedure executes the specified opcode.
-   Public Function ExecuteOpcode() As Boolean
+   Public Function ExecuteOpcode(Optional Opcode As OpcodesE = Nothing) As Boolean
       Dim CFStopValue As New Boolean
       Dim LowOctet As New Integer
       Dim NewValue As New Integer
-      Dim Opcode As OpcodesE = DirectCast(GetByteCSIP(), OpcodesE)
       Dim Operand As New Integer
       Dim OperandPair As New OperandPairStr
       Dim Override As New SegmentRegistersE?
       Dim Value As New Integer
+
+      If Opcode = Nothing Then Opcode = DirectCast(GetByteCSIP(), OpcodesE)
 
       Select Case Opcode
          Case OpcodesE.AAA, OpcodesE.AAS
