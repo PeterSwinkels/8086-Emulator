@@ -423,6 +423,19 @@ Public Class CPU8086Class
    Public Event ReadIOPort(Port As Integer, ByRef Value As Integer, Is8Bit As Boolean)   'Defines the IO port read event.
    Public Event WriteIOPort(Port As Integer, Value As Integer, Is8Bit As Boolean)        'Defines the IO port write event.
 
+   'This procedure initializes the CPU.
+   Public Sub New()
+      For Each Register As Registers16BitE In [Enum].GetValues(GetType(Registers16BitE))
+         Registers(Register, NewValue:=&H0%)
+      Next Register
+
+      For Each Register As SegmentRegistersE In [Enum].GetValues(GetType(SegmentRegistersE))
+         Registers(Register, NewValue:=&H0%)
+      Next Register
+
+      Memory = Enumerable.Repeat(CByte(&H0%), &H100000%).ToArray()
+   End Sub
+
    'This procedure returns the memory address indicated by the specified operand and current data segment.
    Public Function AddressFromOperand(Operand As MemoryOperandsE, Optional Literal As Integer? = Nothing) As Integer?
       Dim Override As SegmentRegistersE? = SegmentOverride()
@@ -663,7 +676,10 @@ Public Class CPU8086Class
          Address = CInt(Number) * &H4%
          Registers(SegmentRegistersE.CS, NewValue:=GetWord(Address + &H2%))
          Registers(Registers16BitE.IP, NewValue:=GetWord(Address))
-         RaiseEvent Interrupt(CInt(Number), CInt(Registers(SubRegisters8BitE.AH)))
+
+         If CInt(Registers(SegmentRegistersE.CS)) = &H0% AndAlso CInt(Registers(Registers16BitE.IP)) = &H0% Then
+            RaiseEvent Interrupt(CInt(Number), CInt(Registers(SubRegisters8BitE.AH)))
+         End If
       End If
    End Sub
 

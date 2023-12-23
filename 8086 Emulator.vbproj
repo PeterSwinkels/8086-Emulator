@@ -104,6 +104,7 @@
     <Compile Include="Interface.vb">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Interrupt Handler.vb" />
     <Compile Include="mda.vb" />
     <Compile Include="My Project\AssemblyInfo.vb" />
     <Compile Include="My Project\Application.Designer.vb">

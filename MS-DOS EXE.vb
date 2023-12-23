@@ -20,12 +20,32 @@ Public Module MSDOSEXEModule
    Private Const INITIAL_SP As Integer = &H10%              'Defines where the initial stack pointer is stored.
    Private Const INITIAL_SS As Integer = &HE%               'Defines where the initial stack segment is stored.
 
-   Private ReadOnly MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}  'Defines the signature.
+   Private ReadOnly MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}  'Defines the signature of an MZ exectuable.
 
    'This procedure loads the MS-DOS executable file into the emulated CPU's memory after processing its header.
    Public Sub LoadMSDOSEXE(FileName As String)
       Try
          Dim Executable As New List(Of Byte)(File.ReadAllBytes(FileName))
+         Dim Offset As New Integer
+
+         If Executable.GetRange(0, MZ_SIGNATURE.Length).SequenceEqual(MZ_SIGNATURE) Then
+            LoadMZExe(Executable, FileName)
+         Else
+            Offset = GetFlatCSIP()
+            Output.AppendText($"Loading the compact binary executable ""{FileName}"" at address {Offset:X8}.{NewLine}")
+            Executable.CopyTo(CPU.Memory, Offset)
+            CPU.Registers(CPU8086Class.SegmentRegistersE.DS, NewValue:=CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)) - &H10%)
+            CPU.Registers(CPU8086Class.Registers16BitE.SP, NewValue:=&HFFFF%)
+            CPU.Registers(CPU8086Class.SegmentRegistersE.SS, NewValue:=CPU.Registers(CPU8086Class.SegmentRegistersE.CS))
+         End If
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   Private Sub LoadMZExe(Executable As List(Of Byte), FileName As String)
+
+      Try
          Dim RelocationTableSize As Integer = (BitConverter.ToUInt16(Executable.ToArray(), RELOCATION_ITEM_COUNT) * &H4%)
          Dim HeaderSize As Integer = BitConverter.ToUInt16(Executable.ToArray(), RELOCATION_ITEM_TABLE) + RelocationTableSize
          Dim Offset As Integer = CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%
@@ -35,8 +55,9 @@ Public Module MSDOSEXEModule
          Dim RelocationItemOffset As New Integer
          Dim RelocationItemSegment As New Integer
 
-         Output.AppendText($"Loading ""{FileName}"" at address {Offset:X8}.{NewLine}")
          If Offset + ProcessedExecutable.Count <= CPU.Memory.Length Then
+            Output.AppendText($"Loading the MZ-executable ""{FileName}"" at address {Offset:X8}.{NewLine}")
+
             CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=&H0%)
             CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=ProcessedExecutable.Count >> &H10%)
             CPU.Registers(CPU8086Class.Registers16BitE.CX, NewValue:=ProcessedExecutable.Count And &HFFFF%)
@@ -62,5 +83,6 @@ Public Module MSDOSEXEModule
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
+
    End Sub
 End Module

@@ -10,16 +10,17 @@ Register = Value              Set the specified register to the specified byte/w
 C                             Clears the output window.
 E                             Causes the emulated CPU to start executing code.
 EXE [Path]                    Loads a MS-DOS executable at DS:0000.
-IRET                          Executes an IRET instruction and causes the emulated CPU to start executing code.
+IRET                          Executes an IRET instruction.
 L [Path]                      Loads a file into the emulated memory at CS:IP.
-M [Offset:Segment] [Count]    Display memory starting at CS:IP.
+M [Offset:Segment] [Count]    Display memory.
 MA [Offset:Segment]           Allows the user to enter assembly instructions.
                               Enter "?" for help.
 MD [Offset:Segment] [Count]   Disassemble memory starting at CS:IP.
-MT [Offset:Segment] [Count]   Display memory starting at CS:IP.
+MT [Offset:Segment] [Count]   Display memory as text.
                               Byte values 0x20-0x7E are shown as characters.
 Q                             Quits the emulator.
 R                             Display all registers and their values.
+RESET                         Resets the CPU.
 S                             Causes the emulated CPU to stop executing code.
 SCR                           Displays the screen output.
 ST                            Displays all word values from SS:SP to SS:FFFF.

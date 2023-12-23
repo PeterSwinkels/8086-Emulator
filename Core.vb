@@ -37,13 +37,14 @@ Public Module CoreModule
    Private Const VALUES_OPERAND_START As Char = "{"c             'Defines a values operand's start.
 
    Public WithEvents CPU As New CPU8086Class                                        'Contains a reference to the CPU 8086 class.
-   Public WithEvents Tracer As New Timer With {.Enabled = False, .Interval = 100}   'Contains the clock that handles CPU execution tracing.
    Private WithEvents Assembler As New AssemblerClass                               'Contains a reference to the assembler.
    Private WithEvents Disassembler As New DisassemblerClass                         'Contains a reference to the disassembler.
 
-   Public AssemblyModeOn As Boolean = False   'Indicates whether input is interpreted as assembly language.
-   Public CPUEvent As String = Nothing        'Contains CPU event specific text.
-   Public Output As TextBox = Nothing         'Contains a reference to an output.
+   Public AssemblyModeOn As Boolean = False     'Indicates whether input is interpreted as assembly language.
+   Public CPUEvent As New StringBuilder         'Contains CPU event specific text.
+   Public Output As TextBox = Nothing           'Contains a reference to an output.
+   Public StopTracing As Boolean = False        'Indicates whether or not to stop tracing.
+   Public Tracer As New Task(AddressOf Trace)   'Contains the tracer.
 
    Private ReadOnly GET_OPERAND As Func(Of String, String) = Function(Input As String) (Input.Substring(Input.IndexOf(ASSIGNMENT_OPERATOR) + 1))                                                                                                             'Returns the specified input's operand.
    Private ReadOnly IS_CHARACTER_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(CHARACTER_OPERAND_DELIMITER) AndAlso Operand.Trim().EndsWith(CHARACTER_OPERAND_DELIMITER) AndAlso Operand.Trim().Length = 3)   'Indicates whether the specified operand is a character.
@@ -133,8 +134,8 @@ Public Module CoreModule
    Private Sub CPU_Halt() Handles CPU.Halt
       Try
          CPU.StopExecution = True
-         Tracer.Stop()
-         CPUEvent = $"Halted.{NewLine}"
+         StopTracing = True
+         CPUEvent.Append($"Halted.{NewLine}")
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -143,9 +144,25 @@ Public Module CoreModule
    'This procedure handles the emulated CPU's interrupt events.
    Private Sub CPU_Interrupt(Number As Integer, AH As Integer) Handles CPU.Interrupt
       Try
+         Dim TracerOn As Boolean = (Tracer.Status = TaskStatus.Running)
+
          CPU.StopExecution = True
-         Tracer.Stop()
-         CPUEvent = $"INT {Number:x}, {AH:X}{NewLine}"
+         StopTracing = True
+
+         Do While Tracer.Status = TaskStatus.Running
+            Application.DoEvents()
+         Loop
+
+         If HandleInterrupt(Number, AH) Then
+            If TracerOn Then
+               Tracer.Start()
+            Else
+               CPU.Clock = New Task(AddressOf CPU.Execute)
+               CPU.Clock.Start()
+            End If
+         Else
+            CPUEvent.Append($"INT {Number:x}, {AH:X}{NewLine}")
+         End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -155,8 +172,8 @@ Public Module CoreModule
    Private Sub CPU_ReadIOPort(Port As Integer, ByRef Value As Integer, Is8Bit As Boolean) Handles CPU.ReadIOPort
       Try
          CPU.StopExecution = True
-         Tracer.Stop()
-         CPUEvent = $"IN {If(Is8Bit, "AL", "AX")}, {Port:X}{NewLine}"
+         StopTracing = True
+         CPUEvent.Append($"IN {If(Is8Bit, "AL", "AX")}, {Port:X}{NewLine}")
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -166,8 +183,8 @@ Public Module CoreModule
    Private Sub CPU_WriteIOPort(Port As Integer, Value As Integer, Is8Bit As Boolean) Handles CPU.WriteIOPort
       Try
          CPU.StopExecution = True
-         Tracer.Stop()
-         CPUEvent = $"OUT {Port:X}, {If(Is8Bit, $"{Value:X2}", $"{Value:X4}")}{NewLine}"
+         StopTracing = True
+         CPUEvent.Append($"OUT {Port:X}, {If(Is8Bit, $"{Value:X2}", $"{Value:X4}")}{NewLine}")
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -386,11 +403,11 @@ Public Module CoreModule
    'This procedure loads the specified binary file into the emulated CPU's memory.
    Private Sub LoadBinary(FileName As String, Offset As Integer)
       Try
-         Dim Bytes As New List(Of Byte)(File.ReadAllBytes(FileName))
+         Dim Binary As New List(Of Byte)(File.ReadAllBytes(FileName))
 
-         Output.AppendText($"Loading ""{FileName}"" ({Bytes.Count:X8} bytes) at address {Offset:X8}.{NewLine}")
-         If Offset + Bytes.Count <= CPU.Memory.Length Then
-            Bytes.CopyTo(CPU.Memory, Offset)
+         If Offset + Binary.Count <= CPU.Memory.Length Then
+            Output.AppendText($"Loading ""{FileName}"" ({Binary.Count:X8} bytes) at address {Offset:X8}.{NewLine}")
+            Binary.CopyTo(CPU.Memory, Offset)
          Else
             Output.AppendText($"""{FileName}"" does not fit inside the emulated memory.{NewLine}")
          End If
@@ -483,9 +500,6 @@ Public Module CoreModule
                      If Not FileName = Nothing Then LoadMSDOSEXE(FileName)
                   Case "IRET"
                      CPU.ExecuteOpcode(CPU8086Class.OpcodesE.IRET)
-                     CPU.Clock = New Task(AddressOf CPU.Execute)
-                     CPU.Clock.Start()
-                     Output.AppendText($"Execution started.{NewLine}")
                   Case "L"
                      FileName = If(Operands Is Nothing, RequestFileName("Load binary."), Operands)
                      If Not FileName = Nothing Then LoadBinary(FileName, GetFlatCSIP())
@@ -518,6 +532,10 @@ Public Module CoreModule
                      Application.Exit()
                   Case "R"
                      Output.AppendText($"{GetRegisterValues()}{NewLine}")
+                  Case "RESET"
+                     CPU.StopExecution = True
+                     StopTracing = True
+                     CPU = New CPU8086Class
                   Case "S"
                      Output.AppendText($"{If(Not CPU.Clock.Status = TaskStatus.Running, "Execution already stopped.", "Execution stopped.")}{NewLine}")
                      CPU.StopExecution = True
@@ -526,13 +544,22 @@ Public Module CoreModule
                   Case "ST"
                      Output.AppendText(GetStack(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.SS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP))))
                   Case "T"
-                     Tracer_Tick(Nothing, Nothing)
+                     If Not Tracer.Status = TaskStatus.Running Then
+                        StopTracing = True
+                        Trace()
+                     End If
                   Case "TE"
-                     Output.AppendText($"{If(Tracer.Enabled, "Already tracing.", "Tracing started.")}{NewLine}")
-                     Tracer.Start()
+                     If CPU.Clock.Status = TaskStatus.Running Then
+                        Output.AppendText("Already executing - cannot start tracing.")
+                     Else
+                        Output.AppendText($"{If(Tracer.Status = TaskStatus.Running, "Already tracing.", "Tracing started.")}{NewLine}")
+                        StopTracing = False
+                        Tracer = New Task(AddressOf Trace)
+                        Tracer.Start()
+                     End If
                   Case "TS"
-                     Output.AppendText($"{If(Not Tracer.Enabled, "Tracing already stopped.", "Tracing stopped.")}{NewLine}")
-                     Tracer.Stop()
+                     Output.AppendText($"{If(Not Tracer.Status = TaskStatus.Running, "Tracing already stopped.", "Tracing stopped.")}{NewLine}")
+                     StopTracing = True
                   Case Else
                      If Input.Contains(ASSIGNMENT_OPERATOR) Then
                         If Input.StartsWith(MEMORY_OPERAND_START) AndAlso Input.Contains(MEMORY_OPERAND_END) Then
@@ -635,20 +662,24 @@ Public Module CoreModule
    End Sub
 
    'This procedure gives the CPU the command to execute an instruction and traces the results.
-   Private Sub Tracer_Tick(sender As Object, e As EventArgs) Handles Tracer.Tick
+   Private Sub Trace()
       Try
          Dim Address As New Integer
-         Dim Code As String = Disassemble(CPU.Memory.ToList(), GetFlatCSIP(), Count:=&H1%)
+         Dim Code As String = Nothing
 
-         If Not CPU.ExecuteOpcode() Then CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Number:=CPU8086Class.INVALID_OPCODE)
+         Do
+            Code = Disassemble(CPU.Memory.ToList(), GetFlatCSIP(), Count:=&H1%)
 
-         Output.AppendText($"{Code}{GetRegisterValues()}{NewLine}")
-         If Code.Contains(MEMORY_OPERAND_START) AndAlso Code.Contains(MEMORY_OPERAND_END) Then
-            Address = CInt(CPU.AddressFromOperand(CPU8086Class.MemoryOperandsE.LAST))
-            Output.AppendText($"{MEMORY_OPERAND_START}0x{Address:X8}{MEMORY_OPERAND_END} =  {GetMemoryValue(Address)}{NewLine}")
-         Else
-            Output.AppendText($"{NewLine}")
-         End If
+            If Not CPU.ExecuteOpcode() Then CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Number:=CPU8086Class.INVALID_OPCODE)
+
+            CPUEvent.Append($"{Code}{GetRegisterValues()}{NewLine}")
+            If Code.Contains(MEMORY_OPERAND_START) AndAlso Code.Contains(MEMORY_OPERAND_END) Then
+               Address = CInt(CPU.AddressFromOperand(CPU8086Class.MemoryOperandsE.LAST))
+               CPUEvent.Append($"{MEMORY_OPERAND_START}0x{Address:X8}{MEMORY_OPERAND_END} =  {GetMemoryValue(Address)}{NewLine}")
+            Else
+               CPUEvent.Append($"{NewLine}")
+            End If
+         Loop Until StopTracing
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

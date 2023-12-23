@@ -73,9 +73,11 @@ Public Class InterfaceWindow
    Private Sub InterfaceWindow_Closing(sender As Object, e As CancelEventArgs) Handles MyBase.Closing
       Try
          CPU.StopExecution = True
-         Updater.Stop()
-         Tracer.Stop()
          Output = Nothing
+         StopTracing = True
+
+         Updater.Stop()
+
          ScreenWindow.Close()
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -112,10 +114,10 @@ Public Class InterfaceWindow
    'This procedure updates the interface.
    Private Sub UpdateStatus(sender As Object, e As EventArgs) Handles Updater.Tick
       Try
-         CPUActiveLabel.Text = $"CPU {If(CPU.Clock.Status = TaskStatus.Running OrElse Tracer.Enabled, "active.", "halted.")}"
-         If Not CPUEvent = Nothing Then
-            OutputBox.AppendText(CPUEvent)
-            CPUEvent = Nothing
+         CPUActiveLabel.Text = $"CPU {If(CPU.Clock.Status = TaskStatus.Running OrElse Tracer.Status = TaskStatus.Running, "active.", "halted.")}"
+         If Not CPUEvent.ToString() = Nothing Then
+            OutputBox.AppendText(CPUEvent.ToString())
+            CPUEvent.Clear()
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
