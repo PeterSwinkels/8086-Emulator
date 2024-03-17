@@ -16,7 +16,7 @@ Public Class DisassemblerClass
    Private ReadOnly OPCODES_707F As New List(Of String)({"JO", "JNO", "JC", "JNC", "JZ", "JNZ", "JNA", "JA", "JS", "JNS", "JPE", "JPO", "JL", "JNL", "JNG", "JG"})
    Private ReadOnly OPCODES_8083 As New List(Of String)({"ADD", "OR", "ADC", "SBB", "AND", "SUB", "XOR", "CMP"})
    Private ReadOnly OPCODES_8F As New List(Of String)({"POP", Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing})
-   Private ReadOnly OPCODES_C0C1_D2D3 As New List(Of String)({"ROL", "ROR", "RCL", "RCR", "SHL", "SHR", Nothing, "SAR"})
+   Private ReadOnly OPCODES_C0C1_D0D3 As New List(Of String)({"ROL", "ROR", "RCL", "RCR", "SHL", "SHR", Nothing, "SAR"})
    Private ReadOnly OPCODES_C6C7 As New List(Of String)({"MOV", Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing})
    Private ReadOnly OPCODES_F6F7 As New List(Of String)({"TEST", Nothing, "NOT", "NEG", "MUL", "IMUL", "DIV", "IDIV"})
    Private ReadOnly OPCODES_FE__00BF As New List(Of String)({"INC BYTE", "DEC BYTE", "CALL WORD NEAR", "CALL WORD FAR", "JMP WORD NEAR", "JMP WORD FAR", "PUSH WORD", Nothing})
@@ -159,7 +159,7 @@ Public Class DisassemblerClass
                   Instruction = $"{OPCODES_8083((Operand And &H3F%) >> &H3%)} {GetOperand(Code, Position, Operand, XP_REGISTERS)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
                Case &H83%
                   Operand = GetByte(Code, Position)
-                  Instruction = $"{OPCODES_8083((Operand And &H3F%) >> &H3%)} {If(Operand < &HC0%, " WORD ", Nothing)}{GetOperand(Code, Position, Operand, XP_REGISTERS)}, {If(Operand < &HC0%, " BYTE ", Nothing)}{BytesToHexadecimal(GetBytes(Code, Position, Length:=1), , Signed:=True)}"
+                  Instruction = $"{OPCODES_8083((Operand And &H3F%) >> &H3%)} {If(Operand < &HC0%, "WORD ", Nothing)}{GetOperand(Code, Position, Operand, XP_REGISTERS)}, {If(Operand < &HC0%, "BYTE ", Nothing)}{BytesToHexadecimal(GetBytes(Code, Position, Length:=1), , Signed:=True)}"
                Case &H84%, &H86%
                   If Opcode = &H84% Then Instruction = "TEST "
                   If Opcode = &H86% Then Instruction = "XCHG "
@@ -221,15 +221,16 @@ Public Class DisassemblerClass
                Case &HCA% : Instruction = $"RETF {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
                Case &HCC% : Instruction = $"INT {HEXADECIMAL_PREFIX}03"
                Case &HCD% : Instruction = $"INT {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
-               Case &HC0% To &HC1%, &HD2% To &HD3%
+               Case &HC0% To &HC1%, &HD0% To &HD1%, &HD2% To &HD3%
                   Operand = GetByte(Code, Position)
-                  Instruction = OPCODES_C0C1_D2D3((Operand And &H3F%) >> &H3%)
+                  Instruction = OPCODES_C0C1_D0D3((Operand And &H3F%) >> &H3%)
 
                   If Not Instruction = Nothing Then
                      If (Opcode And &H1%) = &H0% Then Instruction &= $" BYTE {GetOperand(Code, Position, Operand, LH_REGISTERS)}"
                      If (Opcode And &H1%) = &H1% Then Instruction &= $" WORD {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
 
                      If Opcode = &HC0% OrElse Opcode = &HC1% Then Instruction &= $", {HEXADECIMAL_PREFIX}{GetByte(Code, Position):X2}"
+                     If Opcode = &HD0% OrElse Opcode = &HD1% Then Instruction &= $", {HEXADECIMAL_PREFIX}01"
                      If Opcode = &HD2% OrElse Opcode = &HD3% Then Instruction &= $", {LH_REGISTERS(COUNTER_REGISTER)}"
                   End If
                Case &HD4% : Instruction = $"AAM {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
@@ -361,7 +362,7 @@ Public Class DisassemblerClass
    'This procedure returns the specified relative near address as a hexadecimal absolute word (0x0000) representation.
    Private Function NearAddressToHexadecimal(NearAddress As List(Of Byte), Position As Integer) As String
       Try
-         Return If(NearAddress.Count < &H2%, Nothing, $"{((Position + ToInt32(BytesToHexadecimal(NearAddress, NoPrefix:=True), fromBase:=16) And &HFFFF%)):X8}")
+         Return If(NearAddress.Count < &H2%, Nothing, $"{((Position + ToInt32(BytesToHexadecimal(NearAddress, NoPrefix:=True), fromBase:=16) And &HFFFF%)):X4}")
       Catch ExceptionO As Exception
          RaiseEvent HandleError(ExceptionO)
       End Try
