@@ -362,7 +362,7 @@ Public Class DisassemblerClass
    'This procedure returns the specified relative near address as a hexadecimal absolute word (0x0000) representation.
    Private Function NearAddressToHexadecimal(NearAddress As List(Of Byte), Position As Integer) As String
       Try
-         Return If(NearAddress.Count < &H2%, Nothing, $"{((Position + ToInt32(BytesToHexadecimal(NearAddress, NoPrefix:=True), fromBase:=16) And &HFFFF%)):X4}")
+         Return If(NearAddress.Count < &H2%, Nothing, $"{HEXADECIMAL_PREFIX}{((Position + ToInt32(BytesToHexadecimal(NearAddress, NoPrefix:=True), fromBase:=16) And &HFFFF%)):X4}")
       Catch ExceptionO As Exception
          RaiseEvent HandleError(ExceptionO)
       End Try
@@ -410,7 +410,7 @@ Public Class DisassemblerClass
    'This procedure returns the specified relative short address as a hexadecimal absolute byte (0x00) representation.
    Private Function ShortAddressToHexadecimal(ShortAddress As List(Of Byte), Position As Integer) As String
       Try
-         Return If(ShortAddress.Count < &H1%, Nothing, $"{((Position + ToSByte(BytesToHexadecimal(ShortAddress, NoPrefix:=True), fromBase:=16) And &HFFFF%)):X4}")
+         Return If(ShortAddress.Count < &H1%, Nothing, $"{HEXADECIMAL_PREFIX}{((Position + ToSByte(BytesToHexadecimal(ShortAddress, NoPrefix:=True), fromBase:=16) And &HFF%)):X2}")
       Catch ExceptionO As Exception
          RaiseEvent HandleError(ExceptionO)
       End Try
