@@ -16,8 +16,8 @@ Public Class DisassemblerClass
    Private ReadOnly OPCODES_707F As New List(Of String)({"JO", "JNO", "JC", "JNC", "JZ", "JNZ", "JNA", "JA", "JS", "JNS", "JPE", "JPO", "JL", "JNL", "JNG", "JG"})
    Private ReadOnly OPCODES_8083 As New List(Of String)({"ADD", "OR", "ADC", "SBB", "AND", "SUB", "XOR", "CMP"})
    Private ReadOnly OPCODES_8F As New List(Of String)({"POP", Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing})
-   Private ReadOnly OPCODES_C0C1_D0D3 As New List(Of String)({"ROL", "ROR", "RCL", "RCR", "SHL", "SHR", Nothing, "SAR"})
    Private ReadOnly OPCODES_C6C7 As New List(Of String)({"MOV", Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing})
+   Private ReadOnly OPCODES_D0D3 As New List(Of String)({"ROL", "ROR", "RCL", "RCR", "SHL", "SHR", Nothing, "SAR"})
    Private ReadOnly OPCODES_F6F7 As New List(Of String)({"TEST", Nothing, "NOT", "NEG", "MUL", "IMUL", "DIV", "IDIV"})
    Private ReadOnly OPCODES_FE__00BF As New List(Of String)({"INC BYTE", "DEC BYTE", "CALL WORD NEAR", "CALL WORD FAR", "JMP WORD NEAR", "JMP WORD FAR", "PUSH WORD", Nothing})
    Private ReadOnly OPCODES_FE__C0FF As New List(Of String)({"INC BYTE", "DEC BYTE", "CALL", Nothing, "JMP", Nothing, "PUSH", Nothing})
@@ -221,15 +221,14 @@ Public Class DisassemblerClass
                Case &HCA% : Instruction = $"RETF {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
                Case &HCC% : Instruction = $"INT {HEXADECIMAL_PREFIX}03"
                Case &HCD% : Instruction = $"INT {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
-               Case &HC0% To &HC1%, &HD0% To &HD1%, &HD2% To &HD3%
+               Case &HD0% To &HD3%
                   Operand = GetByte(Code, Position)
-                  Instruction = OPCODES_C0C1_D0D3((Operand And &H3F%) >> &H3%)
+                  Instruction = OPCODES_D0D3((Operand And &H3F%) >> &H3%)
 
                   If Not Instruction = Nothing Then
                      If (Opcode And &H1%) = &H0% Then Instruction &= $" BYTE {GetOperand(Code, Position, Operand, LH_REGISTERS)}"
                      If (Opcode And &H1%) = &H1% Then Instruction &= $" WORD {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
 
-                     If Opcode = &HC0% OrElse Opcode = &HC1% Then Instruction &= $", {HEXADECIMAL_PREFIX}{GetByte(Code, Position):X2}"
                      If Opcode = &HD0% OrElse Opcode = &HD1% Then Instruction &= $", {HEXADECIMAL_PREFIX}01"
                      If Opcode = &HD2% OrElse Opcode = &HD3% Then Instruction &= $", {LH_REGISTERS(COUNTER_REGISTER)}"
                   End If
