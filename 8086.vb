@@ -7,6 +7,7 @@ Option Strict On
 Imports System
 Imports System.Linq
 Imports System.Math
+Imports System.Threading
 Imports System.Threading.Tasks
 
 'This class contains the 8086 CPU emulator's procedures.
@@ -415,12 +416,14 @@ Public Class CPU8086Class
    Public Const INVALID_OPCODE As Integer = &H6%         'Defines the invalid opcode interrupt number.
 
    Public Clock As New Task(AddressOf Execute)                                     'Contains the CPU clock.
+   Public ClockToken As New CancellationTokenSource                                'Indicates whether or not to stop the CPU.
    Public Memory() As Byte = Enumerable.Repeat(CByte(&H0%), &H100000%).ToArray()   'Contains the memory used by the emulated 8086 CPU.
-   Public StopExecution As Boolean = False                                         'Indicates whether or not to stop the CPU.
+   Public Tracing As Boolean = False                                               'Indicates whether or not tracing is enabled.
 
    Public Event Halt()                                                                   'Defines the halt event.
    Public Event Interrupt(Number As Integer, AH As Integer)                              'Defines the interrupt event.
    Public Event ReadIOPort(Port As Integer, ByRef Value As Integer, Is8Bit As Boolean)   'Defines the IO port read event.
+   Public Event Trace()                                                                  'Defines the trace event.
    Public Event WriteIOPort(Port As Integer, Value As Integer, Is8Bit As Boolean)        'Defines the IO port write event.
 
    'This procedure initializes the CPU.
@@ -439,6 +442,7 @@ Public Class CPU8086Class
    'This procedure returns the memory address indicated by the specified operand and current data segment.
    Public Function AddressFromOperand(Operand As MemoryOperandsE, Optional Literal As Integer? = Nothing) As Integer?
       Dim Override As SegmentRegistersE? = SegmentOverride()
+      Dim Segment As SegmentRegistersE = SegmentRegistersE.DS
       Static Address As Integer? = &H0%
 
       If Not Operand = MemoryOperandsE.LAST Then
@@ -455,10 +459,12 @@ Public Class CPU8086Class
            MemoryOperandsE.BP_SI_BYTE,
            MemoryOperandsE.BP_SI_WORD
                Address = CInt(Registers(Registers16BitE.BP)) + CInt(Registers(Registers16BitE.SI))
+               Segment = SegmentRegistersE.SS
             Case MemoryOperandsE.BP_DI,
            MemoryOperandsE.BP_DI_BYTE,
            MemoryOperandsE.BP_DI_WORD
                Address = CInt(Registers(Registers16BitE.BP)) + CInt(Registers(Registers16BitE.DI))
+               Segment = SegmentRegistersE.SS
             Case MemoryOperandsE.SI,
            MemoryOperandsE.SI_BYTE,
            MemoryOperandsE.SI_WORD
@@ -472,6 +478,7 @@ Public Class CPU8086Class
             Case MemoryOperandsE.BP_BYTE,
            MemoryOperandsE.BP_WORD
                Address = CInt(Registers(Registers16BitE.BP))
+               Segment = SegmentRegistersE.SS
             Case MemoryOperandsE.BX,
            MemoryOperandsE.BX_BYTE,
            MemoryOperandsE.BX_WORD
@@ -479,7 +486,7 @@ Public Class CPU8086Class
          End Select
 
          If Literal IsNot Nothing Then Address += Literal
-         Address = ((CInt(If(Override Is Nothing, Registers(SegmentRegistersE.DS), Registers(Override))) << &H4%) + Address) And ADDRESS_MASK
+         Address = ((CInt(If(Override Is Nothing, Registers(Segment), Registers(Override))) << &H4%) + Address) And ADDRESS_MASK
       End If
 
       Return Address
@@ -541,13 +548,13 @@ Public Class CPU8086Class
 
    'This procedure gives the CPU the command to execute instructions.
    Public Function Execute() As Task(Of Integer)
-      StopExecution = False
-
-      Do Until StopExecution
+      Do Until ClockToken.Token.IsCancellationRequested
          If Not ExecuteOpcode() Then
             ExecuteInterrupt(OpcodesE.INT, Number:=INVALID_OPCODE)
             Exit Do
          End If
+
+         If Tracing Then RaiseEvent Trace()
       Loop
 
       Return Task.FromResult(GetFlatCSIP())
@@ -1026,6 +1033,7 @@ Public Class CPU8086Class
             Operand = GetByteCSIP()
             If Operand < &HC0% Then
                OperandPair = GetValues(GetOperandPair(CByte(Opcode Xor &H6%), CByte(Operand)))
+
                With OperandPair
                   Registers(DirectCast(.Operand1, Registers16BitE), NewValue:=GetWord(CInt(.Address)))
 
