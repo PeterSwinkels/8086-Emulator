@@ -420,7 +420,7 @@ Public Class AssemblerClass
                         Case LOAD_ADDRESS_OPCODES.ContainsKey(Instruction)
                            Opcode = LOAD_ADDRESS_OPCODES(Instruction)
 
-                           If Not (IS_REGISTER_OPERAND(LeftOperand.Type) OrElse RightOperand.Type = OperandTypesE.Register8Bit) Then
+                           If Not (LeftOperand.Type = OperandTypesE.Register8Bit OrElse IS_REGISTER_OPERAND(RightOperand.Type)) Then
                               Opcodes.Add(ToByte(Opcode))
                               Opcodes.AddRange(OperandsToOpcodes(LeftOperand, RightOperand))
                            End If
