@@ -175,6 +175,15 @@ Public Class DisassemblerClass
                Case &H8C%
                   Operand = GetByte(Code, Position)
                   Instruction = $"MOV {GetOperand(Code, Position, Operand, XP_REGISTERS)}, {SG_REGISTERS((Operand And &H38%) >> &H3%)}"
+               Case &H8D%
+                  If Opcode = &H8D% Then Instruction = "LEA "
+
+                  Operand = GetByte(Code, Position)
+                  If Operand < &HC0& Then
+                     Instruction &= $"{GetOperand(Code, Position, Operand, XP_REGISTERS)}, {XP_REGISTERS((Operand And &H38%) >> &H3%)}"
+                  Else
+                     Instruction = Nothing
+                  End If
                Case &H8E%
                   Operand = GetByte(Code, Position)
                   Instruction = $"MOV {SG_REGISTERS((Operand And &H38%) >> &H3%)}, {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
@@ -199,7 +208,6 @@ Public Class DisassemblerClass
                Case &HC4% To &HC5%, &H8D%
                   If Opcode = &HC4% Then Instruction = "LES "
                   If Opcode = &HC5% Then Instruction = "LDS "
-                  If Opcode = &H8D% Then Instruction = "LEA "
 
                   Operand = GetByte(Code, Position)
                   If Operand < &HC0& Then
