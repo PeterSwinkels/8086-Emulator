@@ -1099,19 +1099,19 @@ Public Class CPU8086Class
             RaiseEvent WriteIOPort(GetWordCSIP(), Value:=CInt(Registers(Registers16BitE.AX)), Is8Bit:=False)
          Case OpcodesE.REPNE, OpcodesE.REPZ
             If Opcode = OpcodesE.REPNE Then
-               CFStopValue = True
-            ElseIf Opcode = OpcodesE.REPZ Then
                CFStopValue = False
+            ElseIf Opcode = OpcodesE.REPZ Then
+               CFStopValue = True
             End If
 
-            Registers(FlagRegistersE.ZF, NewValue:=Not CFStopValue)
+            Registers(FlagRegistersE.ZF, NewValue:=(Not CFStopValue))
 
             Opcode = DirectCast(GetByteCSIP(), OpcodesE)
             Do Until CBool(Registers(FlagRegistersE.ZF)) = CFStopValue OrElse CInt(Registers(Registers16BitE.CX)) = &H0%
                ExecuteStringOpcode(Opcode)
                Registers(Registers16BitE.CX, NewValue:=CInt(Registers(Registers16BitE.CX)) - &H1%)
             Loop
-         Case OpcodesE.RSBITS_BYTE_1, OpcodesE.RSBITS_WORD_1, OpcodesE.RSBITS_BYTE_CL, OpcodesE.RSBITS_WORD_CL
+         Case OpcodesE.RSBITS_BYTE_CL, OpcodesE.RSBITS_WORD_CL
             Operand = GetByteCSIP()
             OperandPair = GetOperandPair(CByte(Opcode And &H1%), CByte(Operand))
             With OperandPair
@@ -1290,17 +1290,8 @@ Public Class CPU8086Class
             Return False
       End Select
 
-      Select Case Opcode
-         Case OpcodesE.CMPSB, OpcodesE.CMPSW, OpcodesE.MOVSB, OpcodesE.MOVSW
-            Registers(Registers16BitE.DI, NewValue:=CInt(Registers(Registers16BitE.DI)) + StepSize)
-            Registers(Registers16BitE.SI, NewValue:=CInt(Registers(Registers16BitE.SI)) + StepSize)
-         Case OpcodesE.LODSB, OpcodesE.LODSW
-            Registers(Registers16BitE.SI, NewValue:=CInt(Registers(Registers16BitE.SI)) + StepSize)
-         Case OpcodesE.SCASB, OpcodesE.SCASW, OpcodesE.STOSB, OpcodesE.STOSW
-            Registers(Registers16BitE.DI, NewValue:=CInt(Registers(Registers16BitE.DI)) + StepSize)
-         Case Else
-            Return False
-      End Select
+      Registers(Registers16BitE.DI, NewValue:=CInt(Registers(Registers16BitE.DI)) + StepSize)
+      Registers(Registers16BitE.SI, NewValue:=CInt(Registers(Registers16BitE.SI)) + StepSize)
 
       Return True
    End Function
