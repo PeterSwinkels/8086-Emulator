@@ -9,6 +9,7 @@ Imports System.Collections.Generic
 Imports System.Convert
 Imports System.Globalization
 Imports System.Linq
+Imports System.Text
 
 'This class contains the 8086/80186 assembler.
 Public Class AssemblerClass
@@ -313,7 +314,7 @@ Public Class AssemblerClass
          Dim Segment As New Integer
          Dim SubOpcode As New Integer
 
-         Instruction = RemoveComment(RemoveWhiteSpace(Instruction).ToUpper())
+         Instruction = FormatCasing(RemoveComment(RemoveWhiteSpace(Instruction)))
 
          Select Case True
             Case NO_OPERAND_OPCODES.ContainsKey(Instruction)
@@ -606,6 +607,22 @@ Public Class AssemblerClass
       End With
 
       Return ""
+   End Function
+
+   'This procedure formats the specified instructions casing.
+   Private Function FormatCasing(Instruction As String) As String
+      Dim Character As String = Nothing
+      Dim FormattedInstruction As New StringBuilder
+      Dim InString As Boolean = False
+
+      For Position As Integer = 0 To Instruction.Length - 1
+         Character = Instruction.Chars(Position)
+         If Character = CHARACTER_STRING Then InString = Not InString
+         If Not InString Then Character = Character.ToUpper()
+         FormattedInstruction.Append(Character)
+      Next Position
+
+      Return FormattedInstruction.ToString()
    End Function
 
    'This procedure removes the right most operand from the specified instruction using the specified delimiter and returns the results.
