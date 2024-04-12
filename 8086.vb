@@ -1099,9 +1099,9 @@ Public Class CPU8086Class
             RaiseEvent WriteIOPort(GetWordCSIP(), Value:=CInt(Registers(Registers16BitE.AX)), Is8Bit:=False)
          Case OpcodesE.REPNE, OpcodesE.REPZ
             If Opcode = OpcodesE.REPNE Then
-               CFStopValue = False
-            ElseIf Opcode = OpcodesE.REPZ Then
                CFStopValue = True
+            ElseIf Opcode = OpcodesE.REPZ Then
+               CFStopValue = False
             End If
 
             Registers(FlagRegistersE.ZF, NewValue:=(Not CFStopValue))
