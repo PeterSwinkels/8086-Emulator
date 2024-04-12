@@ -1111,7 +1111,7 @@ Public Class CPU8086Class
                ExecuteStringOpcode(Opcode)
                Registers(Registers16BitE.CX, NewValue:=CInt(Registers(Registers16BitE.CX)) - &H1%)
             Loop
-         Case OpcodesE.RSBITS_BYTE_CL, OpcodesE.RSBITS_WORD_CL
+         Case OpcodesE.RSBITS_BYTE_1 To OpcodesE.RSBITS_WORD_1, OpcodesE.RSBITS_BYTE_CL To OpcodesE.RSBITS_WORD_CL
             Operand = GetByteCSIP()
             OperandPair = GetOperandPair(CByte(Opcode And &H1%), CByte(Operand))
             With OperandPair
@@ -1290,8 +1290,17 @@ Public Class CPU8086Class
             Return False
       End Select
 
-      Registers(Registers16BitE.DI, NewValue:=CInt(Registers(Registers16BitE.DI)) + StepSize)
-      Registers(Registers16BitE.SI, NewValue:=CInt(Registers(Registers16BitE.SI)) + StepSize)
+      Select Case Opcode
+         Case OpcodesE.CMPSB, OpcodesE.CMPSW, OpcodesE.MOVSB, OpcodesE.MOVSW
+            Registers(Registers16BitE.DI, NewValue:=CInt(Registers(Registers16BitE.DI)) + StepSize)
+            Registers(Registers16BitE.SI, NewValue:=CInt(Registers(Registers16BitE.SI)) + StepSize)
+         Case OpcodesE.LODSB, OpcodesE.LODSW
+            Registers(Registers16BitE.SI, NewValue:=CInt(Registers(Registers16BitE.SI)) + StepSize)
+         Case OpcodesE.SCASB, OpcodesE.SCASW, OpcodesE.STOSB, OpcodesE.STOSW
+            Registers(Registers16BitE.DI, NewValue:=CInt(Registers(Registers16BitE.DI)) + StepSize)
+         Case Else
+            Return False
+      End Select
 
       Return True
    End Function
