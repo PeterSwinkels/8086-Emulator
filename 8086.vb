@@ -1322,13 +1322,18 @@ Public Class CPU8086Class
    Private Function GetOperandPair(Opcode As Byte, Operand As Byte) As OperandPairStr
       Dim MemoryOperand As MemoryOperandsE = DirectCast(((Operand And &HC0%) >> &H3%) + (Operand And &H7%), MemoryOperandsE)
       Dim OperandPair As New OperandPairStr With {.Is8Bit = True, .Literal = Nothing, .Operand1 = Nothing, .Operand2 = Nothing}
+      Dim OperandPairType As OperandPairsE = DirectCast(CByte(Opcode And &H7%), OperandPairsE)
       Dim Register1 As Integer = (Operand And &H38%) >> &H3%
       Dim Register2 As Integer = Operand And &H7%
 
       With OperandPair
          .Is8Bit = Not CBool(Opcode And &H1%)
-         .Literal = GetOperandLiteral(MemoryOperand)
-         Select Case DirectCast(CByte(Opcode And &H7%), OperandPairsE)
+         Select Case OperandPairType
+            Case OperandPairsE.MemReg_Reg_8 To OperandPairsE.Reg_MemReg_16, OperandPairsE.MemReg_Byte To OperandPairsE.MemReg_Word
+               If MemoryOperand >= MemoryOperandsE.BX_SI_BYTE Then .Literal = GetOperandLiteral(MemoryOperand)
+         End Select
+
+         Select Case OperandPairType
             Case OperandPairsE.MemReg_Reg_8
                If Operand < &HC0% Then .Operand1 = MemoryOperand Else .Operand1 = DirectCast(Register2, SubRegisters8BitE)
                .Operand2 = DirectCast(Register1, SubRegisters8BitE)
