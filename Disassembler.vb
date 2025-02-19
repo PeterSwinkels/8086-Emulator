@@ -180,7 +180,7 @@ Public Class DisassemblerClass
 
                   Operand = GetByte(Code, Position)
                   If Operand < &HC0& Then
-                     Instruction &= $"{GetOperand(Code, Position, Operand, XP_REGISTERS)}, {XP_REGISTERS((Operand And &H38%) >> &H3%)}"
+                     Instruction &= $"{XP_REGISTERS((Operand And &H38%) >> &H3%)}, {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
                   Else
                      Instruction = Nothing
                   End If
@@ -211,7 +211,7 @@ Public Class DisassemblerClass
 
                   Operand = GetByte(Code, Position)
                   If Operand < &HC0& Then
-                     Instruction &= $"{GetOperand(Code, Position, Operand, XP_REGISTERS)}, {XP_REGISTERS((Operand And &H38%) >> &H3%)}"
+                     Instruction &= $"{XP_REGISTERS((Operand And &H38%) >> &H3%)}, {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
                   Else
                      Instruction = Nothing
                   End If
