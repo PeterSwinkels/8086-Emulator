@@ -153,7 +153,7 @@ DisplayText:
        INT 0x10             ;
        INC DL               ;
        MOV AH, 0x02         ;
-       INT 0x10             ;   
+       INT 0x10             ;
        INC SI               ;
    JMP .DisplayCharacter    ;
   .Done:                    ;
@@ -286,7 +286,9 @@ NumberToText:
 RET
 
 TitleScreen:
-   MOV AH, 0x02            ; Display the title screen.
+   CALL ClearScreen        ; Display the title screen.
+                           ;
+   MOV AH, 0x02            ;
    MOV DX, 0x0203          ;
    INT 0x10                ;
    LEA SI, [Title]         ;
