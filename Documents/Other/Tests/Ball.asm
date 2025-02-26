@@ -228,7 +228,7 @@ Initialize:
    INT 0x10             ;
                         ;
    MOV AH, 0x01         ; Disable the cursor.
-   MOV CX, 0x02000      ;
+   MOV CX, 0x2000       ;
    INT 0x10             ;
 RET
 
