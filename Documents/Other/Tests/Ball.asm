@@ -188,9 +188,9 @@ DisplayStatus:
    INT 0x10              ;
                          ;
    MOV DX, [Score]       ;
-   LEA DI, ScoreAsText   ;
+   LEA DI, [ScoreAsText] ;
    CALL NumberToText     ;
-   LEA SI, ScoreAsText   ;
+   LEA SI, [ScoreAsText] ;
    CALL DisplayText      ;
                          ;
    MOV AH, 0x02          ; Display the number of lives. 
@@ -228,7 +228,7 @@ Initialize:
    INT 0x10             ;
                         ;
    MOV AH, 0x01         ; Disable the cursor.
-   MOV CX, 0x2000       ;
+   MOV CX, 0x02000      ;
    INT 0x10             ;
 RET
 
