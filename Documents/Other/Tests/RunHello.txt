@@ -1,0 +1,5 @@
+[Script]
+scr
+ds=1100
+exe .\HiWorld.com
+e

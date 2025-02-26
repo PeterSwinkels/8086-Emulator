@@ -96,7 +96,9 @@
   <ItemGroup>
     <Compile Include="8086.vb" />
     <Compile Include="Assembler.vb" />
+    <Compile Include="BIOS Data Area.vb" />
     <Compile Include="Core.vb" />
+    <Compile Include="Cursor.vb" />
     <Compile Include="Disassembler.vb" />
     <Compile Include="Interface.Designer.vb">
       <DependentUpon>Interface.vb</DependentUpon>
@@ -105,7 +107,9 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Interrupt Handler.vb" />
-    <Compile Include="mda.vb" />
+    <Compile Include="IO Handler.vb" />
+    <Compile Include="Keyboard.vb" />
+    <Compile Include="Text80x25Mono.vb" />
     <Compile Include="My Project\AssemblyInfo.vb" />
     <Compile Include="My Project\Application.Designer.vb">
       <AutoGen>True</AutoGen>
@@ -123,13 +127,14 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
     <Compile Include="MS-DOS EXE.vb" />
+    <Compile Include="PIT.vb" />
     <Compile Include="Screen.Designer.vb">
       <DependentUpon>Screen.vb</DependentUpon>
     </Compile>
     <Compile Include="Screen.vb">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Low Resolution VGA.vb" />
+    <Compile Include="VGA320x200.vb" />
     <Compile Include="Video Adapter.vb" />
   </ItemGroup>
   <ItemGroup>
@@ -162,15 +167,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Documents\Help.txt" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Documents\cp437_bright.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Documents\cp437_normal.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Documents\cp437_reverse.png" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Documents\Assembler.txt" />

@@ -22,19 +22,19 @@ Public Module MSDOSEXEModule
 
    Private ReadOnly MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}  'Defines the signature of an MZ exectuable.
 
-   'This procedure loads the MS-DOS executable file into the emulated CPU's memory after processing its header.
-   Public Sub LoadMSDOSEXE(FileName As String)
+   'This procedure loads the specified MS-DOS program into the emulated CPU's memory after processing its header.
+   Public Sub LoadMSDOSProgram(FileName As String)
       Try
          Dim Executable As New List(Of Byte)(File.ReadAllBytes(FileName))
-         Dim Offset As New Integer
+         Dim LoadAddress As Integer = CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%
 
-         If Executable.GetRange(0, MZ_SIGNATURE.Length).SequenceEqual(MZ_SIGNATURE) Then
-            LoadMZExe(Executable, FileName)
+         If Executable.GetRange(&H0%, MZ_SIGNATURE.Length).SequenceEqual(MZ_SIGNATURE) Then
+            LoadMZEXE(Executable, FileName, LoadAddress)
          Else
-            Offset = GetFlatCSIP()
-            Output.AppendText($"Loading the compact binary executable ""{FileName}"" at address {Offset:X8}.{NewLine}")
-            Executable.CopyTo(CPU.Memory, Offset)
-            CPU.Registers(CPU8086Class.SegmentRegistersE.DS, NewValue:=CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)) - &H10%)
+            Output.AppendText($"Loading the compact binary executable ""{FileName}"" at address {LoadAddress:X8}.{NewLine}")
+            Executable.CopyTo(CPU.Memory, LoadAddress + &H100%)
+            CPU.Registers(CPU8086Class.SegmentRegistersE.CS, NewValue:=CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)))
+            CPU.Registers(CPU8086Class.Registers16BitE.IP, NewValue:=&H100%)
             CPU.Registers(CPU8086Class.Registers16BitE.SP, NewValue:=&HFFFF%)
             CPU.Registers(CPU8086Class.SegmentRegistersE.SS, NewValue:=CPU.Registers(CPU8086Class.SegmentRegistersE.CS))
          End If
@@ -43,46 +43,47 @@ Public Module MSDOSEXEModule
       End Try
    End Sub
 
-   Private Sub LoadMZExe(Executable As List(Of Byte), FileName As String)
-
+   'This procedure loads the specified MZ executable.
+   Private Sub LoadMZEXE(Executable As List(Of Byte), FileName As String, LoadAddress As Integer)
       Try
          Dim RelocationTableSize As Integer = (BitConverter.ToUInt16(Executable.ToArray(), RELOCATION_ITEM_COUNT) * &H4%)
          Dim HeaderSize As Integer = BitConverter.ToUInt16(Executable.ToArray(), RELOCATION_ITEM_TABLE) + RelocationTableSize
-         Dim Offset As Integer = CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%
-         Dim ProcessedExecutable As New List(Of Byte)(From ByteO In Executable Skip HeaderSize)
-         Dim RelocatedCS As Integer = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) + (HeaderSize >> &H4%) + &H1%) + Executable(INITIAL_CS)
+         Dim LoadModule As New List(Of Byte)(From ByteO In Executable Skip HeaderSize)
+         Dim RelocatedCS As Integer = CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) + Executable(INITIAL_CS) + &H10%
          Dim RelocationItemFlatAddress As New Integer
          Dim RelocationItemOffset As New Integer
          Dim RelocationItemSegment As New Integer
 
-         If Offset + ProcessedExecutable.Count <= CPU.Memory.Length Then
-            Output.AppendText($"Loading the MZ-executable ""{FileName}"" at address {Offset:X8}.{NewLine}")
+         If LoadAddress + LoadModule.Count <= CPU.Memory.Length Then
+            Output.AppendText($"Loading the MZ-executable ""{FileName}"" at address {LoadAddress:X8}.{NewLine}")
 
             CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=&H0%)
-            CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=ProcessedExecutable.Count >> &H10%)
-            CPU.Registers(CPU8086Class.Registers16BitE.CX, NewValue:=ProcessedExecutable.Count And &HFFFF%)
+            CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=LoadModule.Count >> &H10%)
+            CPU.Registers(CPU8086Class.Registers16BitE.CX, NewValue:=LoadModule.Count And &HFFFF%)
             CPU.Registers(CPU8086Class.Registers16BitE.DX, NewValue:=&H0%)
+            CPU.Registers(CPU8086Class.Registers16BitE.IP, NewValue:=BitConverter.ToUInt16(Executable.ToArray(), INITIAL_IP))
             CPU.Registers(CPU8086Class.Registers16BitE.SP, NewValue:=BitConverter.ToUInt16(Executable.ToArray(), INITIAL_SP))
             CPU.Registers(CPU8086Class.SegmentRegistersE.CS, NewValue:=RelocatedCS)
             CPU.Registers(CPU8086Class.SegmentRegistersE.ES, NewValue:=CPU.Registers(CPU8086Class.SegmentRegistersE.DS))
             CPU.Registers(CPU8086Class.SegmentRegistersE.SS, NewValue:=(RelocatedCS + BitConverter.ToUInt16(Executable.ToArray(), INITIAL_SS)))
 
-            For Position As Integer = BitConverter.ToUInt16(Executable.ToArray(), RELOCATION_ITEM_TABLE) To BitConverter.ToUInt16(Executable.ToArray(), RELOCATION_ITEM_TABLE) + RelocationTableSize Step &H4%
-               RelocationItemOffset = BitConverter.ToInt16(Executable.ToArray(), Position)
-               RelocationItemSegment = BitConverter.ToInt16(Executable.ToArray(), Position + &H2%)
-               RelocationItemFlatAddress = (RelocationItemSegment << &H4%) Or RelocationItemOffset
+            If RelocationTableSize > &H0% Then
+               For Position As Integer = BitConverter.ToUInt16(Executable.ToArray(), RELOCATION_ITEM_TABLE) To BitConverter.ToUInt16(Executable.ToArray(), RELOCATION_ITEM_TABLE) + RelocationTableSize Step &H4%
+                  RelocationItemOffset = BitConverter.ToInt16(Executable.ToArray(), Position)
+                  RelocationItemSegment = BitConverter.ToInt16(Executable.ToArray(), Position + &H2%)
+                  RelocationItemFlatAddress = (RelocationItemSegment << &H4%) Or RelocationItemOffset
 
-               ProcessedExecutable(RelocationItemFlatAddress) = ToByte((CInt(ProcessedExecutable(RelocationItemFlatAddress)) + (RelocatedCS >> &H8%)) And &HFF%)
-               ProcessedExecutable(RelocationItemFlatAddress + &H1%) = ToByte((CInt(ProcessedExecutable(RelocationItemFlatAddress + &H1%)) + (RelocatedCS And &HFF%)) And &HFF%)
-            Next Position
+                  LoadModule(RelocationItemFlatAddress) = ToByte((CInt(LoadModule(RelocationItemFlatAddress)) + (RelocatedCS >> &H8%)) And &HFF%)
+                  LoadModule(RelocationItemFlatAddress + &H1%) = ToByte((CInt(LoadModule(RelocationItemFlatAddress + &H1%)) + (RelocatedCS And &HFF%)) And &HFF%)
+               Next Position
+            End If
 
-            Executable.CopyTo(CPU.Memory, Offset)
+            LoadModule.CopyTo(CPU.Memory, LoadAddress + &H100%)
          Else
             Output.AppendText($"""{FileName}"" does not fit inside the emulated memory.{NewLine}")
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
-
    End Sub
 End Module

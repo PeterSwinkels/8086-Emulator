@@ -32,6 +32,8 @@ Public Class InterfaceWindow
          ToolTip.SetToolTip(EnterButton, "Sends a commmand to the CPU emulator.")
          ToolTip.SetToolTip(OutputBox, "This box displays CPU memory contents, register values, etc.")
 
+         CursorBlink = New Timer With {.Enabled = True, .Interval = 500}
+
          Output = Me.OutputBox
 
          If GetCommandLineArgs.Count > 1 Then RunCommandScript(GetCommandLineArgs.Last)

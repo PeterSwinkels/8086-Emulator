@@ -50,7 +50,7 @@ Public Module CoreModule
    Private ReadOnly IS_MEMORY_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(MEMORY_OPERAND_START) AndAlso Operand.Trim().EndsWith(MEMORY_OPERAND_END))                                                        'Indicates whether the specified operand is a memory location.
    Private ReadOnly IS_STRING_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(STRING_OPERAND_DELIMITER) AndAlso Operand.Trim().EndsWith(STRING_OPERAND_DELIMITER))                                              'Indicates whether the specified operand is a string.
    Private ReadOnly IS_VALUES_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(VALUES_OPERAND_START) AndAlso Operand.Trim().EndsWith(VALUES_OPERAND_END))                                                        'Indicates whether the specified operand is an array of values.
-   Private ReadOnly WITHOUT_DELIMITERS As Func(Of String, String) = Function(Operand As String) (Operand.Substring(1, Operand.Length - 2))                                                                                                                   'Returns the specified operand with its first and last characters removed.
+   Private ReadOnly REMOVE_DELIMITERS As Func(Of String, String) = Function(Operand As String) (Operand.Substring(1, Operand.Length - 2))                                                                                                                    'Returns the specified operand with its first and last character removed.
 
    'This procedure translates the specified memory operands to a flat memory address.
    Private Function AddressFromOperand(Operand As String) As Integer?
@@ -59,7 +59,7 @@ Public Module CoreModule
          Dim Parsed As New ParsedStr
          Dim Segment As New Integer?
 
-         If IS_MEMORY_OPERAND(Operand) Then Operand = WITHOUT_DELIMITERS(Operand)
+         If IS_MEMORY_OPERAND(Operand) Then Operand = REMOVE_DELIMITERS(Operand)
 
          Parsed.Remainder = Operand
 
@@ -85,28 +85,29 @@ Public Module CoreModule
          Static PreviousAddress As New Integer
 
          If AssemblyModeOn Then
-            If Input.Trim() = Nothing Then
-               AssemblyModeOn = False
-               Output.AppendText($"Done.{NewLine}")
-            ElseIf Input.Trim() = "*"c Then
-               Address = PreviousAddress
-               Output.AppendText($"Address reset to: {Address:X8}.{NewLine}")
-            ElseIf Input.Trim() = "?"c Then
-               Output.AppendText($"{My.Resources.Assembler}{NewLine}")
-            Else
-               Opcodes = Assembler.Assemble(Address, Input)
-               If Opcodes Is Nothing Then
-                  Output.AppendText($"{Input}{NewLine}")
-               ElseIf Opcodes.Count = 0 Then
-                  Output.AppendText($"{Input}{NewLine}")
-                  Output.AppendText($"Undefined error.{NewLine}")
-               Else
-                  Output.AppendText($"{Address:X8}   {Input,-25} -> {String.Join(Nothing, (From Opcode In Opcodes Select Opcode.ToString("X2")).ToArray())}{NewLine}")
-                  Array.Copy(Opcodes.ToArray(), 0, CPU.Memory, Address, Opcodes.Count)
-                  PreviousAddress = Address
-                  Address = (Address + Opcodes.Count) And CPU8086Class.ADDRESS_MASK
-               End If
-            End If
+            Select Case Input.Trim()
+               Case Nothing
+                  AssemblyModeOn = False
+                  Output.AppendText($"Done.{NewLine}")
+               Case "*"c
+                  Address = PreviousAddress
+                  Output.AppendText($"Address reset to: {Address:X8}.{NewLine}")
+               Case "?"c
+                  Output.AppendText($"{My.Resources.Assembler}{NewLine}")
+               Case Else
+                  Opcodes = Assembler.Assemble(Address, Input)
+                  If Opcodes Is Nothing Then
+                     Output.AppendText($"{Input}{NewLine}")
+                  ElseIf Opcodes.Count = 0 Then
+                     Output.AppendText($"{Input}{NewLine}")
+                     Output.AppendText($"Undefined error.{NewLine}")
+                  Else
+                     Output.AppendText($"{Address:X8}   {Input,-25} -> {String.Join(Nothing, (From Opcode In Opcodes Select Opcode.ToString("X2")).ToArray())}{NewLine}")
+                     Array.Copy(Opcodes.ToArray(), 0, CPU.Memory, Address, Opcodes.Count)
+                     PreviousAddress = Address
+                     Address = (Address + Opcodes.Count) And CPU8086Class.ADDRESS_MASK
+                  End If
+            End Select
          ElseIf StartAddress IsNot Nothing Then
             Address = CInt(StartAddress) And CPU8086Class.ADDRESS_MASK
             PreviousAddress = Address
@@ -142,14 +143,9 @@ Public Module CoreModule
    'This procedure handles the emulated CPU's interrupt events.
    Private Sub CPU_Interrupt(Number As Integer, AH As Integer) Handles CPU.Interrupt
       Try
-         CPU.ClockToken.Cancel()
-
-         If HandleInterrupt(Number, AH) Then
-            CPU.ClockToken = New CancellationTokenSource
-            CPU.Clock = New Task(AddressOf CPU.Execute)
-            CPU.Clock.Start()
-         Else
-            CPUEvent.Append($"INT {Number:x}, {AH:X}{NewLine}")
+         If Not HandleInterrupt(Number, AH) Then
+            CPU.ClockToken.Cancel()
+            CPUEvent.Append($"INT {Number:X}, {AH:X}{NewLine}")
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -159,8 +155,14 @@ Public Module CoreModule
    'This procedure handles the emulated CPU's I/O read events.
    Private Sub CPU_ReadIOPort(Port As Integer, ByRef Value As Integer, Is8Bit As Boolean) Handles CPU.ReadIOPort
       Try
-         CPU.ClockToken.Cancel()
-         CPUEvent.Append($"IN {If(Is8Bit, "AL", "AX")}, {Port:X}{NewLine}")
+         Dim NewValue As Integer? = ReadIOPort(Port)
+
+         If NewValue Is Nothing Then
+            CPU.ClockToken.Cancel()
+            CPUEvent.Append($"IN {If(Is8Bit, "AL", "AX")}, {Port:X}{NewLine}")
+         Else
+            Value = CInt(NewValue)
+         End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -175,8 +177,8 @@ Public Module CoreModule
 
          CPUEvent.Append($"{Code}{GetRegisterValues()}{NewLine}")
          If Code.Contains(MEMORY_OPERAND_START) AndAlso Code.Contains(MEMORY_OPERAND_END) Then
-            Address = CInt(CPU.AddressFromOperand(CPU8086Class.MemoryOperandsE.LAST))
-            CPUEvent.Append($"{MEMORY_OPERAND_START}0x{Address:X8}{MEMORY_OPERAND_END} =  {GetMemoryValue(Address)}{NewLine}")
+            Address = CInt(CPU.AddressFromOperand(CPU8086Class.MemoryOperandsE.LAST).FlatAddress)
+            CPUEvent.Append($"{MEMORY_OPERAND_START}0x{Address:X8}{MEMORY_OPERAND_END} = {GetMemoryValue(Address)}{NewLine}")
          Else
             CPUEvent.Append($"{NewLine}")
          End If
@@ -188,8 +190,10 @@ Public Module CoreModule
    'This procedure handles the emulated CPU's I/O write events.
    Private Sub CPU_WriteIOPort(Port As Integer, Value As Integer, Is8Bit As Boolean) Handles CPU.WriteIOPort
       Try
-         CPU.ClockToken.Cancel()
-         CPUEvent.Append($"OUT {Port:X}, {If(Is8Bit, $"{Value:X2}", $"{Value:X4}")}{NewLine}")
+         If Not WriteIOPort(Port, Value) Then
+            CPU.ClockToken.Cancel()
+            CPUEvent.Append($"OUT {Port:X}, {If(Is8Bit, $"{Value:X2}", $"{Value:X4}")}{NewLine}")
+         End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -387,12 +391,13 @@ Public Module CoreModule
    End Function
 
    'This procedure returns the emulated CPU's stack contents.
-   Private Function GetStack(SS As Integer, SP As Integer) As String
+   Private Function GetStack() As String
       Try
+         Dim SS As Integer = CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.SS))
          Dim Stack As New StringBuilder
 
          With Stack
-            For Offset As Integer = &HFFFD% To SP Step -&H2%
+            For Offset As Integer = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BP)) - &H2% To CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)) Step -&H2%
                Stack.Append($"{CPU.GetWord((SS << &H4%) + Offset):X4}{NewLine}")
             Next Offset
 
@@ -450,9 +455,12 @@ Public Module CoreModule
    Public Sub ParseCommand(Input As String)
       Try
          Dim Address As New Integer?
+         Dim AH As New Integer
          Dim Command As String = Nothing
          Dim Count As New Integer?
+         Dim ErrorAt As New Integer
          Dim FileName As String = Nothing
+         Dim Interrupt As New Integer
          Dim Is8Bit As New Boolean
          Dim NewValue As New Integer?
          Dim Operands As String = Nothing
@@ -462,16 +470,17 @@ Public Module CoreModule
          Dim Value As String = Nothing
 
          Input = Input.Trim()
-         Position = Input.IndexOf(" "c)
-         If Position < 0 Then
-            Command = Input.ToUpper()
-         Else
-            Command = Input.Substring(0, Position).ToUpper()
-            Operands = Input.Substring(Position + 1).Trim()
-         End If
 
          If Not Input = Nothing Then
             Output.AppendText($"{Input}{NewLine}")
+
+            Position = Input.IndexOf(" "c)
+            If Position < 0 Then
+               Command = Input.ToUpper()
+            Else
+               Command = Input.Substring(0, Position).ToUpper()
+               Operands = Input.Substring(Position + 1).Trim()
+            End If
 
             If Register IsNot Nothing Then
                Output.AppendText($"{Register} = {If(Is8Bit, $"{CInt(CPU.Registers(Register)):X2}", $"{CInt(CPU.Registers(Register)):X4}") }{NewLine}")
@@ -503,7 +512,18 @@ Public Module CoreModule
                      Output.AppendText(NewLine)
                   Case "EXE"
                      FileName = If(Operands Is Nothing, RequestFileName("Load Executable."), Operands)
-                     If Not FileName = Nothing Then LoadMSDOSEXE(FileName)
+                     If Not FileName = Nothing Then LoadMSDOSProgram(FileName)
+                  Case "INT"
+                     Parsed.Remainder = Input
+
+                     Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=" "c, Ending:=" "c)
+                     Interrupt = ToInt32(Parsed.Element, fromBase:=16)
+
+                     Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=Nothing, Ending:=Nothing)
+                     AH = ToInt32(Parsed.Element, fromBase:=16)
+
+                     CPU.Registers(CPU8086Class.SubRegisters8BitE.AH, NewValue:=AH)
+                     CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Interrupt)
                   Case "IRET"
                      CPU.ExecuteOpcode(CPU8086Class.OpcodesE.IRET)
                   Case "L"
@@ -548,7 +568,7 @@ Public Module CoreModule
                   Case "SCR"
                      ScreenWindow.Show()
                   Case "ST"
-                     Output.AppendText(GetStack(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.SS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP))))
+                     Output.AppendText(GetStack())
                   Case "T"
                      CPU_Trace()
 
@@ -579,11 +599,15 @@ Public Module CoreModule
                            Else
                               Value = GET_OPERAND(Input).Trim()
                               If IS_VALUES_OPERAND(Value) Then
-                                 Value = WITHOUT_DELIMITERS(Value)
+                                 Value = REMOVE_DELIMITERS(Value)
                                  Output.AppendText($"Finished writing values at 0x{WriteValuesToMemory(Value, CInt(Address)):X8}.{NewLine}")
                               ElseIf IS_STRING_OPERAND(Value) Then
-                                 Value = WITHOUT_DELIMITERS(Value)
-                                 Output.AppendText($"Finished writing values at 0x{WriteStringToMemory(Value, CInt(Address)):X8}.{NewLine}")
+                                 Value = Unescape(REMOVE_DELIMITERS(Value),, ErrorAt)
+                                 If ErrorAt = 0 Then
+                                    Output.AppendText($"Finished writing string at 0x{WriteStringToMemory(Value, CInt(Address)):X8}.{NewLine}")
+                                 Else
+                                    Output.AppendText($"Invalid escape sequence at: {ErrorAt}.{NewLine}")
+                                 End If
                               Else
                                  NewValue = GetLiteral(Value)
                                  If NewValue Is Nothing Then
@@ -669,6 +693,68 @@ Public Module CoreModule
          DisplayException(ExceptionO.Message)
       End Try
    End Sub
+
+   'This procedure sets the specified bit with the specified index to the specified value and returns the result.
+   Public Function SetBit(Value As Integer, Bit As Boolean, Index As Integer) As Integer
+      Try
+         If Bit Then
+            Value = Value Or (&H1% << Index)
+         Else
+            Value = Value And ((&H1% << Index) Xor &HFFFF%)
+         End If
+
+         Return Value
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return Nothing
+   End Function
+
+   'This procedure converts any escape sequences in the specified text to characters.
+   Private Function Unescape(Text As String, Optional EscapeCharacter As Char = "/"c, Optional ByRef ErrorAt As Integer = 0) As String
+      Try
+         Dim Character As New Char
+         Dim CharacterCode As New Integer
+         Dim Index As Integer = 0
+         Dim NextCharacter As New Char
+         Dim Unescaped As New StringBuilder
+
+         ErrorAt = 0
+
+         Do Until Index >= Text.Length OrElse ErrorAt > 0
+            Character = Text.Chars(Index)
+            If Index < Text.Length - 1 Then NextCharacter = Text.Chars(Index + 1) Else NextCharacter = Nothing
+
+            If Character = EscapeCharacter Then
+               If NextCharacter = EscapeCharacter Then
+                  Unescaped.Append(Character)
+                  Index += 1
+               Else
+                  If NextCharacter = Nothing Then
+                     ErrorAt = Index + 1
+                  Else
+                     If Index < Text.Length - 2 AndAlso Integer.TryParse(Text.Substring(Index + 1, 2), NumberStyles.HexNumber, Nothing, CharacterCode) Then
+                        Unescaped.Append(ToChar(CharacterCode))
+                        Index += 2
+                     Else
+                        ErrorAt = Index + 1
+                     End If
+                  End If
+               End If
+            Else
+               Unescaped.Append(Character)
+            End If
+            Index += 1
+         Loop
+
+         Return Unescaped.ToString()
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return Nothing
+   End Function
 
    'This procedure writes the specified string to memory at the specified address.
    Private Function WriteStringToMemory([String] As String, Address As Integer) As Integer
