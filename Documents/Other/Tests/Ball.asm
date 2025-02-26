@@ -272,7 +272,7 @@ NumberToText:
    MOV BX, 0x000A       ;
    MOV CX, DX           ; Retrieve the number to be converted to text.
    .NextDigit:          ;
-       CMP CX, 0x0000   ;
+      CMP CX, 0x0000    ;
       JE .Done          ;
          MOV AX, CX     ;
          XOR DX, DX     ;
@@ -336,4 +336,4 @@ Score DW 0x0000                                           ; The score.
 ScoreAsText DB "    0$"                                   ; The score represented as text.
 Title DB "Ball v1.00 - by: Peter Swinkels, ***2025***$"   ; The title text.
 Help DB "4 = Left  6 = Right  2 = Stop  Esc = Quit$"      ; The help text.
-Stack TIMES 0x10 DB 0x00   ; The stack buffer.            ; The stack buffer.
+Stack TIMES 0x10 DB 0x00                                  ; The stack buffer.
