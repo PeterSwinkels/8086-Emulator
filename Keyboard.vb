@@ -17,6 +17,7 @@ Public Module KeyboardModule
    Private Const ASCII_6 As Integer = 54                                        'Defines the ASCII code for the six ("6") character.
    Private Const ASCII_9 As Integer = 57                                        'Defines the ASCII code for the nine ("9") character.
    Private Const ASCII_A As Integer = 65                                        'Defines the ASCII code for the letter "A" character.
+   Private Const ASCII_SPACE As Integer = 32                                      'Defines the ASCII code the space (" ") character.
    Private Const ASCII_Z As Integer = 90                                        'Defines the ASCII code for the letter "Z" character.
    Private Const BIOS_KEY_CODE_1 As Integer = &H2%                              'Defines the BIOS key code for the one ("1") character.
    Private Const BIOS_KEY_CODE_1_ALT As Integer = &H78%                         'Defines the BIOS code for the one ("1") character combined with the Alt key.
@@ -176,7 +177,7 @@ Public Module KeyboardModule
       Try
          Dim BIOSKeyCode As New Integer?
 
-         If KeyASCII Is Nothing Then
+         If KeyASCII Is Nothing OrElse KeyASCII = ASCII_SPACE Then
             Select Case Key.KeyCode
                Case Keys.F1 To Keys.F12
                   BIOSKeyCode = GetBIOSFKeyCode(Key.KeyCode, Key.Alt, Key.Control, Key.Shift)
