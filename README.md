@@ -1,7 +1,7 @@
 # 8086-Emulator
 A program that immitates a 8086 CPU
 
-This program allows you to load binary code and data into its memory and let a virtual 8086 CPU execute it. There are several options that allow the examining and modifying of the CPU's status and memory. By default there is no BIOS, OS or simulated hardware. In case I/O or interrupts occur the program stops executing to allow you to enter input. This allows whatever program is being executed to think there actually is hardware present. There also is a quick reference for supported commands and a disassembler. The program also supports scripts on start up.
+This program allows you to load binary code and data into its memory and let a virtual 8086 CPU execute it. There are several options that allow the examining and modifying of the CPU's status and memory. By default there is no BIOS, OS or simulated hardware. If I/O occurs to/from a port the emulator does not support it will stop to allow the user to manually handle the I/O. If an interrupt with a vector of [0x0000:0x0000] is executed the CPU will defer to the main program which will attempt to perform the required function. If the main program cannot peform the required function it will stop the CPU to allow manual input from the user.  There also is a quick reference for supported commands and a disassembler. The program also supports scripts on start up.
 
 See the file Help.txt in this repository's documents folder for more information.
 
