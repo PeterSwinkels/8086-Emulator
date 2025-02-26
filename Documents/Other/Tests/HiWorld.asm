@@ -17,7 +17,7 @@ INT 0x10                ;
 MOV BX, 0x0002          ; Video page and character attribute.
 MOV DX, 0x0407          ; Initial cursor position.
 
-LEA SI, Text            ; Location of the text to be displayed.
+LEA SI, [Text]          ; Location of the text to be displayed.
 
 WriteText:
  MOV AH, 0x02           ; Position the cursor.
