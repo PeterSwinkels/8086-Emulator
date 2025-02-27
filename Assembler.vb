@@ -339,8 +339,10 @@ Public Class AssemblerClass
 
                Select Case True
                   Case Instruction = DEFINE_BYTE
+                     If RightOperand.Operand Is Nothing Then Throw New Exception("No operand.")
                      Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=True))
                   Case Instruction = DEFINE_WORD
+                     If RightOperand.Operand Is Nothing Then Throw New Exception("No operand.")
                      Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=False))
                   Case FAR_JUMP_OPCODES.ContainsKey(Instruction)
                      Opcodes.Add(FAR_JUMP_OPCODES(Instruction))
@@ -572,7 +574,7 @@ Public Class AssemblerClass
          End Select
 
          If Opcodes.Count = &H0% Then
-            Throw New Exception("Unknown instruction.")
+            Throw New Exception("Unknown instruction or missing operand.")
          ElseIf ILLEGAL_OPCODES.Contains(Opcodes.First()) Then
             Throw New Exception("Illegal instruction.")
             Opcodes.Clear()

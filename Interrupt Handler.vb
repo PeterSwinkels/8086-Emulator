@@ -96,14 +96,13 @@ Public Module InterruptHandlerModule
                      Do
                         Application.DoEvents()
                         CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=LastBIOSKeyCode())
-                     Loop While CInt(CPU.Registers(CPU8086Class.Registers16BitE.AX)) = &H0%
+                     Loop While (CInt(CPU.Registers(CPU8086Class.Registers16BitE.AX)) = &H0%) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
 
                      LastBIOSKeyCode(, Clear:=True)
-
                      Success = True
                   Case &H1%
                      CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=LastBIOSKeyCode())
-                     CPU.Registers(CPU8086Class.FlagRegistersE.ZF, NewValue:=(Not CInt(CPU.Registers(CPU8086Class.Registers16BitE.AX)) = &H0%))
+                     CPU.Registers(CPU8086Class.FlagRegistersE.ZF, NewValue:=(CInt(CPU.Registers(CPU8086Class.Registers16BitE.AX)) = &H0%))
                      Success = True
                End Select
             Case &H21%

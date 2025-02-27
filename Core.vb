@@ -171,16 +171,18 @@ Public Module CoreModule
    'This procedure handles CPU tracing events.
    Private Sub CPU_Trace() Handles CPU.Trace
       Try
-         Dim Address As New Integer
+         Dim Address As New Integer?
          Dim Opcode As CPU8086Class.OpcodesE = DirectCast(CPU.Memory(GetFlatCSIP()), CPU8086Class.OpcodesE)
          Dim Code As String = Disassemble(CPU.Memory.ToList(), GetFlatCSIP(), Count:=If(Opcode = CPU8086Class.OpcodesE.REPNE OrElse Opcode = CPU8086Class.OpcodesE.REPZ, &H2%, &H1%))
 
          CPUEvent.Append($"{Code}{GetRegisterValues()}{NewLine}")
          If Code.Contains(MEMORY_OPERAND_START) AndAlso Code.Contains(MEMORY_OPERAND_END) Then
-            Address = CInt(CPU.AddressFromOperand(CPU8086Class.MemoryOperandsE.LAST).FlatAddress)
-            CPUEvent.Append($"{MEMORY_OPERAND_START}0x{Address:X8}{MEMORY_OPERAND_END} = {GetMemoryValue(Address)}{NewLine}")
+            Address = CPU.AddressFromOperand(CPU8086Class.MemoryOperandsE.LAST).FlatAddress
+            If Address IsNot Nothing Then
+               CPUEvent.Append($"{MEMORY_OPERAND_START}0x{Address:X8}{MEMORY_OPERAND_END} = {GetMemoryValue(CInt(Address))}{NewLine}")
+            End If
          Else
-            CPUEvent.Append($"{NewLine}")
+               CPUEvent.Append($"{NewLine}")
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -455,12 +457,12 @@ Public Module CoreModule
    Public Sub ParseCommand(Input As String)
       Try
          Dim Address As New Integer?
-         Dim AH As New Integer
+         Dim AH As New Integer?
          Dim Command As String = Nothing
          Dim Count As New Integer?
          Dim ErrorAt As New Integer
          Dim FileName As String = Nothing
-         Dim Interrupt As New Integer
+         Dim Interrupt As New Integer?
          Dim Is8Bit As New Boolean
          Dim NewValue As New Integer?
          Dim Operands As String = Nothing
@@ -517,13 +519,19 @@ Public Module CoreModule
                      Parsed.Remainder = Input
 
                      Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=" "c, Ending:=" "c)
-                     Interrupt = ToInt32(Parsed.Element, fromBase:=16)
-
-                     Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=Nothing, Ending:=Nothing)
-                     AH = ToInt32(Parsed.Element, fromBase:=16)
-
-                     CPU.Registers(CPU8086Class.SubRegisters8BitE.AH, NewValue:=AH)
-                     CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Interrupt)
+                     Interrupt = GetLiteral(Parsed.Element)
+                     If Interrupt Is Nothing Then
+                        Output.AppendText($"Invalid interrupt number.{NewLine}")
+                     Else
+                        Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=Nothing, Ending:=Nothing)
+                        AH = GetLiteral(Parsed.Element)
+                        If AH Is Nothing Then
+                           Output.AppendText($"Invalid function number.{NewLine}")
+                        Else
+                           CPU.Registers(CPU8086Class.SubRegisters8BitE.AH, NewValue:=AH)
+                           CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Interrupt)
+                        End If
+                     End If
                   Case "IRET"
                      CPU.ExecuteOpcode(CPU8086Class.OpcodesE.IRET)
                   Case "L"

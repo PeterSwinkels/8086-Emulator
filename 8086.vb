@@ -292,14 +292,15 @@ Public Class CPU8086Class
 
    'This enumeration lists the supported operand pairs.
    Private Enum OperandPairsE As Byte
-      MemReg_Reg_8    '8 bit memory/register and register.
-      MemReg_Reg_16   '16 bit memory/register and register.
-      Reg_MemReg_8    '8 bit register and memory/register.
-      Reg_MemReg_16   '16 bit register and memory/register.
-      AL_Byte         'AL register and byte.
-      AX_Word         'AL register and word.
-      MemReg_Byte     'Memory/register and byte.
-      MemReg_Word     'Memory/register and word.
+      MemReg_Reg_8     '8 bit memory/register and register.
+      MemReg_Reg_16    '16 bit memory/register and register.
+      Reg_MemReg_8     '8 bit register and memory/register.
+      Reg_MemReg_16    '16 bit register and memory/register.
+      AL_Byte          'AL register and byte.
+      AX_Word          'AL register and word.
+      MemReg_Byte      'Memory/register and byte.
+      MemReg_Word      'Memory/register and word.
+      MemReg_16_Byte   '16 bit Memory/register and byte.
    End Enum
 
    'This enumeration lists the operations for the 0x80, 0x81 and 0x83 opcodes.
@@ -710,7 +711,13 @@ Public Class CPU8086Class
          Case OpcodesE.MULTI1_TGT_BYTE, OpcodesE.MULTI1_TGT_WORD, OpcodesE.MULTI1_TGT16_BYTE
             Operand = GetByteCSIP()
             Operation = (Operand And &H3F%) >> &H3%
-            OperandPair = GetValues(GetOperandPair(CByte(If(Opcode = OpcodesE.MULTI1_TGT16_BYTE, Opcode >> &H2%, Opcode) Xor &H6%), CByte(Operand)))
+
+            If Opcode = OpcodesE.MULTI1_TGT16_BYTE Then
+               OperandPair = GetValues(GetOperandPair(CByte((Opcode >> &H2%) Xor &H6%), CByte(Operand), IsMemReg16Byte:=True))
+            Else
+               OperandPair = GetValues(GetOperandPair(CByte(Opcode Xor &H6%), CByte(Operand)))
+            End If
+
             With OperandPair
                Select Case DirectCast(CByte(Operation), Operations80_83E)
                   Case Operations80_83E.ADC
@@ -1335,16 +1342,15 @@ Public Class CPU8086Class
    End Function
 
    'This procedure returns the operand pair indicated by the specified opcode and operand byte.
-   Private Function GetOperandPair(Opcode As Byte, Operand As Byte) As OperandPairStr
+   Private Function GetOperandPair(Opcode As Byte, Operand As Byte, Optional IsMemReg16Byte As Boolean = False) As OperandPairStr
       Dim Addresses As New AddressesStr
       Dim MemoryOperand As MemoryOperandsE = DirectCast(((Operand And &HC0%) >> &H3%) + (Operand And &H7%), MemoryOperandsE)
-      Dim OperandPair As New OperandPairStr With {.Is8Bit = True, .Literal = Nothing, .Operand1 = Nothing, .Operand2 = Nothing}
-      Dim OperandPairType As OperandPairsE = DirectCast(CByte(Opcode And &H7%), OperandPairsE)
+      Dim OperandPair As New OperandPairStr With {.Is8Bit = Not CBool(Opcode And &H1%), .Literal = Nothing, .Operand1 = Nothing, .Operand2 = Nothing}
+      Dim OperandPairType As OperandPairsE = If(IsMemReg16Byte, OperandPairsE.MemReg_16_Byte, DirectCast(CByte(Opcode And &H7%), OperandPairsE))
       Dim Register1 As Integer = (Operand And &H38%) >> &H3%
       Dim Register2 As Integer = Operand And &H7%
 
       With OperandPair
-         .Is8Bit = Not CBool(Opcode And &H1%)
          Select Case OperandPairType
             Case OperandPairsE.MemReg_Reg_8 To OperandPairsE.Reg_MemReg_16, OperandPairsE.MemReg_Byte To OperandPairsE.MemReg_Word
                If MemoryOperand >= MemoryOperandsE.BX_SI_BYTE Then .Literal = GetOperandLiteral(MemoryOperand)
@@ -1373,6 +1379,9 @@ Public Class CPU8086Class
                If Operand < &HC0% Then .Operand1 = MemoryOperand Else .Operand1 = DirectCast(Register2, SubRegisters8BitE)
             Case OperandPairsE.MemReg_Word
                If Operand < &HC0% Then .Operand1 = MemoryOperand Else .Operand1 = DirectCast(Register2, Registers16BitE)
+            Case OperandPairsE.MemReg_16_Byte
+               .Is8Bit = False
+               If Operand < &HC0% Then .Operand1 = MemoryOperand Else .Operand1 = DirectCast(Register2, Registers16BitE)
          End Select
 
          If TypeOf .Operand1 Is MemoryOperandsE Then
@@ -1386,7 +1395,7 @@ Public Class CPU8086Class
          End If
 
          Select Case OperandPairType
-            Case OperandPairsE.MemReg_Byte
+            Case OperandPairsE.MemReg_Byte, OperandPairsE.MemReg_16_Byte
                .Operand2 = GetByteCSIP()
             Case OperandPairsE.MemReg_Word
                .Operand2 = GetWordCSIP()

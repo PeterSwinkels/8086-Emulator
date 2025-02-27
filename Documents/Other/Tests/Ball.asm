@@ -113,9 +113,9 @@ ClearScreen:
 RET
 
 Delay:
-   MOV CX, 0x0020          ; Delay.
+   MOV CX, 0x0001          ; Delay.
    .DelayStart:            ;
-       MOV DX, 0xFFFF      ;
+       MOV DX, 0x6000      ;
        .SubDelayStart:     ;
           DEC DX           ;
           CMP DX, 0x0000   ;
