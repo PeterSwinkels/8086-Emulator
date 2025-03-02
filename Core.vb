@@ -567,6 +567,8 @@ Public Module CoreModule
                   Case "R"
                      Output.AppendText($"{GetRegisterValues()}{NewLine}")
                   Case "RESET"
+                     LastBIOSKeyCode(, Clear:=True)
+
                      CPU.ClockToken.Cancel()
                      CPU = New CPU8086Class
                      Output.AppendText($"CPU reset.{NewLine}")

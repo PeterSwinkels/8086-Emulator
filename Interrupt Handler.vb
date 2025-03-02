@@ -9,10 +9,9 @@ Imports System.Windows.Forms
 
 'This module contains the default interrupt handler.
 Public Module InterruptHandlerModule
-   Private Const CURSOR_MASK As Integer = &H1F1F%      'Defines the cursor end/start bits.
-   Private Const MS_DOS As Integer = &HFF00%           'Indicates that the operating is MS-DOS.
-   Private Const MS_DOS_VERSION As Integer = &H1606%   'Defines the emulated MS-DOS version as 6.22.
-   Private Const VIDEO_MODE_MASK As Byte = &H7F%       'Defines the bits indicating a video mode.
+   Private Const CURSOR_MASK As Integer = &H1F1F%    'Defines the cursor end/start bits.
+   Private Const VIDEO_MODE_MASK As Byte = &H7F%     'Defines the bits indicating a video mode.
+   Private Const ZERO_FLAG_INDEX As Integer = &H6%   'Defines the zero flag's bit index.
 
    'This procedure handles the specified interrupt and returns whether or not is succeeded.
    Public Function HandleInterrupt(Number As Integer, AH As Integer) As Boolean
@@ -20,6 +19,7 @@ Public Module InterruptHandlerModule
          Dim Attribute As New Byte
          Dim Character As New Byte
          Dim Count As New Integer
+         Dim Flags As Integer = CPU.GetWord((CInt(CPU.Registers((CPU8086Class.SegmentRegistersE.SS))) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)) + &H4%)
          Dim Offset As New Integer
          Dim Position As New Integer
          Dim Success As Boolean = False
@@ -102,17 +102,14 @@ Public Module InterruptHandlerModule
                      Success = True
                   Case &H1%
                      CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=LastBIOSKeyCode())
-                     CPU.Registers(CPU8086Class.FlagRegistersE.ZF, NewValue:=(CInt(CPU.Registers(CPU8086Class.Registers16BitE.AX)) = &H0%))
+                     Flags = SetBit(Flags, (CInt(CPU.Registers(CPU8086Class.Registers16BitE.AX)) = &H0%), ZERO_FLAG_INDEX)
                      Success = True
                End Select
-            Case &H21%
-               Select Case AH
-                  Case &H30%
-                     CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=MS_DOS_VERSION)
-                     CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=MS_DOS)
-                     Success = True
-               End Select
+            Case Else
+               Success = HandleMSDOSInterrupt(Number, AH, Flags)
          End Select
+
+         CPU.PutWord((CInt(CPU.Registers((CPU8086Class.SegmentRegistersE.SS))) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)) + &H4%, Flags)
 
          If Success Then CPU.ExecuteOpcode(CPU8086Class.OpcodesE.IRET)
 

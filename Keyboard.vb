@@ -17,7 +17,7 @@ Public Module KeyboardModule
    Private Const ASCII_6 As Integer = 54                                        'Defines the ASCII code for the six ("6") character.
    Private Const ASCII_9 As Integer = 57                                        'Defines the ASCII code for the nine ("9") character.
    Private Const ASCII_A As Integer = 65                                        'Defines the ASCII code for the letter "A" character.
-   Private Const ASCII_SPACE As Integer = 32                                      'Defines the ASCII code the space (" ") character.
+   Private Const ASCII_SPACE As Integer = 32                                    'Defines the ASCII code the space (" ") character.
    Private Const ASCII_Z As Integer = 90                                        'Defines the ASCII code for the letter "Z" character.
    Private Const BIOS_KEY_CODE_1 As Integer = &H2%                              'Defines the BIOS key code for the one ("1") character.
    Private Const BIOS_KEY_CODE_1_ALT As Integer = &H78%                         'Defines the BIOS code for the one ("1") character combined with the Alt key.
@@ -41,13 +41,14 @@ Public Module KeyboardModule
    Private ReadOnly BIOS_KEY_CODES_COMMAND_ALT() As Integer = {&HE%, &HA3%, &HA0%, &H9F%, &HA6%, &H1%, &H97%, &HA2%, Nothing, &H37%, &H4A%, &H4E%, &HA4%, &H9B%, &HA1%, &H99%, Nothing, &H9D%, &H39%, &HA5%, &H98%}                                             'Contains the BIOS key codes for the command keys combined with the Alt key.
    Private ReadOnly BIOS_KEY_CODES_COMMAND_CONTROL() As Integer = {&HE7F%, &H9300%, &H9100%, &H7500%, &H1C0A%, &H11B%, &H7700%, &H9200%, &H8F00%, &H9600%, &H8E00%, Nothing, &H9500%, &H7300%, &H7600%, &H8400%, &H7200%, &H7400%, &H3920%, &H9400%, &H8D00%}   'Contains the BIOS key codes for the command keys combined with the Control key.
    Private ReadOnly BIOS_KEY_CODES_COMMAND_SHIFT() As Integer = {&HE08%, &H532E%, &H5032%, &H4F31%, &H1C0D%, &H11B%, &H4737%, &H5230%, &H4C35%, Nothing, &H4A2D%, &H4E2B%, &H352F%, &H4B34%, &H5133%, &H4939%, Nothing, &H4D36%, &H3920%, &HF00%, &H4838%}      'Contains the BIOS key codes for the command keys combined with the Shift key.
+   Private ReadOnly BIOS_KEY_CODES_NUMERIC_KEYPAD() As Integer = {&H5230%, &H4F31%, &H5032%, &H5133%, &H4B34%, &H4C35%, &H4D36%, &H4737%, &H4838%, &H4939%}                                                                                                       'Contains the BIOS key codes for the numeric keypad numbers with Num Lock enabled.
    Private ReadOnly BIOS_KEY_CODES_PUNCTUATION() As Integer = {&HC%, &HD%, &H1A%, &H1B%, &H27%, &H28%, &H29%, &H2B%, &H33%, &H34%, &H35%}                                                                                                                       'Contains the BIOS key codes for the punctuation characters.
    Private ReadOnly BIOS_KEY_CODES_PUNCTUATION_ALT() As Integer = {&H82%, &H83%, &H1A%, &H1B%, &H27%, Nothing, Nothing, &H26%, Nothing, Nothing, Nothing}                                                                                                       'Contains the BIOS key codes for the punctuation characters combined with the Alt key.
    Private ReadOnly BIOS_KEY_CODES_PUNCTUATION_SHIFT() As Integer = {&HE08%, &H532E%, &H5032%, &H4F31%, &H1C0D%, &H11B%, &H4737%, &H5230%, &H4C35%, Nothing, &H4A2D%, &H4E2B%, &H352F%, &H4B34%, &H5133%, &H4939%, Nothing, &H4D36%, &H3920%, &HF00%, &H4838%}  'Contains the BIOS key codes for the punctuation characters combined with the Shift key.
    Private ReadOnly COMMAND_KEYS() As Integer = {Keys.Back, Keys.Delete, Keys.Down, Keys.End, Keys.Enter, Keys.Escape, Keys.Home, Keys.Insert, Keys.NumPad5, Keys.Multiply, Keys.Subtract, Keys.Add, Keys.Divide, Keys.Left, Keys.PageDown, Keys.PageUp, Keys.PrintScreen, Keys.Right, Keys.Space, Keys.Tab, Keys.Up}  'Contains the command keys.
 
    'This procedure converts the specified ASCII code combined with the specified modifier keys to a BIOS scan and character code and returns the result.
-   Private Function GetBIOSCKeyCode(KeyASCII As Integer, Alt As Boolean, Control As Boolean, Shift As Boolean) As Integer?
+   Private Function GetBIOSCharacterKeyCode(KeyASCII As Integer, Alt As Boolean, Control As Boolean, Shift As Boolean) As Integer?
       Try
          Dim BIOSKeyCode As New Integer?
          Dim CharacterCode As Integer = &H0%
@@ -111,7 +112,7 @@ Public Module KeyboardModule
    End Function
 
    'This procedure converts the specified command key combined with the specified modifier keys to a BIOS scan and character code and returns the result.
-   Private Function GetBIOSCMDKeyCode(Key As Keys, Alt As Boolean, Control As Boolean, Shift As Boolean) As Integer?
+   Private Function GetBIOSCommandKeyCode(Key As Keys, Alt As Boolean, Control As Boolean, Shift As Boolean) As Integer?
       Try
          Dim BIOSKeyCode As New Integer?
          Dim CommandKeyIndex As Integer = Array.IndexOf(COMMAND_KEYS, CInt(Key))
@@ -135,7 +136,7 @@ Public Module KeyboardModule
    End Function
 
    'This procedure converts the specified function key combined with the specified modifier keys to a BIOS scan and character code and returns the result.
-   Private Function GetBIOSFKeyCode(Key As Keys, Alt As Boolean, Control As Boolean, Shift As Boolean) As Integer?
+   Private Function GetBIOSFunctionKeyCode(Key As Keys, Alt As Boolean, Control As Boolean, Shift As Boolean) As Integer?
       Try
          Dim BIOSKeyCode As New Integer?
 
@@ -173,26 +174,27 @@ Public Module KeyboardModule
    End Function
 
    'This procedure converts the specified key combined with the specified modifier keys to a BIOS scan and character code and returns the result.
-   Public Function GetBIOSKeyCode(Key As KeyEventArgs, ByRef KeyASCII As Integer?) As Integer?
+   Public Function GetBIOSKeyCode(Key As KeyEventArgs) As Integer?
       Try
          Dim BIOSKeyCode As New Integer?
+         Dim KeyASCII As New Integer?
 
-         If KeyASCII Is Nothing OrElse KeyASCII = ASCII_SPACE Then
-            Select Case Key.KeyCode
-               Case Keys.F1 To Keys.F12
-                  BIOSKeyCode = GetBIOSFKeyCode(Key.KeyCode, Key.Alt, Key.Control, Key.Shift)
-               Case Else
-                  If COMMAND_KEYS.Contains(Key.KeyCode) Then
-                     BIOSKeyCode = GetBIOSCMDKeyCode(Key.KeyCode, Key.Alt, Key.Control, Key.Shift)
-                  Else
-                     KeyASCII = PunctuationKeyToASCII(Key.KeyCode)
-                     If KeyASCII Is Nothing Then KeyASCII = Key.KeyValue
-                     BIOSKeyCode = GetBIOSCKeyCode(CInt(KeyASCII), Key.Alt, Key.Control, Key.Shift)
-                  End If
-            End Select
-         Else
-            BIOSKeyCode = GetBIOSCKeyCode(CInt(KeyASCII), Key.Alt, Key.Control, Key.Shift)
-         End If
+         Select Case Key.KeyCode
+            Case Keys.D0 To Keys.D9, Keys.A To Keys.Z
+               BIOSKeyCode = GetBIOSCharacterKeyCode(Key.KeyCode, Key.Alt, Key.Control, Key.Shift)
+            Case Keys.F1 To Keys.F12
+               BIOSKeyCode = GetBIOSFunctionKeyCode(Key.KeyCode, Key.Alt, Key.Control, Key.Shift)
+            Case Keys.NumPad0 To Keys.NumPad9
+               BIOSKeyCode = BIOS_KEY_CODES_NUMERIC_KEYPAD(Key.KeyCode - Keys.NumPad0)
+            Case Else
+               If COMMAND_KEYS.Contains(Key.KeyCode) Then
+                  BIOSKeyCode = GetBIOSCommandKeyCode(Key.KeyCode, Key.Alt, Key.Control, Key.Shift)
+               Else
+                  KeyASCII = PunctuationKeyToASCII(Key.KeyCode)
+                  If KeyASCII Is Nothing Then KeyASCII = Key.KeyValue
+                  BIOSKeyCode = GetBIOSCharacterKeyCode(CInt(KeyASCII), Key.Alt, Key.Control, Key.Shift)
+               End If
+         End Select
 
          Return BIOSKeyCode
       Catch ExceptionO As Exception
@@ -209,7 +211,7 @@ Public Module KeyboardModule
 
          If Clear Then
             CurrentLastBIOSKeyCode = Nothing
-         ElseIf Not NewLastBIOSKeyCode = Nothing Then
+         ElseIf (Not NewLastBIOSKeyCode = Nothing) Then '' AndAlso CurrentLastBIOSKeyCode = Nothing Then
             CurrentLastBIOSKeyCode = CInt(NewLastBIOSKeyCode)
          End If
 

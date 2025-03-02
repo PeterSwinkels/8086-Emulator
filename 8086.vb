@@ -1462,6 +1462,7 @@ Public Class CPU8086Class
    'This procedure sets or gets a register's value.
    Public Function Registers(Register As Object, Optional NewValue As Object = Nothing) As Object
       Dim Index As New Integer
+      Dim Result As New Object
       Static FlagsRegister As Integer = &H0%
       Static Registers16Bit(Registers16BitE.AX To Registers16BitE.IP) As Integer
       Static SegmentRegisters(SegmentRegistersE.ES To SegmentRegistersE.DS) As Integer
@@ -1469,7 +1470,8 @@ Public Class CPU8086Class
       If TypeOf Register Is FlagRegistersE Then
          If DirectCast(Register, FlagRegistersE) = FlagRegistersE.All Then
             If NewValue IsNot Nothing Then FlagsRegister = CInt(NewValue)
-            Return FlagsRegister
+            FlagsRegister = FlagsRegister Or (&H1% << DirectCast(FlagRegistersE.F1, Integer))
+            Result = FlagsRegister
          Else
             Index = DirectCast(Register, Integer)
 
@@ -1483,23 +1485,23 @@ Public Class CPU8086Class
 
             FlagsRegister = FlagsRegister Or (&H1% << DirectCast(FlagRegistersE.F1, Integer))
 
-            Return CBool(FlagsRegister And (&H1% << Index))
+            Result = CBool(FlagsRegister And (&H1% << Index))
          End If
       ElseIf TypeOf Register Is Registers16BitE Then
          Index = DirectCast(Register, Integer)
          If NewValue IsNot Nothing Then Registers16Bit(Index) = CInt(NewValue) And &HFFFF%
-         Return Registers16Bit(Index) And &HFFFF%
+         Result = Registers16Bit(Index) And &HFFFF%
       ElseIf TypeOf Register Is SegmentRegistersE Then
          Index = DirectCast(Register, Integer)
          If NewValue IsNot Nothing Then SegmentRegisters(Index) = CInt(NewValue) And &HFFFF%
-         Return SegmentRegisters(Index) And &HFFFF%
+         Result = SegmentRegisters(Index) And &HFFFF%
       ElseIf TypeOf Register Is SubRegisters8BitE Then
          Index = DirectCast(Register, Integer) And &H3%
          If NewValue IsNot Nothing Then Registers16Bit(Index) = If(DirectCast(Register, SubRegisters8BitE) >= SubRegisters8BitE.AH, (Registers16Bit(Index) And &HFF%) Or ((CInt(NewValue) And &HFF%) << &H8%), (Registers16Bit(Index) And &HFF00%) Or (CInt(NewValue) And &HFF%))
-         Return If(DirectCast(Register, SubRegisters8BitE) >= SubRegisters8BitE.AH, (Registers16Bit(Index) And &HFF00%) >> &H8%, Registers16Bit(Index) And &HFF%)
+         Result = If(DirectCast(Register, SubRegisters8BitE) >= SubRegisters8BitE.AH, (Registers16Bit(Index) And &HFF00%) >> &H8%, Registers16Bit(Index) And &HFF%)
       End If
 
-      Return Nothing
+      Return Result
    End Function
 
    'This procedure manages the current segment override.
