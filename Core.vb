@@ -174,7 +174,7 @@ Public Module CoreModule
          Dim Address As New Integer?
          Dim Opcode As CPU8086Class.OpcodesE = DirectCast(CPU.Memory(FlatCSIP), CPU8086Class.OpcodesE)
          Dim Code As String = Disassemble(CPU.Memory.ToList(), FlatCSIP, Count:=If(Opcode = CPU8086Class.OpcodesE.REPNE OrElse Opcode = CPU8086Class.OpcodesE.REPZ, &H2%, &H1%))
-         Dim Override As CPU8086Class.SegmentRegistersE? = CPU.SegmentOverride()
+         Dim Override As CPU8086Class.SegmentRegistersE? = CPU.SegmentOverride(, Preserve:=True)
 
          CPUEvent.Append($"{Code}{GetRegisterValues()}{NewLine}")
          If Code.Contains(MEMORY_OPERAND_START) AndAlso Code.Contains(MEMORY_OPERAND_END) Then

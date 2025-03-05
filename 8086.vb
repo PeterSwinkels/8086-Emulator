@@ -1509,7 +1509,7 @@ Public Class CPU8086Class
    End Function
 
    'This procedure manages the current segment override.
-   Public Function SegmentOverride(Optional NewOverride As SegmentRegistersE? = Nothing) As SegmentRegistersE?
+   Public Function SegmentOverride(Optional NewOverride As SegmentRegistersE? = Nothing, Optional Preserve As Boolean = False) As SegmentRegistersE?
       Dim Override As SegmentRegistersE? = Nothing
       Static CurrentOverride As SegmentRegistersE? = Nothing
 
@@ -1518,7 +1518,7 @@ Public Class CPU8086Class
          Override = CurrentOverride
       Else
          Override = CurrentOverride
-         CurrentOverride = Nothing
+         If Not Preserve Then CurrentOverride = Nothing
       End If
 
       Return Override
