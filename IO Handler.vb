@@ -15,18 +15,18 @@ Public Module IO_Handler
       PITCounter1 = &H41%               'RAM refresh counter.
       PITCounter2 = &H42%               'Cassette and speaker.
       PITModeControl = &H43%            'Mode control register.
-      MMA3B0 = &H3B0%                   '6845 MMA.
-      MMA3B1 = &H3B1%                   '6845 MMA.
-      MMA3B2 = &H3B2%                   '6845 MMA.
-      MMA3B3 = &H3B3%                   '6845 MMA.
-      MMAIndex = &H3B4%                 'Index register.
-      MMAData = &H3B5%                  'Data register.
-      MMA3B6 = &H3B6%                   'Decodes to 0x3B4.
-      MMA3B7 = &H3B7%                   'Decodes to 0x3B5.
-      MMAMode = &H3B8%                  'Mode control register.
-      MMAColor = &H3B9%                 'Color select register.
-      MMAStatus = &H3BA%                'Status register.
-      MMALightPenStrobeReset = &H3BB%   'Light pen strobe reset.
+      MDA3B0 = &H3B0%                   '6845 MDA.
+      MDA3B1 = &H3B1%                   '6845 MDA.
+      MDA3B2 = &H3B2%                   '6845 MDA.
+      MDA3B3 = &H3B3%                   '6845 MDA.
+      MDAIndex = &H3B4%                 'Index register.
+      MDAData = &H3B5%                  'Data register.
+      MDA3B6 = &H3B6%                   'Decodes to 0x3B4.
+      MDA3B7 = &H3B7%                   'Decodes to 0x3B5.
+      MDAMode = &H3B8%                  'Mode control register.
+      MDAColor = &H3B9%                 'Color select register.
+      MDAStatus = &H3BA%                'Status register.
+      MDALightPenStrobeReset = &H3BB%   'Light pen strobe reset.
       CGA3D0 = &H3D0%                   '6845 CGA.
       CGA3D1 = &H3D1%                   '6845 CGA.
       CGA3D2 = &H3D2%                   '6845 CGA.
@@ -43,6 +43,8 @@ Public Module IO_Handler
    End Enum
 
    Private Const PIT_IO_PORT_MASK As Integer = &H3%   'Defines the PIT I/O port number bits.
+
+   Private ReadOnly _6845 As New _6845Class           'Contains the 6845 Motorola CRT Controller.
    Private ReadOnly PIT As New PITClass               'Contains the 8253 PIT.
 
    'This procedure attempts to read from the specified I/O port and returns the result.
@@ -51,6 +53,8 @@ Public Module IO_Handler
          Dim Value As Integer? = Nothing
 
          Select Case Port
+            Case IOPortsE.MDAStatus
+               Value = _6845._3BA()
             Case IOPortsE.PITCounter0 To IOPortsE.PITCounter2
                Value = PIT.ReadCounter(Port And PIT_IO_PORT_MASK)
             Case IOPortsE.PITModeControl

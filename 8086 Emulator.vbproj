@@ -117,6 +117,7 @@
     <Reference Include="System.Net.Http" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="6845.vb" />
     <Compile Include="8086.vb" />
     <Compile Include="Assembler.vb" />
     <Compile Include="BIOS Data Area.vb" />

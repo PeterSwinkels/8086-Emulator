@@ -431,7 +431,7 @@ Public Class CPU8086Class
    Public Event Halt()                                                                   'Defines the halt event.
    Public Event Interrupt(Number As Integer, AH As Integer)                              'Defines the interrupt event.
    Public Event ReadIOPort(Port As Integer, ByRef Value As Integer, Is8Bit As Boolean)   'Defines the IO port read event.
-   Public Event Trace()                                                                  'Defines the trace event.
+   Public Event Trace(FlatCSIP As Integer)                                               'Defines the trace event.
    Public Event WriteIOPort(Port As Integer, Value As Integer, Is8Bit As Boolean)        'Defines the IO port write event.
 
    'This procedure initializes the CPU.
@@ -556,13 +556,17 @@ Public Class CPU8086Class
 
    'This procedure gives the CPU the command to execute instructions.
    Public Function Execute() As Task(Of Integer)
+      Dim FlatCSIP As New Integer
+
       Do Until ClockToken.Token.IsCancellationRequested
-         If Tracing Then RaiseEvent Trace()
+         If Tracing Then FlatCSIP = GetFlatCSIP()
 
          If Not ExecuteOpcode() Then
             ExecuteInterrupt(OpcodesE.INT, Number:=INVALID_OPCODE)
             Exit Do
          End If
+
+         If Tracing Then RaiseEvent Trace(FlatCSIP)
       Loop
 
       Return Task.FromResult(GetFlatCSIP())
@@ -1202,16 +1206,16 @@ Public Class CPU8086Class
             OperandPair = GetOperandPair(CByte(Opcode And &H1%), CByte(Operand))
 
             With OperandPair
-               .Value1 = CInt(Registers(.Operand1))
-               If TypeOf .Operand2 Is MemoryOperandsE Then
+               .Value1 = CInt(Registers(.Operand2))
+               If TypeOf .Operand1 Is MemoryOperandsE Then
                   .Value2 = If(.Is8Bit, Memory(CInt(.FlatAddress)), GetWord(CInt(.FlatAddress)))
-               ElseIf TypeOf .Operand2 Is Registers16BitE OrElse TypeOf .Operand2 Is SubRegisters8BitE Then
-                  .Value2 = CInt(Registers(.Operand2))
+               ElseIf TypeOf .Operand1 Is Registers16BitE OrElse TypeOf .Operand1 Is SubRegisters8BitE Then
+                  .Value2 = CInt(Registers(.Operand1))
                End If
 
-               Registers(.Operand1, NewValue:= .Value2)
-               .Operand1 = .Operand2
+               Registers(.Operand2, NewValue:= .Value2)
                .NewValue = .Value1
+
                SetNewValue(OperandPair)
             End With
          Case OpcodesE.XLAT
@@ -1505,7 +1509,7 @@ Public Class CPU8086Class
    End Function
 
    'This procedure manages the current segment override.
-   Private Function SegmentOverride(Optional NewOverride As SegmentRegistersE? = Nothing) As SegmentRegistersE?
+   Public Function SegmentOverride(Optional NewOverride As SegmentRegistersE? = Nothing) As SegmentRegistersE?
       Dim Override As SegmentRegistersE? = Nothing
       Static CurrentOverride As SegmentRegistersE? = Nothing
 

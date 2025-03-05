@@ -32,6 +32,7 @@ Public Module BIOSDataAreaClass
    Public Enum AddressesE As Integer
       CursorPositions = &H450%     'Cursor positions.
       CursorScanLines = &H460%     'Cursor scan line start/end.
+      EquipmentFlags = &H410%      'Equipment flags.
       Text80x25Mono = &HB0000%     '80x25 monochrome text video buffer.
       VGA320x200 = &HA0000%        '320x200 VGA video buffer.
       VideoMode = &H449%           'Current video mode.
@@ -39,5 +40,18 @@ Public Module BIOSDataAreaClass
       VideoPage = &H462%           'Current video page.
    End Enum
 
-   Public Const MAXIMUM_VIDEO_PAGE_COUNT As Integer = &H8%   'Defines the maximum number of video pages.
+   'This enumeration lists the supported Teletype control characters
+   Public Enum TeletypeE As Byte
+      BEL = &H7%
+      BS = &H8%
+      TAB = &H9%
+      LF = &HA%
+      CR = &HD%
+   End Enum
+
+   Public Const MAXIMUM_VIDEO_PAGE_COUNT As Integer = &H8%          'Defines the maximum number of video pages.
+   Public Const TEXT_80_X_25_BYTES_PER_ROW As Integer = &HA0%       'Defines the number of bytes per row used by 80x25 monochrome text mode 
+   Public Const TEXT_80_X_25_COLUMN_COUNT As Integer = &H50%        'Defines the number of columns used by 80x25 monochrome text mode 
+   Public Const TEXT_80_X_25_LINE_COUNT As Integer = &H19%          'Defines the number of lines used by 80x25 monochrome text mode 
+   Public Const TEXT_80_X_25_MONO_BUFFER_SIZE As Integer = &HFA0%   'Defines the 80x25 monochrome text mode video memory's size.
 End Module

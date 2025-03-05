@@ -6,6 +6,7 @@ Option Strict On
 
 Imports System
 Imports System.Convert
+Imports System.Diagnostics
 Imports System.Drawing
 Imports System.Linq
 Imports System.Windows.Forms
@@ -20,13 +21,12 @@ Public Class Text80x25MonoClass
    Private Const BRIGHT_BITMASK As Integer = &H8%          'Defines the bright character attribute bit.
    Private Const NON_BLINK_ATTRIBUTES As Integer = &H7F%   'Defines the attribute bits not related to blinking.
    Private Const UNDERLINE_BITMASK As Integer = &H7%       'Defines the character underline attribute bits.
-   Private Const VIDEO_SIZE As Integer = &HFA0%            'Defines the video memory's size.
 
-   Private ReadOnly BLACK_ATTRIBUTES() As Integer = {&H0%, &H8%, &H80%, &H88%}                                  'Defines the black character attributes.
-   Private ReadOnly CHARACTER_SIZE As Size = New Size(9, 14)                                                    'Defines the character size.
-   Private ReadOnly FONT_NORMAL As New Font("Px437 IBM MDA", emSize:=9)                                         'Defines the normal font.
-   Private ReadOnly FONT_UNDERLINE As New Font("Px437 IBM MDA", emSize:=9, FontStyle.Underline)                 'Defines the underlined font.
-   Private ReadOnly TEXT_SCREEN_SIZE As Size = New Size(80 * CHARACTER_SIZE.Width, 25 * CHARACTER_SIZE.Height)  'Defines the screen size measured in characters.
+   Private ReadOnly BLACK_ATTRIBUTES() As Integer = {&H0%, &H8%, &H80%, &H88%}                                        'Defines the black character attributes.
+   Private ReadOnly CHARACTER_SIZE As Size = New Size(9, 14)                                                          'Defines the character size.
+   Private ReadOnly FONT_NORMAL As New Font("Px437 IBM MDA", emSize:=9)                                               'Defines the normal font.
+   Private ReadOnly FONT_UNDERLINE As New Font("Px437 IBM MDA", emSize:=9, FontStyle.Underline)                       'Defines the underlined font.
+   Private ReadOnly TEXT_SCREEN_SIZE As Size = New Size(&H50% * CHARACTER_SIZE.Width, &H19% * CHARACTER_SIZE.Height)  'Defines the screen size measured in characters.
 
    Private BlinkCharactersVisible As Boolean = True  'Indicates whether or not the blinking characters are visible.
 
@@ -43,7 +43,7 @@ Public Class Text80x25MonoClass
       With Graphics.FromImage(Screen)
          .Clear(Color.Black)
 
-         For Position As Integer = AddressesE.Text80x25Mono To AddressesE.Text80x25Mono + VIDEO_SIZE Step &H2%
+         For Position As Integer = AddressesE.Text80x25Mono To AddressesE.Text80x25Mono + TEXT_80_X_25_MONO_BUFFER_SIZE Step &H2%
             Character = ToChar(CodePage(Memory(Position)))
             Attribute = Memory(Position + &H1%)
 

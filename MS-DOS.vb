@@ -14,6 +14,15 @@ Imports System.Math
 
 'This module handles MS-DOS related functions.
 Public Module MSDOSModule
+   'This enumeration lists the STD file handles.
+   Private Enum STDFileHandlesE As Integer
+      STDIN    'Input.
+      STDOUT   'Output.
+      STDERR   'Error.
+      STDAUX   'Auxiliary.
+      STDPRN   'Printer.
+   End Enum
+
    Private Const CARRY_FLAG_INDEX As Integer = &H0%                     'Defines the carry flag's bit index.
    Private Const ERROR_INSUFFICIENT_MEMORY As Integer = &H8%            'Defines the insufficient memory error code.
    Private Const ERROR_INVALID_MEMORY_BLOCK_ADDRESS As Integer = &H9%   'Defines the invalid memory block address error code.
@@ -160,6 +169,8 @@ Public Module MSDOSModule
    Public Function HandleMSDOSInterrupt(Number As Integer, AH As Integer, ByRef Flags As Integer) As Boolean
       Try
          Dim Address As New Integer
+         Dim Count As New Integer
+         Dim Position As New Integer
          Dim Result As New Integer?
          Dim Success As Boolean = False
 
@@ -180,6 +191,20 @@ Public Module MSDOSModule
                      CPU.Registers(CPU8086Class.SegmentRegistersE.ES, NewValue:=CPU.GetWord(Address + &H2%))
                      CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=CPU.GetWord(Address))
                      Success = True
+                  Case &H40%
+                     Select Case DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.BX), STDFileHandlesE)
+                        Case STDFileHandlesE.STDOUT, STDFileHandlesE.STDERR
+                           Count = CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX))
+                           Position = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
+                           For Character As Integer = &H0% To Count - &H1%
+                              TeleType(CPU.Memory(Position And CPU8086Class.ADDRESS_MASK))
+                              Position += &H1%
+                           Next Character
+
+                           CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=Count)
+
+                           Success = True
+                     End Select
                   Case &H48%
                      Result = AllocateMemory(CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)) << &H4%)
                      CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=(LargestFreeMemoryBlock() >> &H4%))
@@ -275,6 +300,10 @@ Public Module MSDOSModule
                   Executable(RelocationItemFlatAddress) = ToByte((CInt(Executable(RelocationItemFlatAddress)) + (RelocatedCS >> &H8%)) And &HFF%)
                   Executable(RelocationItemFlatAddress + &H1%) = ToByte((CInt(Executable(RelocationItemFlatAddress + &H1%)) + (RelocatedCS And &HFF%)) And &HFF%)
                Next Position
+            End If
+
+            If Allocations.FindIndex(Function(Allocation) Allocation.Item1 = CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) < 0 Then
+               Allocations.Add(Tuple.Create(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%, ((Executable.Count >> &H4%) + &H1%) << &H4%))
             End If
 
             Executable.CopyTo(CPU.Memory, LoadAddress)

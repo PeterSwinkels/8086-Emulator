@@ -18,6 +18,7 @@ Public Module CursorModule
       Public Y As Integer               'Defines the cursors's vertical position.
    End Structure
 
+   Public Const CURSOR_DEFAULT As Integer = &HD0E%     'Defines the default cursor's scan lines.
    Public Const CURSOR_DISABLED As Integer = &H2000%   'Defines the disabled cursor indicator.
 
    Public Cursor As New CursorStr With {.Off = False, .X = 0, .Y = 0, .Visible = False}   'Contains the cursor.

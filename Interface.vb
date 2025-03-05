@@ -53,7 +53,7 @@ Public Class InterfaceWindow
             ParseCommand(CommandBox.Text)
          End If
 
-         LastCommand = CommandBox.Text
+         If Not CommandBox.Text.Trim() = Nothing Then LastCommand = CommandBox.Text
 
          CommandBox.Clear()
          MouseCursorStatus(Busy:=False)
@@ -88,7 +88,10 @@ Public Class InterfaceWindow
    'This procedure handles the user's keystrokes.
    Private Sub InterfaceWindow_KeyUp(sender As Object, e As KeyEventArgs) Handles MyBase.KeyUp
       Try
-         If e.KeyCode = Keys.F3 AndAlso Not LastCommand = Nothing Then CommandBox.Text = LastCommand
+         If e.KeyCode = Keys.F3 AndAlso Not LastCommand = Nothing Then
+            CommandBox.Text = LastCommand
+            CommandBox.Select(CommandBox.Text.Length, 0)
+         End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

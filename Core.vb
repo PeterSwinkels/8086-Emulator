@@ -169,20 +169,26 @@ Public Module CoreModule
    End Sub
 
    'This procedure handles CPU tracing events.
-   Private Sub CPU_Trace() Handles CPU.Trace
+   Private Sub CPU_Trace(FlatCSIP As Integer) Handles CPU.Trace
       Try
          Dim Address As New Integer?
-         Dim Opcode As CPU8086Class.OpcodesE = DirectCast(CPU.Memory(GetFlatCSIP()), CPU8086Class.OpcodesE)
-         Dim Code As String = Disassemble(CPU.Memory.ToList(), GetFlatCSIP(), Count:=If(Opcode = CPU8086Class.OpcodesE.REPNE OrElse Opcode = CPU8086Class.OpcodesE.REPZ, &H2%, &H1%))
+         Dim Opcode As CPU8086Class.OpcodesE = DirectCast(CPU.Memory(FlatCSIP), CPU8086Class.OpcodesE)
+         Dim Code As String = Disassemble(CPU.Memory.ToList(), FlatCSIP, Count:=If(Opcode = CPU8086Class.OpcodesE.REPNE OrElse Opcode = CPU8086Class.OpcodesE.REPZ, &H2%, &H1%))
+         Dim Override As CPU8086Class.SegmentRegistersE? = CPU.SegmentOverride()
 
          CPUEvent.Append($"{Code}{GetRegisterValues()}{NewLine}")
          If Code.Contains(MEMORY_OPERAND_START) AndAlso Code.Contains(MEMORY_OPERAND_END) Then
             Address = CPU.AddressFromOperand(CPU8086Class.MemoryOperandsE.LAST).FlatAddress
+            If Address Is Nothing Then
+               Address = ToInt32(ParseElement(Code, $"{MEMORY_OPERAND_START}{Disassembler.HEXADECIMAL_PREFIX}", MEMORY_OPERAND_END).Element, fromBase:=16)
+               Address = (CInt(CPU.Registers(If(Override Is Nothing, CPU8086Class.SegmentRegistersE.DS, Override))) << &H4%) + Address
+            End If
             If Address IsNot Nothing Then
+               Address = Address And CPU8086Class.ADDRESS_MASK
                CPUEvent.Append($"{MEMORY_OPERAND_START}0x{Address:X8}{MEMORY_OPERAND_END} = {GetMemoryValue(CInt(Address))}{NewLine}")
             End If
          Else
-               CPUEvent.Append($"{NewLine}")
+            CPUEvent.Append($"{NewLine}")
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -462,6 +468,7 @@ Public Module CoreModule
          Dim Count As New Integer?
          Dim ErrorAt As New Integer
          Dim FileName As String = Nothing
+         Dim FlatCSIP As New Integer
          Dim Interrupt As New Integer?
          Dim Is8Bit As New Boolean
          Dim NewValue As New Integer?
@@ -580,19 +587,20 @@ Public Module CoreModule
                   Case "ST"
                      Output.AppendText(GetStack())
                   Case "T"
-                     CPU_Trace()
+                     FlatCSIP = GetFlatCSIP()
 
                      If Not CPU.ExecuteOpcode() Then
                         CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Number:=CPU8086Class.INVALID_OPCODE)
                      End If
+
+                     CPU_Trace(FlatCSIP)
                   Case "TE"
                      If Not CPU.Clock.Status = TaskStatus.Running Then
+                        CPU.Tracing = True
                         CPU.ClockToken = New CancellationTokenSource
                         CPU.Clock = New Task(AddressOf CPU.Execute)
                         CPU.Clock.Start()
                      End If
-
-                     CPU.Tracing = True
                   Case "TS"
                      CPU.ClockToken.Cancel()
                      CPU.Tracing = False
@@ -652,16 +660,16 @@ Public Module CoreModule
       End Try
    End Sub
 
-   'This procedure extracts an element from the specified command and returns the result.
-   Private Function ParseElement(Command As String, Start As String, Ending As String) As ParsedStr
+   'This procedure extracts an element from the specified text and returns the result.
+   Private Function ParseElement(Text As String, Start As String, Ending As String) As ParsedStr
       Try
-         Dim Position As Integer = If(Start = Nothing, 0, Command.IndexOf(Start) + 1)
-         Dim NextPosition As Integer = If(Ending = Nothing, Command.Length, Command.IndexOf(Ending, Position + 1))
+         Dim Position As Integer = If(Start = Nothing, 0, Text.IndexOf(Start) + 1)
+         Dim NextPosition As Integer = If(Ending = Nothing, Text.Length, Text.IndexOf(Ending, Position + 1))
 
          If Position < 0 Then Position = 0
-         If NextPosition < 0 Then NextPosition = Command.Length
+         If NextPosition < 0 Then NextPosition = Text.Length
 
-         Return New ParsedStr With {.Element = Command.Substring(Position, NextPosition - Position), .Remainder = If(NextPosition >= Command.Length, "", Command.Substring(NextPosition + 1))}
+         Return New ParsedStr With {.Element = Text.Substring(Position, NextPosition - Position), .Remainder = If(NextPosition >= Text.Length, "", Text.Substring(NextPosition + 1))}
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
