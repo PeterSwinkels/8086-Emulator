@@ -138,8 +138,11 @@ Public Module InterruptHandlerModule
                            Success = True
                      End Select
                End Select
-                  Case &H11%
-               CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CPU.Memory(AddressesE.EquipmentFlags))
+            Case &H11%
+               CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CPU.GetWord(AddressesE.EquipmentFlags))
+               Success = True
+            Case &H12%
+               CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CPU.GetWord(AddressesE.MemorySize))
                Success = True
             Case &H16%
                Select Case AH

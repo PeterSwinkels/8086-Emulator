@@ -33,6 +33,7 @@ Public Module BIOSDataAreaClass
       CursorPositions = &H450%     'Cursor positions.
       CursorScanLines = &H460%     'Cursor scan line start/end.
       EquipmentFlags = &H410%      'Equipment flags.
+      MemorySize = &H413%          'Memory size.
       Text80x25Mono = &HB0000%     '80x25 monochrome text video buffer.
       VGA320x200 = &HA0000%        '320x200 VGA video buffer.
       VideoMode = &H449%           'Current video mode.

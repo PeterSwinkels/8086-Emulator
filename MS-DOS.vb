@@ -177,6 +177,14 @@ Public Module MSDOSModule
          Select Case Number
             Case &H21%
                Select Case AH
+                  Case &H9%
+                     Position = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
+                     Do Until ToChar(CPU.Memory(Position And CPU8086Class.ADDRESS_MASK)) = "$"c
+                        TeleType(CPU.Memory(Position And CPU8086Class.ADDRESS_MASK))
+                        Position += &H1%
+                     Loop
+
+                     Success = True
                   Case &H25%
                      Address = AH * &H4%
                      CPU.PutWord(Address + &H2%, CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)))
@@ -256,10 +264,20 @@ Public Module MSDOSModule
          Else
             Output.AppendText($"Loading the compact binary executable ""{FileName}"" at address {LoadAddress:X8}.{NewLine}")
             Executable.CopyTo(CPU.Memory, LoadAddress + &H100%)
+            CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=&HFFFF%)
+            CPU.Registers(CPU8086Class.Registers16BitE.CX, NewValue:=Executable.Count)
+            CPU.Registers(CPU8086Class.Registers16BitE.DX, NewValue:=&H0%)
+            CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=&H0%)
             CPU.Registers(CPU8086Class.SegmentRegistersE.CS, NewValue:=CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)))
+            CPU.Registers(CPU8086Class.SegmentRegistersE.ES, NewValue:=CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)))
             CPU.Registers(CPU8086Class.Registers16BitE.IP, NewValue:=&H100%)
+            CPU.Registers(CPU8086Class.Registers16BitE.BP, NewValue:=&H0%)
             CPU.Registers(CPU8086Class.Registers16BitE.SP, NewValue:=&HFFFF%)
             CPU.Registers(CPU8086Class.SegmentRegistersE.SS, NewValue:=CPU.Registers(CPU8086Class.SegmentRegistersE.CS))
+
+            If Allocations.FindIndex(Function(Allocation) Allocation.Item1 = CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) < 0 Then
+               Allocations.Add(Tuple.Create(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%, ((Executable.Count >> &H4%) + &H1%) << &H4%))
+            End If
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
