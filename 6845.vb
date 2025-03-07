@@ -4,12 +4,8 @@ Option Explicit On
 Option Infer Off
 Option Strict On
 
-Imports System
 Imports System.Diagnostics
-Imports System.Linq
-Imports System.Math
-Imports System.Threading
-Imports System.Threading.Tasks
+
 
 'This class contains the 6845 Motorola CRT Controller's related procedures.
 Public Class _6845Class
@@ -22,4 +18,14 @@ Public Class _6845Class
    Public Function _3BA() As Byte
       Return CByte(If(CYCLE_CLOCK.ElapsedMilliseconds Mod FRAME_DURATION >= (FRAME_DURATION - RETRACE_DURATION), &H80%, &H2%))
    End Function
+
+   'This procedure selects the specified color palette.
+   Public Sub _3D9(Value As Integer)
+      Select Case Value
+         Case &H0%
+            Palette = PALETTE0
+         Case &H20%
+            Palette = PALETTE1
+      End Select
+   End Sub
 End Class

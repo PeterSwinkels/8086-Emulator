@@ -11,6 +11,9 @@ Public Interface VideoAdapterClass
    'This procedure draws the specified CPU memory's content onto the specified image.
    Sub Display(Screen As Image, Memory() As Byte, CodePage() As Integer)
 
+   'This procedure initializes the video adapter.
+   Sub Initialize()
+
    'This procedure returns the screen size used by a video adapter.
    Function ScreenSize() As Size
 End Interface

@@ -14,13 +14,32 @@ Public Class VGA320x200Class
 
    'This procedure draws the specified video buffer's context on the specified image.
    Public Sub Display(Screen As Image, Memory() As Byte, CodePage() As Integer) Implements VideoAdapterClass.Display
-      For y As Integer = 0 To ScreenSize.Height - 1
-         For x As Integer = 0 To ScreenSize.Width - 1
-            With DirectCast(Screen, Bitmap)
+      With DirectCast(Screen, Bitmap)
+         For y As Integer = 0 To ScreenSize.Height - 1
+            For x As Integer = 0 To ScreenSize.Width - 1
                .SetPixel(x, y, Color.FromArgb(DEFAULT_PALETTE(Memory(AddressesE.VGA320x200 + ((y * ScreenSize.Width) + x))) Or &HFF000000%))
-            End With
-         Next x
-      Next y
+            Next x
+         Next y
+      End With
+   End Sub
+
+   'This procedure initializes the video adapter.
+   Public Sub Initialize() Implements VideoAdapterClass.Initialize
+      Dim Count As New Integer
+      Dim Position As New Integer
+
+      Count = (vGA_320_x_200_BUFFER_SIZE \ &H2%)
+      Position = AddressesE.VGA320x200
+      Do While Count > &H0%
+         CPU.PutWord(Position, &H0%)
+         Count -= &H1%
+         Position += &H2%
+      Loop
+
+      CPU.Memory(AddressesE.VideoPage) = &H0%
+      CPU.PutWord(AddressesE.CursorPositions, Word:=&H0%)
+      CPU.PutWord(AddressesE.CursorScanLines, Word:=CURSOR_DEFAULT)
+      CursorBlink.Enabled = False
    End Sub
 
    'This procedure returns the screen size used by a video adapter.

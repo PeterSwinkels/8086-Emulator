@@ -121,6 +121,7 @@
     <Compile Include="8086.vb" />
     <Compile Include="Assembler.vb" />
     <Compile Include="BIOS Data Area.vb" />
+    <Compile Include="CGA320x200.vb" />
     <Compile Include="Core.vb" />
     <Compile Include="Cursor.vb" />
     <Compile Include="Disassembler.vb" />

@@ -75,6 +75,8 @@ Public Module IO_Handler
          Dim Success As Boolean = True
 
          Select Case Port
+            Case IOPortsE.CGAColor
+               _6845._3D9(Value)
             Case IOPortsE.PITCounter0 To IOPortsE.PITCounter2
                PIT.WriteCounter(Port And PIT_IO_PORT_MASK, NewValue:=CByte(Value))
             Case IOPortsE.PITModeControl

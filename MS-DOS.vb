@@ -10,7 +10,6 @@ Imports System.Convert
 Imports System.Environment
 Imports System.IO
 Imports System.Linq
-Imports System.Math
 
 'This module handles MS-DOS related functions.
 Public Module MSDOSModule
@@ -290,7 +289,7 @@ Public Module MSDOSModule
          Dim HeaderSize As Integer = BitConverter.ToUInt16(Executable.ToArray(), EXE_HEADER_SIZE) << &H4%
          Dim InitialSP As Integer = BitConverter.ToUInt16(Executable.ToArray(), EXE_INITIAL_SP)
          Dim InitialSS As Integer = BitConverter.ToUInt16(Executable.ToArray(), EXE_INITIAL_SS)
-         Dim RelocatedCS As Integer = ((LoadAddress + HeaderSize) >> &H4%) + Executable(EXE_INITIAL_CS)
+         Dim RelocatedCS As Integer = ((LoadAddress + HeaderSize) >> &H4%) + BitConverter.ToUInt16(Executable.ToArray(), EXE_INITIAL_CS)
          Dim RelocationItemFlatAddress As New Integer
          Dim RelocationItemOffset As New Integer
          Dim RelocationItemSegment As New Integer

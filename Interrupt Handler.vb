@@ -21,27 +21,6 @@ Public Module InterruptHandlerModule
       Public LRCColumn As Integer   'Defines the lower right corner's column.
    End Structure
 
-   'This procedure clears the emulated screen buffer.
-   Private Sub ClearScreen()
-      Try
-         Dim Count As New Integer
-         Dim Position As New Integer
-
-         Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
-            Case VideoModesE.Text80x25Mono
-               Count = (TEXT_80_X_25_MONO_BUFFER_SIZE \ &H2%)
-               Position = AddressesE.Text80x25Mono
-               Do While Count > &H0%
-                  CPU.PutWord(Position, &H200%)
-                  Count -= &H1%
-                  Position += &H2%
-               Loop
-         End Select
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
-   End Sub
-
    'This procedure handles the specified interrupt and returns whether or not is succeeded.
    Public Function HandleInterrupt(Number As Integer, AH As Integer) As Boolean
       Try
@@ -66,12 +45,7 @@ Public Module InterruptHandlerModule
                      If [Enum].IsDefined(GetType(VideoModesE), VideoMode) Then
                         CPU.Memory(AddressesE.VideoMode) = VideoMode
                         CPU.Memory(AddressesE.VideoModeOptions) = CByte(SetBit(CPU.Memory(AddressesE.VideoModeOptions), VideoModeBit7, Index:=&H7%))
-                        CPU.PutWord(AddressesE.CursorScanLines, Word:=CURSOR_DEFAULT)
-                        CPU.Memory(AddressesE.VideoPage) = &H0%
-                        For Page As Integer = &H0% To MAXIMUM_VIDEO_PAGE_COUNT - &H1%
-                           CPU.PutWord(AddressesE.CursorPositions + (Page * &H2%), Word:=&H0%)
-                        Next Page
-                        ClearScreen()
+                        VideoAdapter.Initialize()
                      End If
                      Success = True
                   Case &H1%
@@ -120,6 +94,19 @@ Public Module InterruptHandlerModule
                               Count -= &H1%
                               Position += &H2%
                            Loop
+                     End Select
+                     Success = True
+                  Case &HB%
+                     Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH))
+                        Case &H0%
+                           BackgroundColor = BACKGROUND_COLORS(CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL)) And &HF%)
+                        Case &H1%
+                           Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL))
+                              Case &H0%
+                                 Palette = PALETTE0
+                              Case &H1%
+                                 Palette = PALETTE1
+                           End Select
                      End Select
                      Success = True
                   Case &HE%
@@ -180,11 +167,18 @@ Public Module InterruptHandlerModule
       Try
          Dim Attribute As New Integer
          Dim CharacterCell As New Integer
+         Dim Position As New Integer
 
          Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
             Case VideoModesE.Text80x25Mono
                If Count = &H0% OrElse Count > TEXT_80_X_25_LINE_COUNT Then
-                  ClearScreen()
+                  Count = (TEXT_80_X_25_MONO_BUFFER_SIZE \ &H2%)
+                  Position = AddressesE.Text80x25Mono
+                  Do While Count > &H0%
+                     CPU.PutWord(Position, &H200%)
+                     Count -= &H1%
+                     Position += &H2%
+                  Loop
                Else
                   Attribute = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH))
                   For Scroll As Integer = &H1% To Count

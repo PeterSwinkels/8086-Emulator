@@ -89,11 +89,26 @@ Public Class Text80x25MonoClass
 
    'This procedure regulates the blinking characters's blinking.
    Private Sub CharacterBlink_Tick(sender As Object, e As EventArgs) Handles CharacterBlink.Tick
-      Try
-         BlinkCharactersVisible = Not BlinkCharactersVisible
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
+      BlinkCharactersVisible = Not BlinkCharactersVisible
+   End Sub
+
+   'This procedure initializes the video adapter.
+   Public Sub Initialize() Implements VideoAdapterClass.Initialize
+      Dim Count As New Integer
+      Dim Position As New Integer
+
+      Count = (TEXT_80_X_25_MONO_BUFFER_SIZE \ &H2%)
+      Position = AddressesE.Text80x25Mono
+      Do While Count > &H0%
+         CPU.PutWord(Position, &H200%)
+         Count -= &H1%
+         Position += &H2%
+      Loop
+
+      CPU.Memory(AddressesE.VideoPage) = &H0%
+      CPU.PutWord(AddressesE.CursorPositions, Word:=&H0%)
+      CPU.PutWord(AddressesE.CursorScanLines, Word:=CURSOR_DEFAULT)
+      CursorBlink = New Timer With {.Enabled = True, .Interval = 500}
    End Sub
 
    'This procedure returns the screen size used by a video adapter.

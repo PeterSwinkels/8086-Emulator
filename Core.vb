@@ -41,9 +41,10 @@ Public Module CoreModule
    Private WithEvents Assembler As New AssemblerClass         'Contains a reference to the assembler.
    Private WithEvents Disassembler As New DisassemblerClass   'Contains a reference to the disassembler.
 
-   Public AssemblyModeOn As Boolean = False            'Indicates whether input is interpreted as assembly language.
-   Public CPUEvent As New StringBuilder                'Contains CPU event specific text.
-   Public Output As TextBox = Nothing                  'Contains a reference to an output.
+   Public AssemblyModeOn As Boolean = False                            'Indicates whether input is interpreted as assembly language.
+   Public CPUEvent As New StringBuilder                                'Contains CPU event specific text.
+   Public Output As TextBox = Nothing                                  'Contains a reference to an output.
+   Public VideoAdapter As VideoAdapterClass = New Text80x25MonoClass   'Contains a reference to the video adapter used.
 
    Private ReadOnly GET_OPERAND As Func(Of String, String) = Function(Input As String) (Input.Substring(Input.IndexOf(ASSIGNMENT_OPERATOR) + 1))                                                                                                             'Returns the specified input's operand.
    Private ReadOnly IS_CHARACTER_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(CHARACTER_OPERAND_DELIMITER) AndAlso Operand.Trim().EndsWith(CHARACTER_OPERAND_DELIMITER) AndAlso Operand.Trim().Length = 3)   'Indicates whether the specified operand is a character.

@@ -4,6 +4,8 @@ Option Explicit On
 Option Infer Off
 Option Strict On
 
+Imports System.Drawing
+
 'This module contains BIOS data area related information.
 Public Module BIOSDataAreaClass
    'This enumeration lists the video modes.
@@ -30,6 +32,7 @@ Public Module BIOSDataAreaClass
 
    'This enumeration lists the flat addresses of BIOS data area locations.
    Public Enum AddressesE As Integer
+      CGA320x200 = &HB8000%        '320x200 CGA video buffer.
       CursorPositions = &H450%     'Cursor positions.
       CursorScanLines = &H460%     'Cursor scan line start/end.
       EquipmentFlags = &H410%      'Equipment flags.
@@ -43,16 +46,25 @@ Public Module BIOSDataAreaClass
 
    'This enumeration lists the supported Teletype control characters
    Public Enum TeletypeE As Byte
-      BEL = &H7%
-      BS = &H8%
-      TAB = &H9%
-      LF = &HA%
-      CR = &HD%
+      BEL = &H7%    'Bell.
+      BS = &H8%     'Backspace.
+      TAB = &H9%    'Tab.
+      LF = &HA%     'Line feed.
+      CR = &HD%     'Carriage return.
    End Enum
 
+   Public Const CGA_320_x_200_BUFFER_SIZE As Integer = &H3E80%      'Defines the 320x200 CGA mode video memory's size.
    Public Const MAXIMUM_VIDEO_PAGE_COUNT As Integer = &H8%          'Defines the maximum number of video pages.
    Public Const TEXT_80_X_25_BYTES_PER_ROW As Integer = &HA0%       'Defines the number of bytes per row used by 80x25 monochrome text mode 
    Public Const TEXT_80_X_25_COLUMN_COUNT As Integer = &H50%        'Defines the number of columns used by 80x25 monochrome text mode 
    Public Const TEXT_80_X_25_LINE_COUNT As Integer = &H19%          'Defines the number of lines used by 80x25 monochrome text mode 
    Public Const TEXT_80_X_25_MONO_BUFFER_SIZE As Integer = &HFA0%   'Defines the 80x25 monochrome text mode video memory's size.
+   Public Const VGA_320_x_200_BUFFER_SIZE As Integer = &HFA00%      'Defines the 320x200 VGA mode video memory's size.
+
+   Public ReadOnly BACKGROUND_COLORS() As Color = {Color.Black, Color.DarkBlue, Color.DarkGreen, Color.DarkCyan, Color.DarkRed, Color.Purple, Color.Brown, Color.White, Color.Gray, Color.Blue, Color.Green, Color.Cyan, Color.Red, Color.Pink, Color.Yellow, Color.White}   'Contains the background colors.
+   Public ReadOnly PALETTE0() As Color = {Nothing, Color.DarkGreen, Color.DarkRed, Color.Brown}                                                                                                                                                                              'Contains palette #0 colors.
+   Public ReadOnly PALETTE1() As Color = {Nothing, Color.DarkCyan, Color.Purple, Color.White}                                                                                                                                                                                'Contains palette #1 colors.
+
+   Public BackgroundColor As Color = Color.Black   'Contains the current background color.
+   Public Palette() As Color = Nothing             'Contains the current palette.
 End Module
