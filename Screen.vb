@@ -58,8 +58,6 @@ Public Class ScreenWindow
             End Select
 
             Me.ClientSize = VideoAdapter.ScreenSize
-
-            VideoAdapter.Initialize()
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)

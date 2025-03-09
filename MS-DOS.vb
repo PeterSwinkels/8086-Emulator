@@ -313,7 +313,6 @@ Public Module MSDOSModule
                   RelocationItemOffset = BitConverter.ToInt16(Executable.ToArray(), Position)
                   RelocationItemSegment = BitConverter.ToInt16(Executable.ToArray(), Position + &H2%)
                   RelocationItemFlatAddress = (HeaderSize + (RelocationItemSegment << &H4%)) Or RelocationItemOffset
-
                   Executable(RelocationItemFlatAddress) = ToByte((CInt(Executable(RelocationItemFlatAddress)) + (RelocatedCS >> &H8%)) And &HFF%)
                   Executable(RelocationItemFlatAddress + &H1%) = ToByte((CInt(Executable(RelocationItemFlatAddress + &H1%)) + (RelocatedCS And &HFF%)) And &HFF%)
                Next Position

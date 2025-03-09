@@ -5,6 +5,7 @@ Option Infer Off
 Option Strict On
 
 Imports System
+Imports System.BitConverter
 Imports System.Linq
 Imports System.Math
 Imports System.Threading
@@ -580,8 +581,8 @@ Public Class CPU8086Class
 
       Select Case Opcode
          Case OpcodesE.CALL_FAR
-            Offset = GetWordCSIP()
             Segment = GetWordCSIP()
+            Offset = GetWordCSIP()
             Stack(Push:=CInt(Registers(SegmentRegistersE.CS)))
             Stack(Push:=CInt(Registers(Registers16BitE.IP)))
             Registers(SegmentRegistersE.CS, NewValue:=Segment)
@@ -591,8 +592,8 @@ Public Class CPU8086Class
             Stack(Push:=CInt(Registers(Registers16BitE.IP)))
             Registers(Registers16BitE.IP, NewValue:=CInt(Registers(Registers16BitE.IP)) + Operand)
          Case OpcodesE.JMP_FAR
-            Offset = GetWordCSIP()
             Segment = GetWordCSIP()
+            Offset = GetWordCSIP()
             Registers(SegmentRegistersE.CS, NewValue:=Segment)
             Registers(Registers16BitE.IP, NewValue:=Offset)
          Case OpcodesE.JMP_NEAR
@@ -1444,7 +1445,7 @@ Public Class CPU8086Class
 
    'This procedure returns the word at the specified address.
    Public Function GetWord(Address As Integer) As Integer
-      Return Memory(Address And ADDRESS_MASK) Or (CInt(Memory((Address + &H1%) And ADDRESS_MASK)) << &H8%)
+      Return ToInt16(Memory, Address And ADDRESS_MASK)
    End Function
 
    'This procedure returns the word located at CS:IP and adjusts the IP register.

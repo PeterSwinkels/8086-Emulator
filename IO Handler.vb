@@ -7,13 +7,14 @@ Option Strict On
 Imports System
 
 'This module contains the default I/O handler.
-Public Module IO_Handler
+Public Module IOHandlerModule
 
    'This enumeration lists the I/O ports recognized by the CPU.
    Private Enum IOPortsE As Integer
       PITCounter0 = &H40%               'Time of day clock.
       PITCounter1 = &H41%               'RAM refresh counter.
       PITCounter2 = &H42%               'Cassette and speaker.
+      PPIPortB = &H61%                  'Port B output.
       PITModeControl = &H43%            'Mode control register.
       MDA3B0 = &H3B0%                   '6845 MDA.
       MDA3B1 = &H3B1%                   '6845 MDA.
@@ -44,8 +45,10 @@ Public Module IO_Handler
 
    Private Const PIT_IO_PORT_MASK As Integer = &H3%   'Defines the PIT I/O port number bits.
 
-   Private ReadOnly _6845 As New _6845Class           'Contains the 6845 Motorola CRT Controller.
-   Private ReadOnly PIT As New PITClass               'Contains the 8253 PIT.
+   Private ReadOnly MCC As New MCCClass   'Contains the 6845 Motorola CRT Controller.
+   Private ReadOnly PPI As New PPIClass   'Contains the 8255 Programmable Peripheral Interface .
+
+   Private WithEvents PIT As New PITClass   'Contains the 8253 Programmable Interval Timer.
 
    'This procedure attempts to read from the specified I/O port and returns the result.
    Public Function ReadIOPort(Port As Integer) As Integer?
@@ -54,11 +57,13 @@ Public Module IO_Handler
 
          Select Case Port
             Case IOPortsE.MDAStatus
-               Value = _6845._3BA()
+               Value = MCC.Status()
             Case IOPortsE.PITCounter0 To IOPortsE.PITCounter2
                Value = PIT.ReadCounter(Port And PIT_IO_PORT_MASK)
             Case IOPortsE.PITModeControl
                Value = &H0%
+            Case IOPortsE.PPIPortB
+               Value = PPI.PortB()
          End Select
 
          Return Value
@@ -76,7 +81,9 @@ Public Module IO_Handler
 
          Select Case Port
             Case IOPortsE.CGAColor
-               _6845._3D9(Value)
+               MCC.ColorSelect(Value)
+            Case IOPortsE.PPIPortB
+               PPI.PortB(Value)
             Case IOPortsE.PITCounter0 To IOPortsE.PITCounter2
                PIT.WriteCounter(Port And PIT_IO_PORT_MASK, NewValue:=CByte(Value))
             Case IOPortsE.PITModeControl
@@ -92,4 +99,6 @@ Public Module IO_Handler
 
       Return False
    End Function
+
+
 End Module

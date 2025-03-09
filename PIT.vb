@@ -27,6 +27,7 @@ Public Class PITClass
 
    'This structure defines a counter and its settings.
    Private Structure CounterStr
+      Public BCD As Boolean       'Defines whether or not a counter is in BCD mode.
       Public Format As FormatsE   'Defines a counter's format.
       Public Mode As ModesE       'Defines a counter's mode.
       Public MSB As Byte?         'Defines a counter's most significant byte.
@@ -38,14 +39,15 @@ Public Class PITClass
       Public Value As Integer     'Defines a counter's value.
    End Structure
 
-   Private Const COUNTER_MASK As Integer = &H60%   'Defines the counter bits.
-   Private Const FORMAT_MASK As Integer = &H18%    'Defines the format bits.
-   Private Const FREQUENCY As Double = 1193182.0   'Defines the PIT's clock frequency.
-   Private Const MODE_MASK As Integer = &H7%       'Defines the mode bits.
+   Private Const BINARY_BCD_MASK As Integer = &H1%  'Defines the binary/BCD bit.
+   Private Const COUNTER_MASK As Integer = &HC0%    'Defines the counter bits.
+   Private Const FORMAT_MASK As Integer = &H30%     'Defines the format bits.
+   Private Const FREQUENCY As Double = 1193182.0    'Defines the PIT's clock frequency.
+   Private Const MODE_MASK As Integer = &HE%        'Defines the mode bits.
 
    Private ReadOnly Counters(&H0% To &H2%) As CounterStr  'Contains the counters.
 
-   Public Event PITEvt(Mode As ModesE)  'Defines an event triggered by the 8253 PIT.
+   Public Event PITEvent(Counter As Integer, Mode As ModesE)  'Defines an event triggered by the 8253 PIT.
 
    'This procedure initializes this class.
    Public Sub New()
@@ -55,9 +57,28 @@ Public Class PITClass
       Next Counter
    End Sub
 
+   'This procedure caps the specified value's octeds, if necessary, to ensure the value is in BCD and returns the result.
+   Private Function BCDCap(Value As Integer) As Integer
+      Dim BCD As Integer = 0
+      Dim Octed As New Integer
+
+      Do
+         Octed = Value And &HF%
+         BCD = BCD Or If(Octed < &HA%, Octed, &H9%)
+         Value = Value >> &H4%
+         If Value = &H0% Then Exit Do
+         BCD = BCD << &H4%
+      Loop
+
+      Return BCD
+   End Function
+
    'This procedure initializes the specified counter and starts it depending on its mode.
    Private Sub InitializeCounter(Counter As Integer, NewValue As Integer)
       With Counters(Counter)
+         If .BCD Then NewValue = CByte(BCDCap(NewValue))
+         If .Mode = ModesE.Mode3 Then NewValue = NewValue And &HFFFE%
+
          If .[Timer].Enabled Then
             Select Case .Mode
                Case ModesE.Mode0
@@ -82,10 +103,12 @@ Public Class PITClass
 
    'This procedure emulates the mode control register.
    Public Sub ModeControl(NewValue As Integer)
-      Dim Format As FormatsE = DirectCast((NewValue And FORMAT_MASK) >> &H3%, FormatsE)
+      Dim Format As FormatsE = DirectCast((NewValue And FORMAT_MASK) >> &H4%, FormatsE)
 
-      With Counters((NewValue And COUNTER_MASK) >> &H5%)
-         .Mode = DirectCast(NewValue And MODE_MASK, ModesE)
+      With Counters((NewValue And COUNTER_MASK) >> &H6%)
+         .BCD = ((NewValue And BINARY_BCD_MASK) = &H1%)
+         .Mode = DirectCast((NewValue And MODE_MASK) >> &H1%, ModesE)
+
          Select Case Format
             Case FormatsE.MSB To FormatsE.LSBMSB
                .Format = Format
@@ -159,8 +182,7 @@ Public Class PITClass
          With Counters(Counter)
             Select Case .Value
                Case &H0%
-                  RaiseEvent PITEvt(.Mode)
-
+                  RaiseEvent PITEvent(Counter, .Mode)
                   Select Case .Mode
                      Case ModesE.Mode2, ModesE.Mode3
                         .Value = .Reload
@@ -168,7 +190,11 @@ Public Class PITClass
                         .[Timer].Stop()
                   End Select
                Case Else
-                  .Value -= If(.Mode = ModesE.Mode3, &H2%, &H1%)
+                  If .BCD Then
+                     .Value -= If(.Mode = ModesE.Mode3, If((.Value And &HF%) = &H0%, &H8%, &H2%), If((.Value And &HF%) = &H0%, &H7%, &H1%))
+                  Else
+                     .Value -= If(.Mode = ModesE.Mode3, &H2%, &H1%)
+                  End If
             End Select
          End With
       Next Counter
