@@ -1,7 +1,0 @@
-[Script]
-s
-reset
-scr
-ds=1100
-exe .\KeyTest.com
-e
