@@ -15,26 +15,29 @@ Public Class VGA320x200Class
    'This procedure draws the specified video buffer's context on the specified image.
    Public Sub Display(Screen As Image, Memory() As Byte, CodePage() As Integer) Implements VideoAdapterClass.Display
       With DirectCast(Screen, Bitmap)
-         For y As Integer = 0 To ScreenSize.Height - 1
-            For x As Integer = 0 To ScreenSize.Width - 1
-               .SetPixel(x, y, Color.FromArgb(DEFAULT_PALETTE(Memory(AddressesE.VGA320x200 + ((y * ScreenSize.Width) + x))) Or &HFF000000%))
+         For y As Integer = 0 To Resolution.Height - 1
+            For x As Integer = 0 To Resolution.Width - 1
+               .SetPixel(x, y, Color.FromArgb(DEFAULT_PALETTE(Memory(AddressesE.VGA320x200 + ((y * Resolution.Width) + x))) Or &HFF000000%))
             Next x
          Next y
       End With
    End Sub
 
-   'This procedure initializes the video adapter.
-   Public Sub Initialize() Implements VideoAdapterClass.Initialize
-      Dim Count As New Integer
-      Dim Position As New Integer
+   'This procedure clears video adapter's buffer.
+   Public Sub ClearBuffer() Implements VideoAdapterClass.ClearBuffer
+      Dim Count As Integer = VGA_320_x_200_BUFFER_SIZE \ &H2%
+      Dim Position As Integer = AddressesE.VGA320x200
 
-      Count = (vGA_320_x_200_BUFFER_SIZE \ &H2%)
-      Position = AddressesE.VGA320x200
       Do While Count > &H0%
          CPU.PutWord(Position, &H0%)
          Count -= &H1%
          Position += &H2%
       Loop
+   End Sub
+
+   'This procedure initializes the video adapter.
+   Public Sub Initialize() Implements VideoAdapterClass.Initialize
+      ClearBuffer()
 
       CPU.Memory(AddressesE.VideoPage) = &H0%
       CPU.PutWord(AddressesE.CursorPositions, Word:=&H0%)
@@ -43,7 +46,49 @@ Public Class VGA320x200Class
    End Sub
 
    'This procedure returns the screen size used by a video adapter.
-   Public Function ScreenSize() As Size Implements VideoAdapterClass.ScreenSize
+   Public Function Resolution() As Size Implements VideoAdapterClass.Resolution
       Return New Size(320, 200)
    End Function
+
+   'This procedure scrolls the video adapter's buffer.
+   Public Sub ScrollBuffer(Up As Boolean, ScrollArea As VideoAdapterClass.ScreenAreaStr, Count As Integer) Implements VideoAdapterClass.ScrollBuffer
+      Dim Address As New Integer
+      Dim Attribute As Byte = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH))
+      Dim CharacterByte As New Byte
+      Dim NewAddress As New Integer
+      Dim Position As New Integer
+
+      If Count = &H0% OrElse Count > VGA_320_X_200_LINE_COUNT Then
+         VideoAdapter.ClearBuffer()
+      Else
+         For Scroll As Integer = &H1% To Count * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE
+            Select Case Up
+               Case True
+                  For Row As Integer = ScrollArea.ULCRow * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE To (ScrollArea.LRCRow * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE) + (VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE - &H1%)
+                     For Column As Integer = ScrollArea.ULCColumn * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE To (ScrollArea.LRCColumn * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE) + VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE
+                        Address = AddressesE.VGA320x200 + ((Row * VGA_320_X_200_BYTES_PER_ROW) + Column)
+                        CharacterByte = CPU.Memory(Address)
+                        CPU.Memory(Address) = Attribute
+                        If Row > ScrollArea.ULCRow * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE Then
+                           NewAddress = AddressesE.VGA320x200 + ((Row - &H1%) * VGA_320_X_200_BYTES_PER_ROW) + Column
+                           CPU.Memory(NewAddress) = CharacterByte
+                        End If
+                     Next Column
+                  Next Row
+               Case False
+                  For Row As Integer = ScrollArea.LRCRow * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE To ScrollArea.ULCRow * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE Step -&H1%
+                     For Column As Integer = ScrollArea.ULCColumn * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE To (ScrollArea.LRCColumn * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE) + VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE
+                        Address = AddressesE.VGA320x200 + ((Row * VGA_320_X_200_BYTES_PER_ROW) + Column)
+                        CharacterByte = CPU.Memory(Address)
+                        CPU.Memory(Address) = Attribute
+                        If Row < ScrollArea.LRCRow * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE Then
+                           NewAddress = AddressesE.VGA320x200 + ((Row + &H1%) * VGA_320_X_200_BYTES_PER_ROW) + Column
+                           CPU.Memory(NewAddress) = CharacterByte
+                        End If
+                     Next Column
+                  Next Row
+            End Select
+         Next Scroll
+      End If
+   End Sub
 End Class

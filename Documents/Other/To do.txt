@@ -1,0 +1,8 @@
+To do:
+1. Add CGA character drawing.
+   XOR on bit 7!
+2  Add VGA character drawing.
+
+
+
+

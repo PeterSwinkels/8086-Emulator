@@ -7,6 +7,7 @@ Option Strict On
 Imports System
 Imports System.Collections.Generic
 Imports System.Convert
+Imports System.Drawing
 Imports System.Environment
 Imports System.IO
 Imports System.Globalization
@@ -32,20 +33,24 @@ Public Module CoreModule
    Private Const ESCAPE_CHARACTER As Byte = &H2F%                'Defines the escape character used in output.
    Private Const MEMORY_OPERAND_END As Char = "]"c               'Defines a memory operand's first character.
    Private Const MEMORY_OPERAND_START As Char = "["c             'Defines a memory operand's last character.
-   Private Const SCRIPT_HEADER As String = "[SCRIPT]"            'Defines a mandatory header for all script files.
+   Private Const SCRIPT_COMMENT As Char = "#"c                   'Defines a script comment.
+   Private Const SCRIPT_HEADER As String = "[SCRIPT]"            'Defines the script file header.
    Private Const STRING_OPERAND_DELIMITER As Char = """"c        'Defines a string operand's delimiter.
    Private Const VALUES_OPERAND_END As Char = "}"c               'Defines a values operand's end.
    Private Const VALUES_OPERAND_START As Char = "{"c             'Defines a values operand's start.
 
-   Public WithEvents CPU As New CPU8086Class                  'Contains a reference to the CPU 8086 class.
-   Private WithEvents Assembler As New AssemblerClass         'Contains a reference to the assembler.
-   Private WithEvents Disassembler As New DisassemblerClass   'Contains a reference to the disassembler.
+   Public WithEvents CPU As New CPU8086Class                                                           'Contains a reference to the CPU 8086 class.
+   Public WithEvents ScreenRefresh As New Windows.Forms.Timer With {.Enabled = True, .Interval = 56}   'Contains the screen refresh timer.
+   Private WithEvents Assembler As New AssemblerClass                                                  'Contains a reference to the assembler.
+   Private WithEvents Disassembler As New DisassemblerClass                                            'Contains a reference to the disassembler.
 
-   Public AssemblyModeOn As Boolean = False                            'Indicates whether input is interpreted as assembly language.
-   Public CPUEvent As New StringBuilder                                'Contains CPU event specific text.
-   Public Output As TextBox = Nothing                                  'Contains a reference to an output.
-   Public VideoAdapter As VideoAdapterClass = New Text80x25MonoClass   'Contains a reference to the video adapter used.
+   Public AssemblyModeOn As Boolean = False             'Indicates whether input is interpreted as assembly language.
+   Public CPUEvent As New StringBuilder                 'Contains CPU event specific text.
+   Public Output As TextBox = Nothing                   'Contains a reference to an output.
+   Public Synchronizer As New Object                    'Contains the thread synchronizer.
+   Public VideoAdapter As VideoAdapterClass = Nothing   'Contains a reference to the video adapter used.
 
+   Public ReadOnly CODE_PAGE_437() As Integer = {&H0%, &H263A%, &H263B%, &H2665%, &H2666%, &H2663%, &H2660%, &H2022%, &H25D8%, &H25CB%, &H25D9%, &H2642%, &H2640%, &H266A%, &H266B%, &H263C%, &H25BA%, &H25C4%, &H2195%, &H203C%, &HB6%, &HA7%, &H25AC%, &H21A8%, &H2191%, &H2193%, &H2192%, &H2190%, &H221F%, &H2194%, &H25B2%, &H25BC%, &H20%, &H21%, &H22%, &H23%, &H24%, &H25%, &H26%, &H27%, &H28%, &H29%, &H2A%, &H2B%, &H2C%, &H2D%, &H2E%, &H2F%, &H30%, &H31%, &H32%, &H33%, &H34%, &H35%, &H36%, &H37%, &H38%, &H39%, &H3A%, &H3B%, &H3C%, &H3D%, &H3E%, &H3F%, &H40%, &H41%, &H42%, &H43%, &H44%, &H45%, &H46%, &H47%, &H48%, &H49%, &H4A%, &H4B%, &H4C%, &H4D%, &H4E%, &H4F%, &H50%, &H51%, &H52%, &H53%, &H54%, &H55%, &H56%, &H57%, &H58%, &H59%, &H5A%, &H5B%, &H5C%, &H5D%, &H5E%, &H5F%, &H60%, &H61%, &H62%, &H63%, &H64%, &H65%, &H66%, &H67%, &H68%, &H69%, &H6A%, &H6B%, &H6C%, &H6D%, &H6E%, &H6F%, &H70%, &H71%, &H72%, &H73%, &H74%, &H75%, &H76%, &H77%, &H78%, &H79%, &H7A%, &H7B%, &H7C%, &H7D%, &H7E%, &H2302%, &HC7%, &HFC%, &HE9%, &HE2%, &HE4%, &HE0%, &HE5%, &HE7%, &HEA%, &HEB%, &HE8%, &HEF%, &HEE%, &HEC%, &HC4%, &HC5%, &HC9%, &HE6%, &HC6%, &HF4%, &HF6%, &HF2%, &HFB%, &HF9%, &HFF%, &HD6%, &HDC%, &HA2%, &HA3%, &HA5%, &H20A7%, &H192%, &HE1%, &HED%, &HF3%, &HFA%, &HF1%, &HD1%, &HAA%, &HBA%, &HBF%, &H2310%, &HAC%, &HBD%, &HBC%, &HA1%, &HAB%, &HBB%, &H2591%, &H2592%, &H2593%, &H2502%, &H2524%, &H2561%, &H2562%, &H2556%, &H2555%, &H2563%, &H2551%, &H2557%, &H255D%, &H255C%, &H255B%, &H2510%, &H2514%, &H2534%, &H252C%, &H251C%, &H2500%, &H253C%, &H255E%, &H255F%, &H255A%, &H2554%, &H2569%, &H2566%, &H2560%, &H2550%, &H256C%, &H2567%, &H2568%, &H2564%, &H2565%, &H2559%, &H2558%, &H2552%, &H2553%, &H256B%, &H256A%, &H2518%, &H250C%, &H2588%, &H2584%, &H258C%, &H2590%, &H2580%, &H3B1%, &HDF%, &H393%, &H3C0%, &H3A3%, &H3C3%, &HB5%, &H3C4%, &H3A6%, &H398%, &H3A9%, &H3B4%, &H221E%, &H3C6%, &H3B5%, &H2229%, &H2261%, &HB1%, &H2265%, &H2264%, &H2320%, &H2321%, &HF7%, &H2248%, &HB0%, &H2219%, &HB7%, &H221A%, &H207F%, &HB2%, &H25A0%, &HA0%}  'Contains the code page 437 to unicode mappings.
    Private ReadOnly GET_OPERAND As Func(Of String, String) = Function(Input As String) (Input.Substring(Input.IndexOf(ASSIGNMENT_OPERATOR) + 1))                                                                                                             'Returns the specified input's operand.
    Private ReadOnly IS_CHARACTER_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(CHARACTER_OPERAND_DELIMITER) AndAlso Operand.Trim().EndsWith(CHARACTER_OPERAND_DELIMITER) AndAlso Operand.Trim().Length = 3)   'Indicates whether the specified operand is a character.
    Private ReadOnly IS_MEMORY_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(MEMORY_OPERAND_START) AndAlso Operand.Trim().EndsWith(MEMORY_OPERAND_END))                                                        'Indicates whether the specified operand is a memory location.
@@ -135,7 +140,9 @@ Public Module CoreModule
    Private Sub CPU_Halt() Handles CPU.Halt
       Try
          CPU.ClockToken.Cancel()
-         CPUEvent.Append($"Halted.{NewLine}")
+         SyncLock Synchronizer
+            CPUEvent.Append($"Halted.{NewLine}")
+         End SyncLock
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -146,7 +153,9 @@ Public Module CoreModule
       Try
          If Not HandleInterrupt(Number, AH) Then
             CPU.ClockToken.Cancel()
-            CPUEvent.Append($"INT {Number:X}, {AH:X}{NewLine}")
+            SyncLock Synchronizer
+               CPUEvent.Append($"INT {Number:X}, {AH:X}{NewLine}")
+            End SyncLock
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -160,7 +169,9 @@ Public Module CoreModule
 
          If NewValue Is Nothing Then
             CPU.ClockToken.Cancel()
-            CPUEvent.Append($"IN {If(Is8Bit, "AL", "AX")}, {Port:X}{NewLine}")
+            SyncLock Synchronizer
+               CPUEvent.Append($"IN {If(Is8Bit, "AL", "AX")}, {Port:X}{NewLine}")
+            End SyncLock
          Else
             Value = CInt(NewValue)
          End If
@@ -177,20 +188,22 @@ Public Module CoreModule
          Dim Code As String = Disassemble(CPU.Memory.ToList(), FlatCSIP, Count:=If(Opcode = CPU8086Class.OpcodesE.REPNE OrElse Opcode = CPU8086Class.OpcodesE.REPZ, &H2%, &H1%))
          Dim Override As CPU8086Class.SegmentRegistersE? = CPU.SegmentOverride(, Preserve:=True)
 
-         CPUEvent.Append($"{Code}{GetRegisterValues()}{NewLine}")
-         If Code.Contains(MEMORY_OPERAND_START) AndAlso Code.Contains(MEMORY_OPERAND_END) Then
-            Address = CPU.AddressFromOperand(CPU8086Class.MemoryOperandsE.LAST).FlatAddress
-            If Address Is Nothing Then
-               Address = ToInt32(ParseElement(Code, $"{MEMORY_OPERAND_START}{Disassembler.HEXADECIMAL_PREFIX}", MEMORY_OPERAND_END).Element, fromBase:=16)
-               Address = (CInt(CPU.Registers(If(Override Is Nothing, CPU8086Class.SegmentRegistersE.DS, Override))) << &H4%) + Address
+         SyncLock Synchronizer
+            CPUEvent.Append($"{Code}{GetRegisterValues()}{NewLine}")
+            If Code.Contains(MEMORY_OPERAND_START) AndAlso Code.Contains(MEMORY_OPERAND_END) Then
+               Address = CPU.AddressFromOperand(CPU8086Class.MemoryOperandsE.LAST).FlatAddress
+               If Address Is Nothing Then
+                  Address = ToInt32(ParseElement(Code, $"{MEMORY_OPERAND_START}{Disassembler.HEXADECIMAL_PREFIX}", MEMORY_OPERAND_END).Element, fromBase:=16)
+                  Address = (CInt(CPU.Registers(If(Override Is Nothing, CPU8086Class.SegmentRegistersE.DS, Override))) << &H4%) + Address
+               End If
+               If Address IsNot Nothing Then
+                  Address = Address And CPU8086Class.ADDRESS_MASK
+                  CPUEvent.Append($"{MEMORY_OPERAND_START}0x{Address:X8}{MEMORY_OPERAND_END} = {GetMemoryValue(CInt(Address))}{NewLine}")
+               End If
+            Else
+               CPUEvent.Append($"{NewLine}")
             End If
-            If Address IsNot Nothing Then
-               Address = Address And CPU8086Class.ADDRESS_MASK
-               CPUEvent.Append($"{MEMORY_OPERAND_START}0x{Address:X8}{MEMORY_OPERAND_END} = {GetMemoryValue(CInt(Address))}{NewLine}")
-            End If
-         Else
-            CPUEvent.Append($"{NewLine}")
-         End If
+         End SyncLock
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -201,7 +214,9 @@ Public Module CoreModule
       Try
          If Not WriteIOPort(Port, Value) Then
             CPU.ClockToken.Cancel()
-            CPUEvent.Append($"OUT {Port:X}, {If(Is8Bit, $"{Value:X2}", $"{Value:X4}")}{NewLine}")
+            SyncLock Synchronizer
+               CPUEvent.Append($"OUT {Port:X}, {If(Is8Bit, $"{Value:X2}", $"{Value:X4}")}{NewLine}")
+            End SyncLock
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -435,26 +450,15 @@ Public Module CoreModule
       End Try
    End Sub
 
-   'This procedure is executed when this program is started.
-   Public Sub Main()
-      Try
-         InterfaceWindow.Show()
-
-         Do While InterfaceWindow.Visible
-            Application.DoEvents()
-         Loop
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
-   End Sub
-
    'This procedure manages the mouse cursor status.
    Public Sub MouseCursorStatus(Busy As Boolean)
       Try
-         For Each Window As Form In Application.OpenForms
-            Window.Cursor = If(Busy, Cursors.WaitCursor, Cursors.Default)
+         Dim Forms As New List(Of Form)(Application.OpenForms.Cast(Of Form)())
+
+         For Each [Form] As Form In Forms
+            [Form].Cursor = If(Busy, Cursors.WaitCursor, Cursors.Default)
             Application.DoEvents()
-         Next Window
+         Next [Form]
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -484,176 +488,179 @@ Public Module CoreModule
          If Not Input = Nothing Then
             Output.AppendText($"{Input}{NewLine}")
 
-            Position = Input.IndexOf(" "c)
-            If Position < 0 Then
-               Command = Input.ToUpper()
-            Else
-               Command = Input.Substring(0, Position).ToUpper()
-               Operands = Input.Substring(Position + 1).Trim()
-            End If
-
-            If Register IsNot Nothing Then
-               Output.AppendText($"{Register} = {If(Is8Bit, $"{CInt(CPU.Registers(Register)):X2}", $"{CInt(CPU.Registers(Register)):X4}") }{NewLine}")
-            ElseIf IS_MEMORY_OPERAND(Input) Then
-               Address = AddressFromOperand(Input)
-               If Address Is Nothing Then
-                  Output.AppendText($"Invalid address.{NewLine}")
+            If Not Input.StartsWith(SCRIPT_COMMENT) Then
+               Position = Input.IndexOf(" "c)
+               If Position < 0 Then
+                  Command = Input.ToUpper()
                Else
-                  Output.AppendText(GetMemoryValue(CInt(Address)))
+                  Command = Input.Substring(0, Position).ToUpper()
+                  Operands = Input.Substring(Position + 1).Trim()
                End If
-            Else
-               Select Case Command
-                  Case "$"
-                     FileName = If(Operands Is Nothing, RequestFileName("Run script."), Operands)
-                     If Not FileName = Nothing Then RunCommandScript(FileName)
-                  Case "?"
-                     Output.AppendText($"{My.Resources.Help}{NewLine}")
-                  Case = "C"
-                     Output.Clear()
-                  Case "E"
-                     If CPU.Clock.Status = TaskStatus.Running Then
-                        Output.AppendText("Already executing.")
-                     Else
-                        CPU.ClockToken = New CancellationTokenSource
-                        CPU.Clock = New Task(AddressOf CPU.Execute)
-                        CPU.Clock.Start()
-                        Output.AppendText("Execution started.")
-                     End If
-                     Output.AppendText(NewLine)
-                  Case "EXE"
-                     FileName = If(Operands Is Nothing, RequestFileName("Load Executable."), Operands)
-                     If Not FileName = Nothing Then LoadMSDOSProgram(FileName)
-                  Case "INT"
-                     Parsed.Remainder = Input
 
-                     Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=" "c, Ending:=" "c)
-                     Interrupt = GetLiteral(Parsed.Element)
-                     If Interrupt Is Nothing Then
-                        Output.AppendText($"Invalid interrupt number.{NewLine}")
-                     Else
-                        Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=Nothing, Ending:=Nothing)
-                        AH = GetLiteral(Parsed.Element)
-                        If AH Is Nothing Then
-                           Output.AppendText($"Invalid function number.{NewLine}")
+               If Register IsNot Nothing Then
+                  Output.AppendText($"{Register} = {If(Is8Bit, $"{CInt(CPU.Registers(Register)):X2}", $"{CInt(CPU.Registers(Register)):X4}") }{NewLine}")
+               ElseIf IS_MEMORY_OPERAND(Input) Then
+                  Address = AddressFromOperand(Input)
+                  If Address Is Nothing Then
+                     Output.AppendText($"Invalid address.{NewLine}")
+                  Else
+                     Output.AppendText(GetMemoryValue(CInt(Address)))
+                  End If
+               Else
+                  Select Case Command
+                     Case "$"
+                        FileName = If(Operands Is Nothing, RequestFileName("Run script."), Operands)
+                        If Not FileName = Nothing Then RunCommandScript(FileName)
+                     Case "?"
+                        Output.AppendText($"{My.Resources.Help}{NewLine}")
+                     Case = "C"
+                        Output.Clear()
+                     Case "E"
+                        If CPU.Clock.Status = TaskStatus.Running Then
+                           Output.AppendText("Already executing.")
                         Else
-                           CPU.Registers(CPU8086Class.SubRegisters8BitE.AH, NewValue:=AH)
-                           CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Interrupt)
+                           CPU.ClockToken = New CancellationTokenSource
+                           CPU.Clock = New Task(AddressOf CPU.Execute)
+                           CPU.Clock.Start()
+                           Output.AppendText("Execution started.")
                         End If
-                     End If
-                  Case "IRET"
-                     CPU.ExecuteOpcode(CPU8086Class.OpcodesE.IRET)
-                  Case "L"
-                     FileName = If(Operands Is Nothing, RequestFileName("Load binary."), Operands)
-                     If Not FileName = Nothing Then LoadBinary(FileName, GetFlatCSIP())
-                  Case "M", "MD", "MT"
-                     Parsed.Remainder = Input
+                        Output.AppendText(NewLine)
+                     Case "EXE"
+                        FileName = If(Operands Is Nothing, RequestFileName("Load Executable."), Operands)
+                        If Not FileName = Nothing Then LoadMSDOSProgram(FileName)
+                     Case "INT"
+                        Parsed.Remainder = Input
 
-                     Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=" "c, Ending:=" "c)
-                     Address = AddressFromOperand(Parsed.Element)
-
-                     Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=Nothing, Ending:=Nothing)
-                     Count = GetLiteral(Parsed.Element)
-
-                     If Address Is Nothing Then
-                        Output.AppendText($"Invalid or no address specified. CS:IP used instead.{NewLine}")
-                        Address = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)) << &H4%) Or CInt(CPU.Registers(CPU8086Class.Registers16BitE.IP))
-                     End If
-
-                     If Input.ToUpper().StartsWith("MD") Then
-                        Output.AppendText(Disassemble(CPU.Memory.ToList(), CInt(Address), Count))
-                     Else
-                        Output.AppendText(GetMemoryDump(AllHexadecimal:=Not Input.ToUpper().StartsWith("MT"), CInt(Address), Count))
-                     End If
-                  Case "MA"
-                     Parsed.Remainder = Input
-                     Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=" "c, Ending:=" "c)
-                     Address = AddressFromOperand(Parsed.Element)
-                     If Address Is Nothing Then Address = GetFlatCSIP()
-                     Assemble(, StartAddress:=Address)
-                  Case "Q"
-                     Application.Exit()
-                  Case "R"
-                     Output.AppendText($"{GetRegisterValues()}{NewLine}")
-                  Case "RESET"
-                     LastBIOSKeyCode(, Clear:=True)
-
-                     CPU.ClockToken.Cancel()
-                     CPU = New CPU8086Class
-                     Output.AppendText($"CPU reset.{NewLine}")
-                  Case "S"
-                     Output.AppendText($"{If(Not CPU.Clock.Status = TaskStatus.Running, "Execution already stopped.", "Execution stopped.")}{NewLine}")
-                     CPU.ClockToken.Cancel()
-                  Case "SCR"
-                     ScreenWindow.Show()
-                  Case "ST"
-                     Output.AppendText(GetStack())
-                  Case "T"
-                     FlatCSIP = GetFlatCSIP()
-
-                     If Not CPU.ExecuteOpcode() Then
-                        CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Number:=CPU8086Class.INVALID_OPCODE)
-                     End If
-
-                     CPU_Trace(FlatCSIP)
-                  Case "TE"
-                     If Not CPU.Clock.Status = TaskStatus.Running Then
-                        CPU.Tracing = True
-                        CPU.ClockToken = New CancellationTokenSource
-                        CPU.Clock = New Task(AddressOf CPU.Execute)
-                        CPU.Clock.Start()
-                     End If
-                  Case "TS"
-                     CPU.ClockToken.Cancel()
-                     CPU.Tracing = False
-                     Output.AppendText($"Tracing {If(CPU.Clock.Status = TaskStatus.Running, "stopped.", " is not active.")}")
-                  Case Else
-                     If Input.Contains(ASSIGNMENT_OPERATOR) Then
-                        If Input.StartsWith(MEMORY_OPERAND_START) AndAlso Input.Contains(MEMORY_OPERAND_END) Then
-                           Parsed.Remainder = Input
-                           Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=Nothing, Ending:=ASSIGNMENT_OPERATOR)
-                           Address = AddressFromOperand(Parsed.Element.Trim())
-
-                           If Address Is Nothing Then
-                              Output.AppendText($"Invalid address.{NewLine}")
+                        Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=" "c, Ending:=" "c)
+                        Interrupt = GetLiteral(Parsed.Element)
+                        If Interrupt Is Nothing Then
+                           Output.AppendText($"Invalid interrupt number.{NewLine}")
+                        Else
+                           Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=Nothing, Ending:=Nothing)
+                           AH = GetLiteral(Parsed.Element)
+                           If AH Is Nothing Then
+                              Output.AppendText($"Invalid function number.{NewLine}")
                            Else
-                              Value = GET_OPERAND(Input).Trim()
-                              If IS_VALUES_OPERAND(Value) Then
-                                 Value = REMOVE_DELIMITERS(Value)
-                                 Output.AppendText($"Finished writing values at 0x{WriteValuesToMemory(Value, CInt(Address)):X8}.{NewLine}")
-                              ElseIf IS_STRING_OPERAND(Value) Then
-                                 Value = Unescape(REMOVE_DELIMITERS(Value),, ErrorAt)
-                                 If ErrorAt = 0 Then
-                                    Output.AppendText($"Finished writing string at 0x{WriteStringToMemory(Value, CInt(Address)):X8}.{NewLine}")
-                                 Else
-                                    Output.AppendText($"Invalid escape sequence at: {ErrorAt}.{NewLine}")
-                                 End If
+                              CPU.Registers(CPU8086Class.SubRegisters8BitE.AH, NewValue:=AH)
+                              CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Interrupt)
+                           End If
+                        End If
+                     Case "IRET"
+                        CPU.ExecuteOpcode(CPU8086Class.OpcodesE.IRET)
+                     Case "L"
+                        Address = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + (CInt(CPU.Registers(CPU8086Class.Registers16BitE.DI))) And CPU8086Class.ADDRESS_MASK
+                        FileName = If(Operands Is Nothing, RequestFileName("Load binary."), Operands)
+                        If Not FileName = Nothing Then LoadBinary(FileName, CInt(Address))
+                     Case "M", "MD", "MT"
+                        Parsed.Remainder = Input
+
+                        Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=" "c, Ending:=" "c)
+                        Address = AddressFromOperand(Parsed.Element)
+
+                        Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=Nothing, Ending:=Nothing)
+                        Count = GetLiteral(Parsed.Element)
+
+                        If Address Is Nothing Then
+                           Output.AppendText($"Invalid or no address specified. CS:IP used instead.{NewLine}")
+                           Address = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.IP)) And CPU8086Class.ADDRESS_MASK
+                        End If
+
+                        If Input.ToUpper().StartsWith("MD") Then
+                           Output.AppendText(Disassemble(CPU.Memory.ToList(), CInt(Address), Count))
+                        Else
+                           Output.AppendText(GetMemoryDump(AllHexadecimal:=Not Input.ToUpper().StartsWith("MT"), CInt(Address), Count))
+                        End If
+                     Case "MA"
+                        Parsed.Remainder = Input
+                        Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=" "c, Ending:=" "c)
+                        Address = AddressFromOperand(Parsed.Element)
+                        If Address Is Nothing Then Address = GetFlatCSIP()
+                        Assemble(, StartAddress:=Address)
+                     Case "Q"
+                        Application.Exit()
+                     Case "R"
+                        Output.AppendText($"{GetRegisterValues()}{NewLine}")
+                     Case "RESET"
+                        LastBIOSKeyCode(, Clear:=True)
+
+                        CPU.ClockToken.Cancel()
+                        CPU = New CPU8086Class
+                        Output.AppendText($"CPU reset.{NewLine}")
+                     Case "S"
+                        Output.AppendText($"{If(Not CPU.Clock.Status = TaskStatus.Running, "Execution already stopped.", "Execution stopped.")}{NewLine}")
+                        CPU.ClockToken.Cancel()
+                     Case "SCR"
+                        ScreenWindow.Show()
+                     Case "ST"
+                        Output.AppendText(GetStack())
+                     Case "T"
+                        FlatCSIP = GetFlatCSIP()
+
+                        If Not CPU.ExecuteOpcode() Then
+                           CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Number:=CPU8086Class.INVALID_OPCODE)
+                        End If
+
+                        CPU_Trace(FlatCSIP)
+                     Case "TE"
+                        If Not CPU.Clock.Status = TaskStatus.Running Then
+                           CPU.Tracing = True
+                           CPU.ClockToken = New CancellationTokenSource
+                           CPU.Clock = New Task(AddressOf CPU.Execute)
+                           CPU.Clock.Start()
+                        End If
+                     Case "TS"
+                        CPU.ClockToken.Cancel()
+                        CPU.Tracing = False
+                        Output.AppendText($"Tracing {If(CPU.Clock.Status = TaskStatus.Running, "stopped.", " is not active.")}")
+                     Case Else
+                        If Input.Contains(ASSIGNMENT_OPERATOR) Then
+                           If Input.StartsWith(MEMORY_OPERAND_START) AndAlso Input.Contains(MEMORY_OPERAND_END) Then
+                              Parsed.Remainder = Input
+                              Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=Nothing, Ending:=ASSIGNMENT_OPERATOR)
+                              Address = AddressFromOperand(Parsed.Element.Trim())
+
+                              If Address Is Nothing Then
+                                 Output.AppendText($"Invalid address.{NewLine}")
                               Else
-                                 NewValue = GetLiteral(Value)
+                                 Value = GET_OPERAND(Input).Trim()
+                                 If IS_VALUES_OPERAND(Value) Then
+                                    Value = REMOVE_DELIMITERS(Value)
+                                    Output.AppendText($"Finished writing values at 0x{WriteValuesToMemory(Value, CInt(Address)):X8}.{NewLine}")
+                                 ElseIf IS_STRING_OPERAND(Value) Then
+                                    Value = Unescape(REMOVE_DELIMITERS(Value),, ErrorAt)
+                                    If ErrorAt = 0 Then
+                                       Output.AppendText($"Finished writing string at 0x{WriteStringToMemory(Value, CInt(Address)):X8}.{NewLine}")
+                                    Else
+                                       Output.AppendText($"Invalid escape sequence at: {ErrorAt}.{NewLine}")
+                                    End If
+                                 Else
+                                    NewValue = GetLiteral(Value)
+                                    If NewValue Is Nothing Then
+                                       Output.AppendText($"Invalid parameter.{NewLine}")
+                                    Else
+                                       WriteValueToMemory(CInt(NewValue), CInt(Address), (CInt(NewValue) < &H100%))
+                                    End If
+                                 End If
+                              End If
+                           Else
+                              Register = GetRegisterByName(Input.ToUpper().Substring(0, Input.IndexOf(ASSIGNMENT_OPERATOR)).Trim(), Is8Bit)
+                              Value = GET_OPERAND(Input).Trim()
+                              If Register Is Nothing Then
+                                 Output.AppendText($"Invalid register.{NewLine}")
+                              Else
+                                 NewValue = GetLiteral(Value, Is8Bit)
                                  If NewValue Is Nothing Then
                                     Output.AppendText($"Invalid parameter.{NewLine}")
                                  Else
-                                    WriteValueToMemory(CInt(NewValue), CInt(Address), (CInt(NewValue) < &H100%))
+                                    CPU.Registers(Register, NewValue:=NewValue)
                                  End If
                               End If
                            End If
                         Else
-                           Register = GetRegisterByName(Input.ToUpper().Substring(0, Input.IndexOf(ASSIGNMENT_OPERATOR)).Trim(), Is8Bit)
-                           Value = GET_OPERAND(Input).Trim()
-                           If Register Is Nothing Then
-                              Output.AppendText($"Invalid register.{NewLine}")
-                           Else
-                              NewValue = GetLiteral(Value, Is8Bit)
-                              If NewValue Is Nothing Then
-                                 Output.AppendText($"Invalid parameter.{NewLine}")
-                              Else
-                                 CPU.Registers(Register, NewValue:=NewValue)
-                              End If
-                           End If
+                           Output.AppendText($"Error.{NewLine}")
                         End If
-                     Else
-                        Output.AppendText($"Error.{NewLine}")
-                     End If
-               End Select
+                  End Select
+               End If
             End If
          End If
       Catch ExceptionO As Exception
@@ -713,6 +720,51 @@ Public Module CoreModule
       End Try
    End Sub
 
+   'This procedure refreshes the screen's output.
+   Private Sub ScreenRefresh_Tick(sender As Object, e As EventArgs) Handles ScreenRefresh.Tick
+      Try
+         Dim VideoMode As VideoModesE = DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
+         Static CurrentVideoMode As VideoModesE = VideoModesE.None
+
+         If VideoMode = CurrentVideoMode Then
+            If ScreenActive() Then ScreenWindow.Invalidate()
+         Else
+            CurrentVideoMode = VideoMode
+            UpdateVideoAdapter()
+
+            If ScreenActive() Then
+               ScreenWindow.Text = $"Screen {If([Enum].IsDefined(GetType(VideoModesE), CurrentVideoMode), $"{CurrentVideoMode} (0x{CInt(CurrentVideoMode).ToString("X")})", "Unknown mode.")}"
+               ScreenWindow.ClientSize = If(VideoAdapter Is Nothing, New Size(320, 200), VideoAdapter.Resolution)
+               ScreenWindow.BackgroundImage = New Bitmap(ScreenWindow.ClientSize.Width, ScreenWindow.ClientSize.Height)
+               ScreenWindow.Invalidate()
+            End If
+         End If
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure returns whether or not the screen window is active.
+   Private Function ScreenActive() As Boolean
+      Try
+         Dim Active As Boolean = False
+         Dim Forms As New List(Of Form)(Application.OpenForms.Cast(Of Form)())
+
+         For Each [Form] As Form In Forms
+            If [Form] Is ScreenWindow Then
+               Active = True
+               Exit For
+            End If
+         Next [Form]
+
+         Return Active
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return False
+   End Function
+
    'This procedure sets the specified bit with the specified index to the specified value and returns the result.
    Public Function SetBit(Value As Integer, Bit As Boolean, Index As Integer) As Integer
       Try
@@ -729,6 +781,26 @@ Public Module CoreModule
 
       Return Nothing
    End Function
+
+   'This procedure updates the video adapter based on the current screen mode.
+   Public Sub UpdateVideoAdapter()
+      Try
+         Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
+            Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B
+               VideoAdapter = New CGA320x200Class
+            Case VideoModesE.Text80x25Mono
+               VideoAdapter = New Text80x25MonoClass
+            Case VideoModesE.VGA320x200
+               VideoAdapter = New VGA320x200Class
+            Case Else
+               VideoAdapter = Nothing
+         End Select
+
+         If VideoAdapter IsNot Nothing Then VideoAdapter.Initialize()
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
 
    'This procedure converts any escape sequences in the specified text to characters.
    Private Function Unescape(Text As String, Optional EscapeCharacter As Char = "/"c, Optional ByRef ErrorAt As Integer = 0) As String

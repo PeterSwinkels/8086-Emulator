@@ -13,14 +13,6 @@ Public Module InterruptHandlerModule
    Private Const VIDEO_MODE_MASK As Byte = &H7F%     'Defines the bits indicating a video mode.
    Private Const ZERO_FLAG_INDEX As Integer = &H6%   'Defines the zero flag's bit index.
 
-   'This structure defines an area on the screen in text modes.
-   Private Structure ScreenAreaStr
-      Public ULCRow As Integer      'Defines the upper left corner's row.
-      Public ULCColumn As Integer   'Defines the upper left corner's column.
-      Public LRCRow As Integer      'Defines the lower right corner's row.
-      Public LRCColumn As Integer   'Defines the lower right corner's column.
-   End Structure
-
    'This procedure handles the specified interrupt and returns whether or not is succeeded.
    Public Function HandleInterrupt(Number As Integer, AH As Integer) As Boolean
       Try
@@ -45,7 +37,6 @@ Public Module InterruptHandlerModule
                      If [Enum].IsDefined(GetType(VideoModesE), VideoMode) Then
                         CPU.Memory(AddressesE.VideoMode) = VideoMode
                         CPU.Memory(AddressesE.VideoModeOptions) = CByte(SetBit(CPU.Memory(AddressesE.VideoModeOptions), VideoModeBit7, Index:=&H7%))
-                        VideoAdapter.Initialize()
                      End If
                      Success = True
                   Case &H1%
@@ -76,12 +67,12 @@ Public Module InterruptHandlerModule
                      End If
                      Success = True
                   Case &H6%
-                     ScrollScreen(Up:=True, ScrollArea:=New ScreenAreaStr With {.ULCRow = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.CH)), .ULCColumn = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.CL)), .LRCRow = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.DH)), .LRCColumn = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.DL))}, Count:=CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)))
+                     VideoAdapter.ScrollBuffer(Up:=True, ScrollArea:=New VideoAdapterClass.ScreenAreaStr With {.ULCRow = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.CH)), .ULCColumn = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.CL)), .LRCRow = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.DH)), .LRCColumn = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.DL))}, Count:=CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)))
                      Success = True
                   Case &H7%
-                     ScrollScreen(Up:=False, ScrollArea:=New ScreenAreaStr With {.ULCRow = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.CH)), .ULCColumn = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.CL)), .LRCRow = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.DH)), .LRCColumn = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.DL))}, Count:=CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)))
+                     VideoAdapter.ScrollBuffer(Up:=False, ScrollArea:=New VideoAdapterClass.ScreenAreaStr With {.ULCRow = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.CH)), .ULCColumn = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.CL)), .LRCRow = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.DH)), .LRCColumn = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.DL))}, Count:=CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)))
                      Success = True
-                  Case &H9%
+                  Case &H9%, &HA%
                      Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
                         Case VideoModesE.Text80x25Mono
                            Character = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
@@ -90,7 +81,7 @@ Public Module InterruptHandlerModule
                            Position = AddressesE.Text80x25Mono + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)
                            Do While Count > &H0%
                               CPU.Memory(Position) = Character
-                              CPU.Memory(Position + &H1%) = Attribute
+                              If AH = &H9% Then CPU.Memory(Position + &H1%) = Attribute
                               Count -= &H1%
                               Position += &H2%
                            Loop
@@ -162,68 +153,10 @@ Public Module InterruptHandlerModule
       Return False
    End Function
 
-   'This procedure scrolls the screen.
-   Private Sub ScrollScreen(Up As Boolean, ScrollArea As ScreenAreaStr, Count As Integer)
-      Try
-         Dim Attribute As New Integer
-         Dim CharacterCell As New Integer
-         Dim Position As New Integer
-
-         Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
-            Case VideoModesE.Text80x25Mono
-               If Count = &H0% OrElse Count > TEXT_80_X_25_LINE_COUNT Then
-                  Count = (TEXT_80_X_25_MONO_BUFFER_SIZE \ &H2%)
-                  Position = AddressesE.Text80x25Mono
-                  Do While Count > &H0%
-                     CPU.PutWord(Position, &H200%)
-                     Count -= &H1%
-                     Position += &H2%
-                  Loop
-               Else
-                  Attribute = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH))
-                  For Scroll As Integer = &H1% To Count
-                     Select Case Up
-                        Case True
-                           For Row As Integer = ScrollArea.ULCRow To ScrollArea.LRCRow
-                              For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
-                                 If Row <= ScrollArea.LRCRow Then
-                                    CharacterCell = CPU.GetWord(AddressesE.Text80x25Mono + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
-                                    CPU.PutWord(AddressesE.Text80x25Mono + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
-                                 Else
-                                    CharacterCell = Attribute
-                                 End If
-                                 If Row >= ScrollArea.ULCRow Then
-                                    CPU.PutWord(AddressesE.Text80x25Mono + (((Row - &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), CharacterCell)
-                                 End If
-                              Next Column
-                           Next Row
-                        Case False
-                           For Row As Integer = ScrollArea.LRCRow To ScrollArea.ULCRow Step -&H1%
-                              For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
-                                 If Row >= ScrollArea.ULCRow Then
-                                    CharacterCell = CPU.GetWord(AddressesE.Text80x25Mono + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
-                                    CPU.PutWord(AddressesE.Text80x25Mono + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
-                                 Else
-                                    CharacterCell = Attribute
-                                 End If
-                                 If Row <= ScrollArea.LRCRow Then
-                                    CPU.PutWord(AddressesE.Text80x25Mono + (((Row + &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), CharacterCell)
-                                 End If
-                              Next Column
-                           Next Row
-                     End Select
-                  Next Scroll
-               End If
-         End Select
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
-   End Sub
-
    'This procedure emulates character output in Teletype mode.
    Public Sub TeleType(Character As Byte)
       Try
-         Dim ScrollArea As New ScreenAreaStr With {.ULCColumn = &H0%, .ULCRow = &H0%, .LRCColumn = TEXT_80_X_25_COLUMN_COUNT - &H1%, .LRCRow = TEXT_80_X_25_LINE_COUNT - &H1%}
+         Dim ScrollArea As New VideoAdapterClass.ScreenAreaStr With {.ULCColumn = &H0%, .ULCRow = &H0%, .LRCColumn = TEXT_80_X_25_COLUMN_COUNT - &H1%, .LRCRow = TEXT_80_X_25_LINE_COUNT - &H1%}
 
          Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
             Case VideoModesE.Text80x25Mono
@@ -240,7 +173,7 @@ Public Module InterruptHandlerModule
                      If Cursor.Y < TEXT_80_X_25_LINE_COUNT Then
                         Cursor.Y += &H1%
                      Else
-                        ScrollScreen(Up:=True, ScrollArea, Count:=&H1%)
+                        VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
                      End If
                   Case TeletypeE.TAB
                      Cursor.X = ((((Cursor.X + &H1%) \ &H8%) + &H1%) * &H8%) - &H1%
@@ -249,7 +182,7 @@ Public Module InterruptHandlerModule
                         If Cursor.Y < TEXT_80_X_25_LINE_COUNT Then
                            Cursor.Y += &H1%
                         Else
-                           ScrollScreen(Up:=True, ScrollArea, Count:=&H1%)
+                           VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
                         End If
                      End If
                   Case Else
@@ -262,7 +195,7 @@ Public Module InterruptHandlerModule
                         If Cursor.Y < TEXT_80_X_25_LINE_COUNT Then
                            Cursor.Y += &H1%
                         Else
-                           ScrollScreen(Up:=True, ScrollArea, Count:=&H1%)
+                           VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
                         End If
                      End If
                End Select

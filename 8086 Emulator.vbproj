@@ -6,7 +6,7 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{6524A649-7DFB-4AE6-A759-003CAA79637D}</ProjectGuid>
     <OutputType>WinExe</OutputType>
-    <StartupObject>Emulator8086Program.CoreModule</StartupObject>
+    <StartupObject>Emulator8086Program.InterfaceWindow</StartupObject>
     <RootNamespace>Emulator8086Program</RootNamespace>
     <AssemblyName>8086 Emulator</AssemblyName>
     <FileAlignment>512</FileAlignment>

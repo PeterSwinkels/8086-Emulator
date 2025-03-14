@@ -1,0 +1,7 @@
+[Script]
+s
+reset
+scr
+cs=1100
+exe .\HiWorld.com
+e

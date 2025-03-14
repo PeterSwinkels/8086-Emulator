@@ -23,7 +23,7 @@ Public Module CursorModule
 
    Public Cursor As New CursorStr With {.Off = False, .X = 0, .Y = 0, .Visible = False}   'Contains the cursor.
 
-   Public WithEvents CursorBlink As Timer = Nothing  'Contains the cursor blink timer.
+   Public WithEvents CursorBlink As New Timer With {.Enabled = False, .Interval = 500}  'Contains the cursor blink timer.
 
    'This procedure ensures the cursor will blink.
    Private Sub CursorBlink_Tick(sender As Object, e As EventArgs) Handles CursorBlink.Tick

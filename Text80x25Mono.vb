@@ -92,27 +92,74 @@ Public Class Text80x25MonoClass
       BlinkCharactersVisible = Not BlinkCharactersVisible
    End Sub
 
-   'This procedure initializes the video adapter.
-   Public Sub Initialize() Implements VideoAdapterClass.Initialize
-      Dim Count As New Integer
-      Dim Position As New Integer
+   'This procedure clears video adapter's buffer.
+   Public Sub ClearBuffer() Implements VideoAdapterClass.ClearBuffer
+      Dim Count As Integer = TEXT_80_X_25_MONO_BUFFER_SIZE \ &H2%
+      Dim Position As Integer = &H0%
 
-      Count = (TEXT_80_X_25_MONO_BUFFER_SIZE \ &H2%)
-      Position = AddressesE.Text80x25Mono
       Do While Count > &H0%
-         CPU.PutWord(Position, &H200%)
+         CPU.PutWord(AddressesE.Text80x25Mono + Position, &H200%)
          Count -= &H1%
          Position += &H2%
       Loop
+   End Sub
+
+   'This procedure initializes the video adapter.
+   Public Sub Initialize() Implements VideoAdapterClass.Initialize
+      ClearBuffer()
 
       CPU.Memory(AddressesE.VideoPage) = &H0%
       CPU.PutWord(AddressesE.CursorPositions, Word:=&H0%)
       CPU.PutWord(AddressesE.CursorScanLines, Word:=CURSOR_DEFAULT)
-      CursorBlink = New Timer With {.Enabled = True, .Interval = 500}
+      CursorBlink.Enabled = True
    End Sub
 
    'This procedure returns the screen size used by a video adapter.
-   Public Function ScreenSize() As Size Implements VideoAdapterClass.ScreenSize
+   Public Function Resolution() As Size Implements VideoAdapterClass.Resolution
       Return New Size(TEXT_SCREEN_SIZE.Width, TEXT_SCREEN_SIZE.Height)
    End Function
+
+   'This procedure scrolls the video adapter's buffer.
+   Public Sub ScrollBuffer(Up As Boolean, ScrollArea As VideoAdapterClass.ScreenAreaStr, Count As Integer) Implements VideoAdapterClass.ScrollBuffer
+      Dim Attribute As Integer = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH))
+      Dim CharacterCell As New Integer
+      Dim Position As New Integer
+
+      If Count = &H0% OrElse Count > TEXT_80_X_25_LINE_COUNT Then
+         VideoAdapter.ClearBuffer()
+      Else
+         For Scroll As Integer = &H1% To Count
+            Select Case Up
+               Case True
+                  For Row As Integer = ScrollArea.ULCRow To ScrollArea.LRCRow
+                     For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
+                        If Row <= ScrollArea.LRCRow Then
+                           CharacterCell = CPU.GetWord(AddressesE.Text80x25Mono + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
+                           CPU.PutWord(AddressesE.Text80x25Mono + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
+                        Else
+                           CharacterCell = Attribute
+                        End If
+                        If Row >= ScrollArea.ULCRow Then
+                           CPU.PutWord(AddressesE.Text80x25Mono + (((Row - &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), CharacterCell)
+                        End If
+                     Next Column
+                  Next Row
+               Case False
+                  For Row As Integer = ScrollArea.LRCRow To ScrollArea.ULCRow Step -&H1%
+                     For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
+                        If Row >= ScrollArea.ULCRow Then
+                           CharacterCell = CPU.GetWord(AddressesE.Text80x25Mono + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
+                           CPU.PutWord(AddressesE.Text80x25Mono + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
+                        Else
+                           CharacterCell = Attribute
+                        End If
+                        If Row <= ScrollArea.LRCRow Then
+                           CPU.PutWord(AddressesE.Text80x25Mono + (((Row + &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), CharacterCell)
+                        End If
+                     Next Column
+                  Next Row
+            End Select
+         Next Scroll
+      End If
+   End Sub
 End Class

@@ -185,7 +185,7 @@ Public Module MSDOSModule
 
                      Success = True
                   Case &H25%
-                     Address = AH * &H4%
+                     Address = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)) * &H4%
                      CPU.PutWord(Address + &H2%, CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)))
                      CPU.PutWord(Address, CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
                      Success = True
@@ -194,7 +194,7 @@ Public Module MSDOSModule
                      CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=MS_DOS)
                      Success = True
                   Case &H35%
-                     Address = AH * &H4%
+                     Address = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)) * &H4%
                      CPU.Registers(CPU8086Class.SegmentRegistersE.ES, NewValue:=CPU.GetWord(Address + &H2%))
                      CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=CPU.GetWord(Address))
                      Success = True
@@ -256,7 +256,7 @@ Public Module MSDOSModule
    Public Sub LoadMSDOSProgram(FileName As String)
       Try
          Dim Executable As New List(Of Byte)(File.ReadAllBytes(FileName))
-         Dim LoadAddress As Integer = CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%
+         Dim LoadAddress As Integer = CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)) << &H4%
 
          If Executable.GetRange(&H0%, EXE_MZ_SIGNATURE.Length).SequenceEqual(EXE_MZ_SIGNATURE) Then
             LoadMZEXE(Executable, FileName, LoadAddress)
@@ -267,7 +267,7 @@ Public Module MSDOSModule
             CPU.Registers(CPU8086Class.Registers16BitE.CX, NewValue:=Executable.Count)
             CPU.Registers(CPU8086Class.Registers16BitE.DX, NewValue:=&H0%)
             CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=&H0%)
-            CPU.Registers(CPU8086Class.SegmentRegistersE.CS, NewValue:=CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)))
+            CPU.Registers(CPU8086Class.SegmentRegistersE.DS, NewValue:=CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)))
             CPU.Registers(CPU8086Class.SegmentRegistersE.ES, NewValue:=CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)))
             CPU.Registers(CPU8086Class.Registers16BitE.IP, NewValue:=&H100%)
             CPU.Registers(CPU8086Class.Registers16BitE.BP, NewValue:=&H0%)
@@ -304,6 +304,7 @@ Public Module MSDOSModule
             CPU.Registers(CPU8086Class.Registers16BitE.DX, NewValue:=&H0%)
             CPU.Registers(CPU8086Class.SegmentRegistersE.CS, NewValue:=RelocatedCS)
             CPU.Registers(CPU8086Class.Registers16BitE.IP, NewValue:=BitConverter.ToUInt16(Executable.ToArray(), EXE_INITIAL_IP))
+            CPU.Registers(CPU8086Class.SegmentRegistersE.DS, NewValue:=(LoadAddress >> &H4%))
             CPU.Registers(CPU8086Class.SegmentRegistersE.ES, NewValue:=CPU.Registers(CPU8086Class.SegmentRegistersE.DS))
             CPU.Registers(CPU8086Class.SegmentRegistersE.SS, NewValue:=(If(InitialSS = Nothing, RelocatedCS, RelocatedCS + InitialSS)))
             CPU.Registers(CPU8086Class.Registers16BitE.SP, NewValue:=If(InitialSP = Nothing, &HFFFF%, InitialSP))

@@ -1,0 +1,16 @@
+[Script]
+AL=1F
+DS=C000
+DX=0
+INT 21 25
+
+DS=C000
+DI=0
+L .\EXTFONT.BIN
+
+DS=FFA6
+DI=E
+L .\FONT.BIN
+
+
+

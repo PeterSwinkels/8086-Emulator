@@ -10,6 +10,7 @@ Imports System.Drawing
 Public Module BIOSDataAreaClass
    'This enumeration lists the video modes.
    Public Enum VideoModesE As Byte
+      None = &HFF%             'None.
       CGA320x200A = &H4%       '320x200 CGA.
       CGA320x200B = &H5%       '320x200 CGA.
       CGA640x200 = &H6%        '640x200 CGA.
@@ -53,13 +54,19 @@ Public Module BIOSDataAreaClass
       CR = &HD%     'Carriage return.
    End Enum
 
-   Public Const CGA_320_x_200_BUFFER_SIZE As Integer = &H3E80%      'Defines the 320x200 CGA mode video memory's size.
-   Public Const MAXIMUM_VIDEO_PAGE_COUNT As Integer = &H8%          'Defines the maximum number of video pages.
-   Public Const TEXT_80_X_25_BYTES_PER_ROW As Integer = &HA0%       'Defines the number of bytes per row used by 80x25 monochrome text mode 
-   Public Const TEXT_80_X_25_COLUMN_COUNT As Integer = &H50%        'Defines the number of columns used by 80x25 monochrome text mode 
-   Public Const TEXT_80_X_25_LINE_COUNT As Integer = &H19%          'Defines the number of lines used by 80x25 monochrome text mode 
-   Public Const TEXT_80_X_25_MONO_BUFFER_SIZE As Integer = &HFA0%   'Defines the 80x25 monochrome text mode video memory's size.
-   Public Const VGA_320_x_200_BUFFER_SIZE As Integer = &HFA00%      'Defines the 320x200 VGA mode video memory's size.
+   Public Const CGA_320_X_200_BYTES_PER_ROW As Integer = &H50%               'Defines the number of bytes per row used by 320x200 CGA mode 
+   Public Const CGA_320_X_200_LINES_PER_CHARACTER As Integer = &H8%          'Defines the number of lines per character used by 320x200 CGA mode 
+   Public Const CGA_320_X_200_LINE_COUNT As Integer = &H19%                  'Defines the number of lines used by 320x200 CGA mode 
+   Public Const CGA_320_x_200_BUFFER_SIZE As Integer = &H4000%               'Defines the 320x200 CGA mode video memory's size.
+   Public Const MAXIMUM_VIDEO_PAGE_COUNT As Integer = &H8%                   'Defines the maximum number of video pages.
+   Public Const TEXT_80_X_25_BYTES_PER_ROW As Integer = &HA0%                'Defines the number of bytes per row used by 80x25 monochrome text mode 
+   Public Const TEXT_80_X_25_COLUMN_COUNT As Integer = &H50%                 'Defines the number of columns used by 80x25 monochrome text mode 
+   Public Const TEXT_80_X_25_LINE_COUNT As Integer = &H19%                   'Defines the number of lines used by 80x25 monochrome text mode 
+   Public Const TEXT_80_X_25_MONO_BUFFER_SIZE As Integer = &HFA0%            'Defines the 80x25 monochrome text mode video memory's size.
+   Public Const VGA_320_x_200_BUFFER_SIZE As Integer = &HFA00%               'Defines the 320x200 VGA mode video memory's size.
+   Public Const VGA_320_X_200_BYTES_PER_ROW As Integer = &H140%              'Defines the number of bytes per row used by 320x200 VGA mode 
+   Public Const VGA_320_X_200_LINE_COUNT As Integer = &H19%                  'Defines the number of lines used by 320x200 VGA mode 
+   Public Const VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE As Integer = &H8%    'Defines the number of per character side used by 320x200 VGA mode 
 
    Public ReadOnly BACKGROUND_COLORS() As Color = {Color.Black, Color.DarkBlue, Color.DarkGreen, Color.DarkCyan, Color.DarkRed, Color.Purple, Color.Brown, Color.White, Color.Gray, Color.Blue, Color.Green, Color.Cyan, Color.Red, Color.Pink, Color.Yellow, Color.White}   'Contains the background colors.
    Public ReadOnly PALETTE0() As Color = {Nothing, Color.DarkGreen, Color.DarkRed, Color.Brown}                                                                                                                                                                              'Contains palette #0 colors.
