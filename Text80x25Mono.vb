@@ -24,8 +24,8 @@ Public Class Text80x25MonoClass
 
    Private ReadOnly BLACK_ATTRIBUTES() As Integer = {&H0%, &H8%, &H80%, &H88%}                                        'Defines the black character attributes.
    Private ReadOnly CHARACTER_SIZE As Size = New Size(9, 14)                                                          'Defines the character size.
-   Private ReadOnly FONT_NORMAL As New Font("Px437 IBM MDA", emSize:=9)                                               'Defines the normal font.
-   Private ReadOnly FONT_UNDERLINE As New Font("Px437 IBM MDA", emSize:=9, FontStyle.Underline)                       'Defines the underlined font.
+   Private ReadOnly FONT_NORMAL As New Font("Px437 IBM MDA", emSize:=12)                                              'Defines the normal font.
+   Private ReadOnly FONT_UNDERLINE As New Font("Px437 IBM MDA", emSize:=12, FontStyle.Underline)                      'Defines the underlined font.
    Private ReadOnly TEXT_SCREEN_SIZE As Size = New Size(&H50% * CHARACTER_SIZE.Width, &H19% * CHARACTER_SIZE.Height)  'Defines the screen size measured in characters.
 
    Private BlinkCharactersVisible As Boolean = True  'Indicates whether or not the blinking characters are visible.
@@ -49,15 +49,15 @@ Public Class Text80x25MonoClass
 
             If Attribute > &H0% AndAlso Not BLACK_ATTRIBUTES.Contains(Attribute) Then
                If (Attribute And NON_BLINK_ATTRIBUTES) = BLACK_ON_GREEN Then
-                  .FillRectangle(New SolidBrush(Color.LightGreen), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
+                  .FillRectangle(New SolidBrush(Color.Lime), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
                   CharacterColor = New SolidBrush(Color.Green)
                ElseIf (Attribute And NON_BLINK_ATTRIBUTES) = DARK_GREEN_ON_GREEN Then
-                  .FillRectangle(New SolidBrush(Color.LightGreen), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
+                  .FillRectangle(New SolidBrush(Color.Lime), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
                   CharacterColor = New SolidBrush(Color.Green)
                ElseIf (Attribute And BRIGHT_BITMASK) = &H0% Then
                   CharacterColor = New SolidBrush(Color.Green)
                Else
-                  CharacterColor = New SolidBrush(Color.LightGreen)
+                  CharacterColor = New SolidBrush(Color.Lime)
                End If
 
                If (Attribute And UNDERLINE_BITMASK) = &H1% Then
@@ -81,7 +81,7 @@ Public Class Text80x25MonoClass
 
          If (Not Cursor.Off) AndAlso Cursor.Visible Then
             With Graphics.FromImage(Screen)
-               .FillRectangle(New SolidBrush(Color.LightGreen), Cursor.X * CHARACTER_SIZE.Width, (Cursor.Y * CHARACTER_SIZE.Height) + Cursor.ScanLineStart, CHARACTER_SIZE.Width, Cursor.ScanLineEnd - Cursor.ScanLineStart)
+               .FillRectangle(New SolidBrush(Color.Lime), Cursor.X * CHARACTER_SIZE.Width, (Cursor.Y * CHARACTER_SIZE.Height) + Cursor.ScanLineStart, CHARACTER_SIZE.Width, Cursor.ScanLineEnd - Cursor.ScanLineStart)
             End With
          End If
       End With
@@ -134,7 +134,7 @@ Public Class Text80x25MonoClass
                   For Row As Integer = ScrollArea.ULCRow To ScrollArea.LRCRow
                      For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
                         If Row <= ScrollArea.LRCRow Then
-                           CharacterCell = CPU.GetWord(AddressesE.Text80x25Mono + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
+                           CharacterCell = CPU.GET_WORD(AddressesE.Text80x25Mono + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
                            CPU.PutWord(AddressesE.Text80x25Mono + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
                         Else
                            CharacterCell = Attribute
@@ -148,7 +148,7 @@ Public Class Text80x25MonoClass
                   For Row As Integer = ScrollArea.LRCRow To ScrollArea.ULCRow Step -&H1%
                      For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
                         If Row >= ScrollArea.ULCRow Then
-                           CharacterCell = CPU.GetWord(AddressesE.Text80x25Mono + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
+                           CharacterCell = CPU.GET_WORD(AddressesE.Text80x25Mono + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
                            CPU.PutWord(AddressesE.Text80x25Mono + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
                         Else
                            CharacterCell = Attribute

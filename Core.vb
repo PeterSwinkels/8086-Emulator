@@ -302,7 +302,7 @@ Public Module CoreModule
                Literal = ToByte(Element.Chars(1))
             ElseIf IS_MEMORY_OPERAND(Element) Then
                Address = AddressFromOperand(Element.Trim())
-               If Address IsNot Nothing Then Literal = If(Is8Bit, CPU.Memory(CInt(Address)), CPU.GetWord(CInt(Address)))
+               If Address IsNot Nothing Then Literal = If(Is8Bit, CPU.Memory(CInt(Address)), CPU.GET_WORD(CInt(Address)))
             ElseIf Integer.TryParse(Element, NumberStyles.HexNumber, Nothing, Buffer) Then
                Literal = Buffer
             Else
@@ -348,7 +348,7 @@ Public Module CoreModule
    'This procedure returns the specified memory location's value.
    Private Function GetMemoryValue(Address As Integer) As String
       Try
-         Return $"Byte = 0x{CPU.Memory(Address):X2}   Word = 0x{CPU.GetWord(Address):X4}   Characters = '{EscapeByte(CPU.Memory(Address))}{EscapeByte(CPU.Memory(Address + &H1%))}'{NewLine}"
+         Return $"Byte = 0x{CPU.Memory(Address):X2}   Word = 0x{CPU.GET_WORD(Address):X4}   Characters = '{EscapeByte(CPU.Memory(Address))}{EscapeByte(CPU.Memory(Address + &H1%))}'{NewLine}"
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -422,7 +422,7 @@ Public Module CoreModule
 
          With Stack
             For Offset As Integer = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BP)) - &H2% To CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)) Step -&H2%
-               Stack.Append($"{CPU.GetWord((SS << &H4%) + Offset):X4}{NewLine}")
+               Stack.Append($"{CPU.GET_WORD((SS << &H4%) + Offset):X4}{NewLine}")
             Next Offset
 
             Return .ToString()
@@ -525,6 +525,16 @@ Public Module CoreModule
                            Output.AppendText("Execution started.")
                         End If
                         Output.AppendText(NewLine)
+                     Case "ECXZ"
+                        Do Until CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX)) = &H0%
+                           Application.DoEvents()
+
+                           If Not CPU.ExecuteOpcode() Then
+                              CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Number:=CPU8086Class.INVALID_OPCODE)
+                           End If
+                        Loop
+
+                        Output.AppendText($"CX = 0{NewLine}")
                      Case "EXE"
                         FileName = If(Operands Is Nothing, RequestFileName("Load Executable."), Operands)
                         If Not FileName = Nothing Then LoadMSDOSProgram(FileName)
@@ -582,11 +592,13 @@ Public Module CoreModule
                         Output.AppendText($"{GetRegisterValues()}{NewLine}")
                      Case "RESET"
                         LastBIOSKeyCode(, Clear:=True)
+                        ResetMSDOS()
 
                         CPU.ClockToken.Cancel()
                         CPU = New CPU8086Class
                         Output.AppendText($"CPU reset.{NewLine}")
                      Case "S"
+                        CPU.Tracing = False
                         Output.AppendText($"{If(Not CPU.Clock.Status = TaskStatus.Running, "Execution already stopped.", "Execution stopped.")}{NewLine}")
                         CPU.ClockToken.Cancel()
                      Case "SCR"
@@ -611,7 +623,7 @@ Public Module CoreModule
                      Case "TS"
                         CPU.ClockToken.Cancel()
                         CPU.Tracing = False
-                        Output.AppendText($"Tracing {If(CPU.Clock.Status = TaskStatus.Running, "stopped.", " is not active.")}")
+                        Output.AppendText($"Tracing {If(CPU.Clock.Status = TaskStatus.Running, "stopped.", " is not active.")}{NewLine}")
                      Case Else
                         If Input.Contains(ASSIGNMENT_OPERATOR) Then
                            If Input.StartsWith(MEMORY_OPERAND_START) AndAlso Input.Contains(MEMORY_OPERAND_END) Then

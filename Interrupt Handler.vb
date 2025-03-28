@@ -19,7 +19,7 @@ Public Module InterruptHandlerModule
          Dim Attribute As New Byte
          Dim Character As New Byte
          Dim Count As New Integer
-         Dim Flags As Integer = CPU.GetWord((CInt(CPU.Registers((CPU8086Class.SegmentRegistersE.SS))) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)) + &H4%)
+         Dim Flags As Integer = CPU.GET_WORD((CInt(CPU.Registers((CPU8086Class.SegmentRegistersE.SS))) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)) + &H4%)
          Dim Position As New Integer
          Dim Success As Boolean = False
          Dim VideoMode As New Byte
@@ -56,8 +56,8 @@ Public Module InterruptHandlerModule
                   Case &H3%
                      VideoPage = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH))
                      If VideoPage < MAXIMUM_VIDEO_PAGE_COUNT Then
-                        CPU.Registers(CPU8086Class.Registers16BitE.CX, NewValue:=CPU.GetWord(AddressesE.CursorScanLines))
-                        CPU.Registers(CPU8086Class.Registers16BitE.DX, NewValue:=CPU.GetWord(AddressesE.CursorPositions + (VideoPage * &H2%)))
+                        CPU.Registers(CPU8086Class.Registers16BitE.CX, NewValue:=CPU.GET_WORD(AddressesE.CursorScanLines))
+                        CPU.Registers(CPU8086Class.Registers16BitE.DX, NewValue:=CPU.GET_WORD(AddressesE.CursorPositions + (VideoPage * &H2%)))
                      End If
                      Success = True
                   Case &H5%
@@ -117,10 +117,10 @@ Public Module InterruptHandlerModule
                      End Select
                End Select
             Case &H11%
-               CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CPU.GetWord(AddressesE.EquipmentFlags))
+               CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CPU.GET_WORD(AddressesE.EquipmentFlags))
                Success = True
             Case &H12%
-               CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CPU.GetWord(AddressesE.MemorySize))
+               CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CPU.GET_WORD(AddressesE.MemorySize))
                Success = True
             Case &H16%
                Select Case AH
