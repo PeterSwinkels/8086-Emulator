@@ -196,7 +196,7 @@ Public Class DisassemblerClass
                   If Not Instruction = Nothing Then Instruction &= $" {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
                Case &H91% To &H97% : Instruction = $"XCHG {XP_REGISTERS(ACCUMULATOR_REGISTER)}, {XP_REGISTERS(Opcode And &H7%)}"
                Case &H9A% : Instruction = $"CALL FAR {FarAddressToHexadecimal(GetBytes(Code, Position, Length:=4))}"
-               Case &HA0% : Instruction = $"MOV {LH_REGISTERS(ACCUMULATOR_REGISTER)}, [{BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}]"
+               Case &HA0% : Instruction = $"MOV {LH_REGISTERS(ACCUMULATOR_REGISTER)}, [{BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}]"
                Case &HA1% : Instruction = $"MOV {XP_REGISTERS(ACCUMULATOR_REGISTER)}, [{BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}]"
                Case &HA2% : Instruction = $"MOV [{BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}], {LH_REGISTERS(ACCUMULATOR_REGISTER)}"
                Case &HA3% : Instruction = $"MOV [{BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}], {XP_REGISTERS(ACCUMULATOR_REGISTER)}"
