@@ -6,4 +6,5 @@ This program allows you to load binary code and data into its memory and let a v
 See the file Help.txt in this repository's documents folder for more information.
 
 NOTE:
+
 ./Documents/Other/Fonts contains a font that is used by the emulator. Text might not display correctly if it isn't installed.
