@@ -151,7 +151,7 @@ Public Class DisassemblerClass
                Case &H58% To &H5F% : Instruction = $"POP {XP_REGISTERS(Opcode And &H7%)}"
                Case &H64%, &H65% : Instruction = SG_REGISTERS(Opcode And &H7%)
                Case &H70% To &H7F% : Instruction = $"{OPCODES_707F(Opcode And &HF%)} {ShortAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
-               Case &H80%
+               Case &H80%, &H82%
                   Operand = GetByte(Code, Position)
                   Instruction = $"{OPCODES_8083((Operand And &H3F%) >> &H3%)} {GetOperand(Code, Position, Operand, LH_REGISTERS)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
                Case &H81%
