@@ -87,15 +87,17 @@ Public Class InterfaceWindow
    Private Sub InterfaceWindow_KeyUp(sender As Object, e As KeyEventArgs) Handles MyBase.KeyUp
       Try
          If Not LastCommand = Nothing Then
-            Select Case e.KeyCode
-               Case Keys.F3
-                  CommandBox.Text = LastCommand
-                  CommandBox.Select(CommandBox.Text.Length, 0)
-               Case Keys.F4
-                  CommandBox.Text = LastCommand
-                  CommandBox.Select(CommandBox.Text.Length, 0)
-                  EnterButton.PerformClick()
-            End Select
+            If Not (e.Alt OrElse e.Control OrElse e.Shift) Then
+               Select Case e.KeyCode
+                  Case Keys.F3
+                     CommandBox.Text = LastCommand
+                     CommandBox.Select(CommandBox.Text.Length, 0)
+                  Case Keys.F4
+                     CommandBox.Text = LastCommand
+                     CommandBox.Select(CommandBox.Text.Length, 0)
+                     EnterButton.PerformClick()
+               End Select
+            End If
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)

@@ -22,9 +22,12 @@ Public Module InterruptHandlerModule
          Dim Flags As Integer = CPU.GET_WORD((CInt(CPU.Registers((CPU8086Class.SegmentRegistersE.SS))) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)) + &H4%)
          Dim Position As New Integer
          Dim Success As Boolean = False
+         Dim Tracing As Boolean = CPU.Tracing
          Dim VideoMode As New Byte
          Dim VideoModeBit7 As New Boolean
          Dim VideoPage As New Byte
+
+         CPU.Tracing = False
 
          Select Case Number
             Case &H10%
@@ -37,6 +40,9 @@ Public Module InterruptHandlerModule
                      If [Enum].IsDefined(GetType(VideoModesE), VideoMode) Then
                         CPU.Memory(AddressesE.VideoMode) = VideoMode
                         CPU.Memory(AddressesE.VideoModeOptions) = CByte(SetBit(CPU.Memory(AddressesE.VideoModeOptions), VideoModeBit7, Index:=&H7%))
+
+                        CurrentVideoMode = DirectCast(VideoMode, VideoModesE)
+                        SwitchVideoAdapter()
                      End If
                      Success = True
                   Case &H1%
@@ -144,6 +150,8 @@ Public Module InterruptHandlerModule
          CPU.PutWord((CInt(CPU.Registers((CPU8086Class.SegmentRegistersE.SS))) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)) + &H4%, Flags)
 
          If Success Then CPU.ExecuteOpcode(CPU8086Class.OpcodesE.IRET)
+
+         CPU.Tracing = Tracing
 
          Return Success
       Catch ExceptionO As Exception
