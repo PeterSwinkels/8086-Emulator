@@ -1,0 +1,10 @@
+[script]
+cs=600
+ip=0
+ds=cs
+ss=9000
+sp=ffff
+bp=sp
+al=7
+int 10 0
+scr

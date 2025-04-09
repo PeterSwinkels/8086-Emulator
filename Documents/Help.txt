@@ -9,13 +9,16 @@ Register                      Displays the specified register's value.
 Register = Value              Set the specified register to the specified byte/word.
 C                             Clears the output window.
 E                             Causes the emulated CPU to start executing code.
+ECXZ                          Executes until the CX register contains zero.
 EXE [Path]                    Loads a MS-DOS executable at CS:0000.
 INT int ah                    Executes an INT instruction.
+                              If the CPU is inactive, external interrupts will be executed.
 IRET                          Executes an IRET instruction.
 L [Path]                      Loads a file into the emulated memory at DS:DI.
 M [Offset:Segment] [Count]    Display memory.
 MA [Offset:Segment]           Allows the user to enter assembly instructions.
                               Enter "?" for help.
+							  CS:IP will be set to any address specified.
 MD [Offset:Segment] [Count]   Disassemble memory starting at CS:IP.
 MT [Offset:Segment] [Count]   Display memory as text.
                               Byte values 0x20-0x7E are shown as characters.
@@ -42,3 +45,4 @@ Notes:
 -Script files may contain comment lines starting with the hash ("#") character.
 -Strings may contain the forward slash ("/") escape character.
 -The F3 key retrieves the most recent command.
+-The F4 key does the same as the F3 key, but also executes the command.

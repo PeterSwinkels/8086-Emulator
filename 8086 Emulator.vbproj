@@ -120,7 +120,7 @@
     <Compile Include="MCC.vb" />
     <Compile Include="8086.vb" />
     <Compile Include="Assembler.vb" />
-    <Compile Include="BIOS Data Area.vb" />
+    <Compile Include="BIOS.vb" />
     <Compile Include="CGA320x200.vb" />
     <Compile Include="PPI.vb" />
     <Compile Include="Core.vb" />

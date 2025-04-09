@@ -116,6 +116,7 @@ Public Class CPU8086Class
       DEC_SI = &H4E%                  'Decrement SI.
       DEC_SP = &H4C%                  'Decrement SP.
       DS = &H3E%                      'DS segment override.
+      EXT_INT = &H60%                 'Externally handled interrupt.
       ES = &H26%                      'ES segment override.
       HLT = &HF4%                     'Halt.
       IN_AL_BYTE = &HE4%              'Read from port to AL.
@@ -506,21 +507,26 @@ Public Class CPU8086Class
    End Function
 
    'This procedure adjusts the flags register based on the specified values.
-   Private Sub AdjustFlags(OldValue As Integer, NewValue As Integer, Optional Is8Bit As Boolean = True, Optional OutBit As Integer? = Nothing, Optional PreserveCarryFlag As Boolean = False)
+   Private Sub AdjustFlags(OldValue As Integer, NewValue As Integer, Optional Is8Bit As Boolean = True, Optional NewCarryFlag As Integer? = Nothing, Optional PreserveCarryFlag As Boolean = False, Optional NewOverflowFlag As Integer? = Nothing)
       Dim AFSignMask As Integer = If(Is8Bit, &H10%, &H100%)
       Dim SignMask As Integer = If(Is8Bit, &H80%, &H8000%)
 
       Registers(FlagRegistersE.AF, NewValue:=Not (OldValue And AFSignMask) = (NewValue And AFSignMask))
-      Registers(FlagRegistersE.OF, NewValue:=Not (OldValue And SignMask) = (NewValue And SignMask))
       Registers(FlagRegistersE.PF, NewValue:=(BitCount(NewValue And &HFF%) Mod &H2%) = &H0%)
       Registers(FlagRegistersE.SF, NewValue:=(NewValue And SignMask) = SignMask)
       Registers(FlagRegistersE.ZF, NewValue:=NewValue = &H0%)
 
+      If NewOverflowFlag Is Nothing Then
+         Registers(FlagRegistersE.OF, NewValue:=Not (OldValue And SignMask) = (NewValue And SignMask))
+      Else
+         Registers(FlagRegistersE.OF, NewValue:=NewOverflowFlag)
+      End If
+
       If Not PreserveCarryFlag Then
-         If OutBit Is Nothing Then
+         If NewCarryFlag Is Nothing Then
             Registers(FlagRegistersE.CF, NewValue:=NewValue > If(Is8Bit, &HFF%, &HFFFF%) OrElse NewValue < &H0%)
          Else
-            Registers(FlagRegistersE.CF, NewValue:=OutBit)
+            Registers(FlagRegistersE.CF, NewValue:=NewCarryFlag)
          End If
       End If
    End Sub
@@ -541,14 +547,14 @@ Public Class CPU8086Class
    Private Function BitRotateOrShift(Bits As Integer, Is8Bit As Boolean, Optional Right As Boolean = True, Optional Rotate As Boolean = True, Optional ReplicateSign As Boolean = False) As Integer
       Dim NewBits As Integer = Bits And If(Is8Bit, &HFF%, &HFFFF%)
       Dim SignBit As Integer = NewBits And If(Is8Bit, &H80%, &H8000%)
-      Dim OutBit As Integer = If(Right, NewBits And &H1%, SignBit)
+      Dim NewCarryFlag As Integer = If(Right, NewBits And &H1%, SignBit)
 
-      If Not Right Then OutBit >>= If(Is8Bit, &H7%, &HF%)
+      If Not Right Then NewCarryFlag >>= If(Is8Bit, &H7%, &HF%)
       NewBits = If(Right, NewBits >> &H1%, NewBits << &H1%)
-      If Rotate Then NewBits = NewBits Or If(Right, OutBit << If(Is8Bit, &H7%, &HF%), OutBit)
+      If Rotate Then NewBits = NewBits Or If(Right, NewCarryFlag << If(Is8Bit, &H7%, &HF%), NewCarryFlag)
       If ReplicateSign Then NewBits = NewBits Or (SignBit >> If(Is8Bit, &H7%, &HF%))
 
-      AdjustFlags(Bits, NewBits, Is8Bit, OutBit)
+      AdjustFlags(Bits, NewBits, Is8Bit, NewCarryFlag)
 
       Return NewBits And If(Is8Bit, &HFF%, &HFFFF%)
    End Function
@@ -575,7 +581,6 @@ Public Class CPU8086Class
 
          If Not ExecuteOpcode() Then
             ExecuteInterrupt(OpcodesE.INT, Number:=INVALID_OPCODE)
-            Exit Do
          End If
 
          If Tracing Then RaiseEvent Trace(FlatCSIP)
@@ -707,10 +712,6 @@ Public Class CPU8086Class
          Address = CInt(Number) * &H4%
          Registers(SegmentRegistersE.CS, NewValue:=GET_WORD(Address + &H2%))
          Registers(Registers16BitE.IP, NewValue:=GET_WORD(Address))
-
-         If CInt(Registers(SegmentRegistersE.CS)) = &H0% AndAlso CInt(Registers(Registers16BitE.IP)) = &H0% Then
-            RaiseEvent Interrupt(CInt(Number), CInt(Registers(SubRegisters8BitE.AH)))
-         End If
       End If
    End Sub
 
@@ -803,6 +804,8 @@ Public Class CPU8086Class
                            Registers(Registers16BitE.DX, NewValue:=LargeValue Mod .Value1)
                         End If
                      End If
+
+                     AdjustFlags(.Value1, .NewValue, Is8Bit:= .Is8Bit)
                   Case OperationsF6_F7E.MUL, OperationsF6_F7E.IMUL
                      If .Is8Bit Then
                         .NewValue = ConvertWidening(CInt(Registers(SubRegisters8BitE.AL)) * .Value1, .Is8Bit)
@@ -812,17 +815,21 @@ Public Class CPU8086Class
                         Registers(Registers16BitE.AX, NewValue:= .NewValue And &HFFFF%)
                         Registers(Registers16BitE.DX, NewValue:=(.NewValue And &HFFFF0000%) >> &H10%)
                      End If
+
+                     AdjustFlags(.Value1, .NewValue, Is8Bit:= .Is8Bit)
                   Case OperationsF6_F7E.NEG
                      .NewValue = &H0% - .Value1
+
+                     AdjustFlags(.Value1, .NewValue, Is8Bit:= .Is8Bit)
                   Case OperationsF6_F7E.None
                      Return False
                   Case OperationsF6_F7E.NOT
                      .NewValue = Not .Value1
                   Case OperationsF6_F7E.TEST
                      .NewValue = .Value1 And .Value2
-               End Select
 
-               AdjustFlags(.Value1, .NewValue, Is8Bit:= .Is8Bit)
+                     AdjustFlags(.Value1, .NewValue, Is8Bit:= .Is8Bit, NewCarryFlag:=&H0%,, NewOverflowFlag:=&H0%)
+               End Select
 
                Select Case DirectCast(CByte(Operation), OperationsF6_F7E)
                   Case OperationsF6_F7E.NEG, OperationsF6_F7E.NOT
@@ -934,7 +941,7 @@ Public Class CPU8086Class
             NewValue = CInt(Registers(SubRegisters8BitE.AL))
             Registers(SubRegisters8BitE.AH, NewValue:=CInt(Math.Floor(NewValue / &HA%)))
             Registers(SubRegisters8BitE.AL, NewValue:=NewValue Mod &HA%)
-            AdjustFlags(Value, CInt(Registers(Registers16BitE.AX)))
+            AdjustFlags(Value, CInt(Registers(Registers16BitE.AX)), Is8Bit:=False)
          Case OpcodesE.ADC_TGT_REG8 To OpcodesE.ADC_AX_WORD,
               OpcodesE.ADD_TGT_REG8 To OpcodesE.ADD_AX_WORD,
               OpcodesE.AND_TGT_REG8 To OpcodesE.AND_AX_WORD,
@@ -1182,18 +1189,18 @@ Public Class CPU8086Class
             Registers(FlagRegistersE.All, NewValue:=(CInt(Registers(FlagRegistersE.All)) And &HFF00%) Or (CInt(Registers(SubRegisters8BitE.AH)) And LOW_FLAG_BITS))
          Case OpcodesE.TEST_AL_BYTE
             Value = CInt(Registers(SubRegisters8BitE.AL))
-            AdjustFlags(Value, NewValue:=Value And GetByteCSIP())
+            AdjustFlags(Value, NewValue:=Value And GetByteCSIP(),, NewCarryFlag:=&H0%,, NewOverflowFlag:=&H0%)
          Case OpcodesE.TEST_AX_WORD
             Value = CInt(Registers(Registers16BitE.AX))
-            AdjustFlags(Value, NewValue:=Value And GetWordCSIP())
+            AdjustFlags(Value, NewValue:=Value And GetWordCSIP(), Is8Bit:=False, NewCarryFlag:=&H0%,, NewOverflowFlag:=&H0%)
          Case OpcodesE.TEST_SRC_REG16
             Operand = GetByteCSIP()
             OperandPair = GetOperandPair(CByte(Opcode And &H1%), CByte(Operand))
 
             With OperandPair
-               If TypeOf .Operand1 Is MemoryOperandsE Then Value = GET_WORD(CInt(.FlatAddress)) Else .Value1 = CInt(Registers(.Operand1))
+               If TypeOf .Operand1 Is MemoryOperandsE Then .Value1 = GET_WORD(CInt(.FlatAddress)) Else .Value1 = CInt(Registers(.Operand1))
                .Value2 = CInt(Registers(.Operand2))
-               AdjustFlags(.Value1, NewValue:= .Value1 And .Value2)
+               AdjustFlags(.Value1, NewValue:= .Value1 And .Value2, Is8Bit:=False, NewCarryFlag:=&H0%,, NewOverflowFlag:=&H0%)
             End With
          Case OpcodesE.TEST_SRC_REG8
             Operand = GetByteCSIP()
@@ -1202,7 +1209,7 @@ Public Class CPU8086Class
             With OperandPair
                If TypeOf .Operand1 Is MemoryOperandsE Then .Value1 = Memory(CInt(.FlatAddress)) Else .Value1 = CInt(Registers(.Operand1))
                .Value2 = CInt(Registers(.Operand2))
-               AdjustFlags(.Value1, NewValue:= .Value1 And .Value2)
+               AdjustFlags(.Value1, NewValue:= .Value1 And .Value2,, NewCarryFlag:=&H0%,, NewOverflowFlag:=&H0%)
             End With
          Case OpcodesE.XCHG_AX_CX To OpcodesE.XCHG_AX_DI
             Value = CInt(Registers(Registers16BitE.AX))
@@ -1228,6 +1235,8 @@ Public Class CPU8086Class
             End With
          Case OpcodesE.XLAT
             Registers(SubRegisters8BitE.AL, NewValue:=Memory(CInt(Registers(Registers16BitE.BX)) + CInt(Registers(SubRegisters8BitE.AL))))
+         Case OpcodesE.EXT_INT
+            RaiseEvent Interrupt(GetByteCSIP(), CInt(Registers(SubRegisters8BitE.AH)))
          Case Else
             If Array.IndexOf({OpcodesE.LOCK, OpcodesE.NOP, OpcodesE.WAIT}, Opcode) < 0 Then
                Return ExecuteControlFlowOpcode(Opcode) OrElse ExecuteMultiOpcode(Opcode) OrElse ExecuteStackOpcode(Opcode) OrElse ExecuteStringOpcode(Opcode)

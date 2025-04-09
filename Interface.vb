@@ -34,6 +34,8 @@ Public Class InterfaceWindow
 
          Output = Me.OutputBox
 
+         LoadBIOS()
+
          If GetCommandLineArgs.Count > 1 Then RunCommandScript(GetCommandLineArgs.Last)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)

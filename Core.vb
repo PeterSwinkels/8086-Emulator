@@ -553,7 +553,12 @@ Public Module CoreModule
                               Output.AppendText($"Invalid function number.{NewLine}")
                            Else
                               CPU.Registers(CPU8086Class.SubRegisters8BitE.AH, NewValue:=AH)
-                              CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Interrupt)
+
+                              If CPU.Clock.Status = TaskStatus.Running Then
+                                 CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Interrupt)
+                              Else
+                                 CPU_Interrupt(CInt(Interrupt), CInt(AH))
+                              End If
                            End If
                         End If
                      Case "IRET"
@@ -605,6 +610,7 @@ Public Module CoreModule
 
                         CPU.ClockToken.Cancel()
                         CPU = New CPU8086Class
+                        LoadBIOS()
                         Output.AppendText($"CPU reset.{NewLine}")
                      Case "S"
                         CPU.Tracing = False
