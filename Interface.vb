@@ -35,6 +35,7 @@ Public Class InterfaceWindow
          Output = Me.OutputBox
 
          LoadBIOS()
+         LoadMSDOS()
 
          If GetCommandLineArgs.Count > 1 Then RunCommandScript(GetCommandLineArgs.Last)
       Catch ExceptionO As Exception
@@ -75,6 +76,8 @@ Public Class InterfaceWindow
    Private Sub InterfaceWindow_Closing(sender As Object, e As CancelEventArgs) Handles MyBase.Closing
       Try
          CPU.ClockToken.Cancel()
+         PIT.HighPrecisionTimer.ClockToken.Cancel()
+
          Output = Nothing
 
          Updater.Stop()

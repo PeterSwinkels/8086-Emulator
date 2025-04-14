@@ -575,7 +575,7 @@ Public Class AssemblerClass
 
          If Opcodes.Count = &H0% Then
             Throw New Exception("Unknown instruction or missing operand.")
-         ElseIf ILLEGAL_OPCODES.Contains(Opcodes.First()) Then
+         ElseIf ILLEGAL_OPCODES.Contains(Opcodes.First()) AndAlso Not (instruction = DEFINE_BYTE OrElse Instruction = DEFINE_WORD) Then
             Throw New Exception("Illegal instruction.")
             Opcodes.Clear()
          End If

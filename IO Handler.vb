@@ -48,8 +48,6 @@ Public Module IOHandlerModule
    Private ReadOnly MCC As New MCCClass   'Contains the 6845 Motorola CRT Controller.
    Private ReadOnly PPI As New PPIClass   'Contains the 8255 Programmable Peripheral Interface .
 
-   Private WithEvents PIT As New PITClass   'Contains the 8253 Programmable Interval Timer.
-
    'This procedure attempts to read from the specified I/O port and returns the result.
    Public Function ReadIOPort(Port As Integer) As Integer?
       Try
@@ -59,7 +57,7 @@ Public Module IOHandlerModule
             Case IOPortsE.MDAStatus
                Value = MCC.Status()
             Case IOPortsE.PITCounter0 To IOPortsE.PITCounter2
-               Value = PIT.ReadCounter(Port And PIT_IO_PORT_MASK)
+               Value = PIT.ReadCounter(DirectCast(Port And PIT_IO_PORT_MASK, PITClass.CountersE))
             Case IOPortsE.PITModeControl
                Value = &H0%
             Case IOPortsE.PPIPortB
@@ -85,7 +83,7 @@ Public Module IOHandlerModule
             Case IOPortsE.PPIPortB
                PPI.PortB(Value)
             Case IOPortsE.PITCounter0 To IOPortsE.PITCounter2
-               PIT.WriteCounter(Port And PIT_IO_PORT_MASK, NewValue:=CByte(Value))
+               PIT.WriteCounter(DirectCast(Port And PIT_IO_PORT_MASK, PITClass.CountersE), NewValue:=CByte(Value))
             Case IOPortsE.PITModeControl
                PIT.ModeControl(NewValue:=Value)
             Case Else

@@ -35,7 +35,10 @@ Public Module BIOSModule
    'This enumeration lists the flat addresses of BIOS data area locations.
    Public Enum AddressesE As Integer
       BIOS = &HF0000%              'BIOS.
+      BIOSStack = &HF30000%        'BIOS stack segment.
       CGA320x200 = &HB8000%        '320x200 CGA video buffer.
+      Clock = &H46C%               'Clock.
+      ClockRollover = &H470%       'Clock rollover flag.
       CursorPositions = &H450%     'Cursor positions.
       CursorScanLines = &H460%     'Cursor scan line start/end.
       EquipmentFlags = &H410%      'Equipment flags.
@@ -60,7 +63,9 @@ Public Module BIOSModule
    Public Const CGA_320_X_200_LINES_PER_CHARACTER As Integer = &H8%          'Defines the number of lines per character used by 320x200 CGA mode 
    Public Const CGA_320_X_200_LINE_COUNT As Integer = &H19%                  'Defines the number of lines used by 320x200 CGA mode 
    Public Const CGA_320_x_200_BUFFER_SIZE As Integer = &H4000%               'Defines the 320x200 CGA mode video memory's size.
+   Public Const INITIAL_STACK_SIZE As Integer = &H10%                        'Defines the stack size at start up.
    Public Const EQUIPMENT_FLAGS As Integer = &H30%                           'Defines the equipment flags.
+   Public Const MAXIMUM_CLOCK_VALUE As Integer = &H1800B0%                   'Defines the highest value reached by the clock just before midnight.
    Public Const MAXIMUM_VIDEO_PAGE_COUNT As Integer = &H8%                   'Defines the maximum number of video pages.
    Public Const TEXT_80_X_25_BYTES_PER_ROW As Integer = &HA0%                'Defines the number of bytes per row used by 80x25 monochrome text mode 
    Public Const TEXT_80_X_25_COLUMN_COUNT As Integer = &H50%                 'Defines the number of columns used by 80x25 monochrome text mode 
@@ -76,36 +81,28 @@ Public Module BIOSModule
    Public ReadOnly PALETTE1() As Color = {Nothing, Color.DarkCyan, Color.Purple, Color.White}                                                                                                                                                                                'Contains palette #1 colors.
 
    Public BackgroundColor As Color = Color.Black   'Contains the current background color.
+   Public ClockCounter As Integer = &H0%           'Contains the system clock counter.
    Public Palette() As Color = Nothing             'Contains the current palette.
 
    'This procedure loads the BIOS into memory.
    Public Sub LoadBIOS()
       Try
          Dim Address As New Integer
-         Dim Offset As Integer = &H0%
-         Dim Position As New Integer
-         Dim Code() As Byte = {}
-         Dim Count As New Integer
+         Dim Offset As Integer = AddressesE.BIOS
 
          For Interrupt As Integer = &H0% To &H21%
             Address = Interrupt * &H4%
             CPU.PutWord(Address + &H2%, AddressesE.BIOS >> &H4%)
             CPU.PutWord(Address, Offset)
-            Code = {CPU8086Class.OpcodesE.EXT_INT, CByte(Interrupt), CPU8086Class.OpcodesE.IRET}
-
-            Count = &H0%
-            Position = AddressesE.BIOS + Offset
-            Do Until Count >= Code.Length
-               CPU.Memory(Position + Count) = Code(Count)
-               Count += &H1%
-            Loop
-
-            Offset += Code.Length
+            Offset = WriteBytesToMemory({CPU8086Class.OpcodesE.EXT_INT, CByte(Interrupt), CPU8086Class.OpcodesE.IRET}, Offset)
          Next Interrupt
 
          CPU.PutWord(AddressesE.EquipmentFlags, EQUIPMENT_FLAGS)
          CPU.PutWord(AddressesE.MemorySize, (CPU.Memory.Length \ &H400%))
          CPU.Memory(AddressesE.VideoMode) = VideoModesE.Text80x25Mono
+
+         CPU.Registers(CPU8086Class.SegmentRegistersE.SS, NewValue:=AddressesE.BIOSStack)
+         CPU.Registers(CPU8086Class.Registers16BitE.SP, NewValue:=INITIAL_STACK_SIZE)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

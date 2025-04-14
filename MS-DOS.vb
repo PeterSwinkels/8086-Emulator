@@ -36,11 +36,14 @@ Public Module MSDOSModule
    Private Const HIGHEST_ADDRESS As Integer = &HA000%                   'Defines the highest address that can be allocated.
    Private Const LOWEST_ADDRESS As Integer = &H600%                     'Defines the lowest address that can be allocated.
    Private Const MS_DOS As Integer = &HFF00%                            'Defines a value indicating that the operating system is MS-DOS.
+   Private Const PSP_ENVIRONMENT_SEGMENT As Integer = &H2C%             'Defines the segment of the MS-DOS environment in a PSP.
    Private Const PSP_MEMORY_TOP As Integer = &H2%                       'Defines the offset of the top of memory value in a PSP.
    Private Const PSP_SIZE As Integer = &H100%                           'Defines a PSP's size.
    Private Const VERSION As Integer = &H1606%                           'Defines the emulated MS-DOS version as 6.22.
 
-   Private ReadOnly EXE_MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}   'Defines the signature of an MZ exectuable.
+   Private ReadOnly ENVIRONMENT As String = $"COMSPEC=C:\COMMAND.COM{ToChar(&H0%)}PATH={ToChar(&H0%)}"   'Defines the MS-DOS environment.
+   Private ReadOnly ENVIRONMENT_SEGMENT As Integer = LOWEST_ADDRESS                                      'Defines the MS-DOS environment's segment.
+   Private ReadOnly EXE_MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}                                          'Defines the signature of an MZ exectuable.
 
    Private Allocations As New List(Of Tuple(Of Integer, Integer))   'Contains the memory allocations.
    Private ProcessSegments As New Stack(Of Integer)                 'Contains the segments allocated to processes.
@@ -257,6 +260,15 @@ Public Module MSDOSModule
       Return Nothing
    End Function
 
+   'This procedure loads "MS-DOS" into memory.
+   Public Sub LoadMSDOS()
+      Try
+         WriteStringToMemory(ENVIRONMENT, ENVIRONMENT_SEGMENT << &H4%)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
    'This procedure attempts to modify the specified allocated memory address and returns whether or not it succeeded.
    Private Function ModifyAllocatedMemory(StartAddress As Integer, NewSize As Integer) As Integer?
       Try
@@ -308,6 +320,7 @@ Public Module MSDOSModule
             CPU.Registers(CPU8086Class.Registers16BitE.SP, NewValue:=&HFFFF%)
             CPU.Registers(CPU8086Class.SegmentRegistersE.SS, NewValue:=CPU.Registers(CPU8086Class.SegmentRegistersE.CS))
 
+            CPU.PutWord(LoadAddress + PSP_ENVIRONMENT_SEGMENT, ENVIRONMENT_SEGMENT)
             CPU.PutWord(LoadAddress + PSP_MEMORY_TOP, LargestFreeMemoryBlock())
 
             Executable.CopyTo(CPU.Memory, LoadAddress + PSP_SIZE)
@@ -372,6 +385,7 @@ Public Module MSDOSModule
                Loop Until Position >= (RelocationTable + RelocationTableSize) - &H1%
             End If
 
+            CPU.PutWord((LoadAddress - PSP_SIZE) + PSP_ENVIRONMENT_SEGMENT, ENVIRONMENT_SEGMENT)
             CPU.PutWord((LoadAddress - PSP_SIZE) + PSP_MEMORY_TOP, LargestFreeMemoryBlock())
 
             Executable = Executable.GetRange(HeaderSize, Executable.Count - HeaderSize)

@@ -418,14 +418,15 @@ Public Class CPU8086Class
       Public Value2 As Integer         'Defines the value referred to be the second operand.
    End Structure
 
-   Private Const BREAK_POINT As Integer = &H3%            'Defines the break point interrupt number.
-   Private Const DIVIDE_BY_ZERO As Integer = &H0%         'Defines the divide by zero interrupt number.
-   Private Const LOW_FLAG_BITS As Integer = &HD7%         'Defines the bits used in the flag register's lower byte.
-   Private Const OVERFLOW_TRAP As Integer = &H4%          'Defines the overflow trap interrupt number. 
-   Private Const SINGLE_STEP As Integer = &H1%            'Defines the single step interrupt number.
+   Public Const SYSTEM_TIMER As Integer = &H8%           'Defines the system timer's interrupt number.
+   Private Const BREAK_POINT As Integer = &H3%           'Defines the break point interrupt number.
+   Private Const DIVIDE_BY_ZERO As Integer = &H0%        'Defines the divide by zero interrupt number.
+   Private Const LOW_FLAG_BITS As Integer = &HD7%        'Defines the bits used in the flag register's lower byte.
+   Private Const OVERFLOW_TRAP As Integer = &H4%         'Defines the overflow trap interrupt number. 
+   Private Const SINGLE_STEP As Integer = &H1%           'Defines the single step interrupt number.
 
-   Public Const ADDRESS_MASK As Integer = &HFFFFF%       'Defines the 20 bits used to address memory.
-   Public Const INVALID_OPCODE As Integer = &H6%         'Defines the invalid opcode interrupt number.
+   Public Const ADDRESS_MASK As Integer = &HFFFFF%      'Defines the 20 bits used to address memory.
+   Public Const INVALID_OPCODE As Integer = &H6%        'Defines the invalid opcode interrupt number.
 
    Public Clock As New Task(AddressOf Execute)                                     'Contains the CPU clock.
    Public ClockToken As New CancellationTokenSource                                'Indicates whether or not to stop the CPU.
@@ -455,11 +456,18 @@ Public Class CPU8086Class
 
    'This procedure returns the memory address indicated by the specified operand and current data segment.
    Public Function AddressFromOperand(Operand As MemoryOperandsE, Optional Literal As Integer? = Nothing) As AddressesStr
-      Dim Override As SegmentRegistersE? = SegmentOverride()
+      Dim Addresses As New AddressesStr
+      Dim Override As New SegmentRegistersE?
       Dim Segment As SegmentRegistersE = SegmentRegistersE.DS
-      Static Addresses As New AddressesStr
+      Static LastAddresses As New AddressesStr
 
-      If Not Operand = MemoryOperandsE.LAST Then
+      If Operand = MemoryOperandsE.LAST Then
+         Addresses = LastAddresses
+         LastAddresses.Address = Nothing
+         LastAddresses.FlatAddress = Nothing
+      Else
+         Override = SegmentOverride()
+
          Select Case Operand
             Case MemoryOperandsE.BX_SI,
            MemoryOperandsE.BX_SI_BYTE,
@@ -501,6 +509,7 @@ Public Class CPU8086Class
 
          If Literal IsNot Nothing Then Addresses.Address += Literal
          Addresses.FlatAddress = ((CInt(If(Override Is Nothing, Registers(Segment), Registers(Override))) << &H4%) + Addresses.Address) And ADDRESS_MASK
+         LastAddresses = Addresses
       End If
 
       Return Addresses
@@ -574,16 +583,14 @@ Public Class CPU8086Class
 
    'This procedure gives the CPU the command to execute instructions.
    Public Function Execute() As Task(Of Integer)
-      Dim FlatCSIP As New Integer
-
       Do Until ClockToken.Token.IsCancellationRequested
-         If Tracing Then FlatCSIP = GetFlatCSIP()
+         If Tracing Then RaiseEvent Trace(GetFlatCSIP())
 
          If Not ExecuteOpcode() Then
             ExecuteInterrupt(OpcodesE.INT, Number:=INVALID_OPCODE)
          End If
 
-         If Tracing Then RaiseEvent Trace(FlatCSIP)
+         If Tracing Then RaiseEvent Trace(Nothing)
       Loop
 
       Return Task.FromResult(GetFlatCSIP())
@@ -1248,19 +1255,13 @@ Public Class CPU8086Class
 
    'This procedure executes a stack instruction.
    Private Function ExecuteStackOpcode(Opcode As OpcodesE) As Boolean
-      Dim BP As New Integer
-      Dim CurrentSP As New Integer
-      Dim SP As New Integer
-      Dim StackFrameNestingLevel As New Integer
-      Dim StackFrameSize As New Integer
-
       Select Case Opcode
          Case OpcodesE.POP_AX To OpcodesE.POP_DI
             Registers(DirectCast(Opcode And &H7%, Registers16BitE), NewValue:=Stack())
          Case OpcodesE.POP_ES, OpcodesE.POP_SS, OpcodesE.POP_DS
             Registers(DirectCast((Opcode And &H18%) >> &H3%, SegmentRegistersE), NewValue:=Stack())
          Case OpcodesE.POP_TGT
-            With GetOperandPair(Opcode, GetByteCSIP())
+            With GetOperandPair(Opcode, GetByteCSIP(), HasNoLiteral:=True)
                If TypeOf .Operand1 Is MemoryOperandsE Then PutWord(CInt(.FlatAddress), Stack()) Else Registers(.Operand1, NewValue:=Stack())
             End With
          Case OpcodesE.POPF
@@ -1370,7 +1371,7 @@ Public Class CPU8086Class
    End Function
 
    'This procedure returns the operand pair indicated by the specified opcode and operand byte.
-   Private Function GetOperandPair(Opcode As Byte, Operand As Byte, Optional IsMemReg16Byte As Boolean = False) As OperandPairStr
+   Private Function GetOperandPair(Opcode As Byte, Operand As Byte, Optional IsMemReg16Byte As Boolean = False, Optional HasNoLiteral As Boolean = False) As OperandPairStr
       Dim Addresses As New AddressesStr
       Dim MemoryOperand As MemoryOperandsE = DirectCast(((Operand And &HC0%) >> &H3%) + (Operand And &H7%), MemoryOperandsE)
       Dim OperandPair As New OperandPairStr With {.Is8Bit = Not CBool(Opcode And &H1%), .Literal = Nothing, .Operand1 = Nothing, .Operand2 = Nothing}
@@ -1422,12 +1423,14 @@ Public Class CPU8086Class
             .FlatAddress = CInt(Addresses.FlatAddress)
          End If
 
-         Select Case OperandPairType
-            Case OperandPairsE.MemReg_Byte, OperandPairsE.MemReg_16_Byte
-               .Operand2 = GetByteCSIP()
-            Case OperandPairsE.MemReg_Word
-               .Operand2 = GetWordCSIP()
-         End Select
+         If Not HasNoLiteral Then
+            Select Case OperandPairType
+               Case OperandPairsE.MemReg_Byte, OperandPairsE.MemReg_16_Byte
+                  .Operand2 = GetByteCSIP()
+               Case OperandPairsE.MemReg_Word
+                  .Operand2 = GetWordCSIP()
+            End Select
+         End If
       End With
 
       Return OperandPair
