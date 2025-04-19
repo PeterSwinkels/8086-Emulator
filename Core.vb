@@ -186,7 +186,7 @@ Public Module CoreModule
    Private Sub CPU_Trace(FlatCSIP As Integer) Handles CPU.Trace
       Try
          Dim Address As New Integer?
-         Dim Opcode As New CPU8086Class.OpcodesE
+         Dim Count As New Integer
          Dim Override As New CPU8086Class.SegmentRegistersE?
          Dim ParsedAddress As New Integer
          Static Code As String = Nothing
@@ -212,8 +212,14 @@ Public Module CoreModule
                   CPUEvent.Append($"{NewLine}")
                End If
             Else
-               Opcode = DirectCast(CPU.Memory(FlatCSIP), CPU8086Class.OpcodesE)
-               Code = Disassemble(CPU.Memory.ToList(), FlatCSIP, Count:=If(Opcode = CPU8086Class.OpcodesE.REPNE OrElse Opcode = CPU8086Class.OpcodesE.REPZ, &H2%, &H1%))
+               Select Case DirectCast(CPU.Memory(FlatCSIP), CPU8086Class.OpcodesE)
+                  Case CPU8086Class.OpcodesE.CS, CPU8086Class.OpcodesE.DS, CPU8086Class.OpcodesE.ES, CPU8086Class.OpcodesE.SS, CPU8086Class.OpcodesE.REPNE, CPU8086Class.OpcodesE.REPZ
+                     Count = &H2%
+                  Case Else
+                     Count = &H1%
+               End Select
+
+               Code = Disassemble(CPU.Memory.ToList(), FlatCSIP, Count)
                CPUEvent.Append($"{Code}{GetRegisterValues()}{NewLine}")
             End If
 
@@ -406,11 +412,6 @@ Public Module CoreModule
          Dim Values As New StringBuilder
 
          With Values
-            For Each Flag As CPU8086Class.FlagRegistersE In [Enum].GetValues(GetType(CPU8086Class.FlagRegistersE))
-               If Flag >= &H0% AndAlso Flag <= &HF% Then .Append($"{Flag} = {Abs(CInt(CPU.Registers(Flag)))} ")
-            Next Flag
-            .Append(NewLine)
-
             For Each Register As CPU8086Class.Registers16BitE In [Enum].GetValues(GetType(CPU8086Class.Registers16BitE))
                .Append($"{Register} = {CInt(CPU.Registers(Register)):X4} ")
             Next Register
@@ -419,6 +420,11 @@ Public Module CoreModule
             For Each Register As CPU8086Class.SegmentRegistersE In [Enum].GetValues(GetType(CPU8086Class.SegmentRegistersE))
                .Append($"{Register} = {CInt(CPU.Registers(Register)):X4} ")
             Next Register
+            .Append(NewLine)
+
+            For Each Flag As CPU8086Class.FlagRegistersE In [Enum].GetValues(GetType(CPU8086Class.FlagRegistersE))
+               If Flag >= &H0% AndAlso Flag <= &HF% Then .Append($"{Flag} = {Abs(CInt(CPU.Registers(Flag)))} ")
+            Next Flag
 
             Return .ToString()
          End With
