@@ -1,10 +1,29 @@
-# 8086-Emulator
-A program that emulates a 8086 CPU.
+# 8086 Emulator – README
 
-This program allows users to let a virtual 8086 execute programs. There are several options for examining and modifying the CPU's status and memory. By default there only a very rudimentary BIOS and simulated hardware. There is no OS except for some simulated MS-DOS functions. If I/O occurs to/from a port the emulator does not support, it will stop to allow the user to manually handle the I/O. If the emulator cannot execute an interrupt function it will stop the CPU to allow manual input from the user.  There is a quick reference for supported commands and a disassembler as well. The program also supports scripts on start up.
+This program emulates a basic 8086 CPU, allowing users to run simple 8086 assembly programs in a virtual environment.
 
-See the file Help.txt in this repository's documents folder for more information.
+Key features:
 
-NOTE:
+Execute and debug 8086 instructions with options to inspect and modify registers and memory.
 
-./Documents/Other/Fonts contains a font that is used by the emulator. Text might not display correctly if it isn't installed.
+Includes a minimal BIOS and simulated hardware.
+
+Provides limited support for MS-DOS interrupts.
+
+If the emulator encounters unsupported I/O ports or interrupt functions, it will pause execution and prompt the user for manual input.
+
+Includes a built-in disassembler and command reference.
+
+Supports startup scripts for automated setup or testing.
+
+Limitations:
+
+No full operating system — only a handful of MS-DOS functions are simulated.
+
+Graphics, advanced interrupt handling, and many system calls are not supported.
+
+Designed as an experimental tool; not all instructions or edge cases are handled.
+
+Important: To ensure correct text display, install the custom font located in: ./Documents/Other/Fonts
+
+For more details, see Help.txt in the Documents folder.
