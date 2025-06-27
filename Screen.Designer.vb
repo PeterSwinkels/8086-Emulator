@@ -22,6 +22,8 @@ Partial Class ScreenWindow
     'Do not modify it using the code editor.
     <System.Diagnostics.DebuggerStepThrough()> _
     Private Sub InitializeComponent()
+        Me.components = New System.ComponentModel.Container()
+        Me.ToolTip = New System.Windows.Forms.ToolTip(Me.components)
         Me.SuspendLayout()
         '
         'ScreenWindow
@@ -40,4 +42,6 @@ Partial Class ScreenWindow
         Me.ResumeLayout(False)
 
     End Sub
+
+    Friend WithEvents ToolTip As System.Windows.Forms.ToolTip
 End Class

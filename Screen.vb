@@ -15,6 +15,8 @@ Public Class ScreenWindow
       Try
          InitializeComponent()
 
+         ToolTip.SetToolTip(Me, "This is where the emulation’s screen output is displayed and keyboard input is accepted.")
+
          ScreenActive = True
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
