@@ -26,7 +26,7 @@ Q                             Quits the emulator.
 R                             Display all registers and their values.
 RESET                         Resets the CPU.
 S                             Causes the emulated CPU to stop executing code.
-SCR                           Displays the screen output.
+SCR                           Displays the screen output/keyboard input window.
 ST                            Displays all word values from SS:SP to SS:BP.
 T                             Executes and displays a single instruction.
 TE                            Executes and displays instructions.

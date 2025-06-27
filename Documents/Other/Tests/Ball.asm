@@ -292,9 +292,15 @@ TitleScreen:
    CALL DisplayText        ;
                            ;
    MOV AH, 0x02            ;
-   MOV DX, 0x0403          ;
+   MOV DX, 0x0406          ;
    INT 0x10                ;
    LEA SI, [Help]          ;
+   CALL DisplayText        ;
+                           ;
+   MOV AH, 0x02            ;
+   MOV DX, 0x0606          ;
+   INT 0x10                ;
+   LEA SI, [Continue]      ;
    CALL DisplayText        ;
                            ;
    WaitForEnter:           ;
@@ -333,6 +339,7 @@ PaddleY DB 0x27                                           ; The paddle's positio
 PaddleYD DB 0x00                                          ; The paddle's direction.
 Score DW 0x0000                                           ; The score.
 ScoreAsText DB "    0$"                                   ; The score represented as text.
-Title DB "Ball v1.00 - by: Peter Swinkels, ***2025***$"   ; The title text.
+Title DB "Ball v1.01 - by: Peter Swinkels, ***2025***$"   ; The title text.
 Help DB "4 = Left  6 = Right  2 = Stop  Esc = Quit$"      ; The help text.
+Continue DB "Press the Enter to key continue...$"         ; The to continue text.
 Stack TIMES 0x10 DB 0x00                                  ; The stack buffer.
