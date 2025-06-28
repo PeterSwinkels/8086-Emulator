@@ -185,9 +185,9 @@ Public Module MSDOSModule
                      CPU.PutWord(Address + &H2%, CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)))
                      CPU.PutWord(Address, CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
                      Success = True
-                     ''--->>>
                   Case &H2C%
                      GetCurrentTime()
+                     Success = True
                   Case &H30%
                      CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=VERSION)
                      CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=MS_DOS)

@@ -15,6 +15,7 @@ Imports System.Math
 Imports System.Text
 Imports System.Threading
 Imports System.Threading.Tasks
+Imports System.Windows
 Imports System.Windows.Forms
 
 'This module contains this program's core procedures.
@@ -38,11 +39,11 @@ Public Module CoreModule
    Private Const VALUES_OPERAND_END As Char = "}"c               'Defines a values operand's end.
    Private Const VALUES_OPERAND_START As Char = "{"c             'Defines a values operand's start.
 
-   Public WithEvents CPU As New CPU8086Class                                                           'Contains a reference to the CPU 8086 class.
-   Public WithEvents PIT As New PITClass                                                               'Contains the 8253 Programmable Interval Timer.
-   Public WithEvents ScreenRefresh As New Windows.Forms.Timer With {.Enabled = True, .Interval = 56}   'Contains the screen refresh timer.
-   Private WithEvents Assembler As New AssemblerClass                                                   'Contains a reference to the assembler.
-   Private WithEvents Disassembler As New DisassemblerClass                                             'Contains a reference to the disassembler.
+   Public WithEvents CPU As New CPU8086Class                                                   'Contains a reference to the CPU 8086 class.
+   Public WithEvents PIT As New PITClass                                                       'Contains the 8253 Programmable Interval Timer.
+   Public WithEvents ScreenRefresh As New Forms.Timer With {.Enabled = True, .Interval = 56}   'Contains the screen refresh timer.
+   Private WithEvents Assembler As New AssemblerClass                                          'Contains a reference to the assembler.
+   Private WithEvents Disassembler As New DisassemblerClass                                    'Contains a reference to the disassembler.
 
    Public AssemblyModeOn As Boolean = False                    'Indicates whether input is interpreted as assembly language.
    Public CPUEvent As New StringBuilder                        'Contains CPU event specific text.
@@ -737,7 +738,7 @@ Public Module CoreModule
       Try
          If Counter = PITClass.CountersE.TimeOfDay Then
             If CPU.Clock.Status = TaskStatus.Running Then
-               ''CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, CPU8086Class.SYSTEM_TIMER)
+               UpdateClockCounter()
             End If
          End If
       Catch ExceptionO As Exception

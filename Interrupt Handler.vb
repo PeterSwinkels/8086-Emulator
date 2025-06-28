@@ -31,17 +31,7 @@ Public Module InterruptHandlerModule
 
          Select Case Number
             Case &H8%
-               If ClockCounter = MAXIMUM_CLOCK_VALUE Then
-                  ClockCounter = &H0%
-                  CPU.Memory(AddressesE.ClockRollover) = &H0%
-               Else
-                  ClockCounter += &H1%
-                  If ClockCounter = MAXIMUM_CLOCK_VALUE Then CPU.Memory(AddressesE.ClockRollover) = &HFF%
-               End If
-
-               CPU.PutWord(AddressesE.Clock, ClockCounter >> &H8%)
-               CPU.PutWord(AddressesE.Clock + &H2%, ClockCounter And &HFF00%)
-
+               UpdateClockCounter()
                Success = True
             Case &H10%
                Select Case AH
@@ -167,7 +157,7 @@ Public Module InterruptHandlerModule
                Success = HandleMSDOSInterrupt(Number, AH, Flags)
          End Select
 
-               CPU.PutWord((CInt(CPU.Registers((CPU8086Class.SegmentRegistersE.SS))) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)) + &H4%, Flags)
+         CPU.PutWord((CInt(CPU.Registers((CPU8086Class.SegmentRegistersE.SS))) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)) + &H4%, Flags)
 
          If Success Then CPU.ExecuteOpcode(CPU8086Class.OpcodesE.IRET)
 

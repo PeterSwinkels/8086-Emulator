@@ -107,4 +107,22 @@ Public Module BIOSModule
          DisplayException(ExceptionO.Message)
       End Try
    End Sub
+
+   'This procedure updates the clock counter.
+   Public Sub UpdateClockCounter()
+      Try
+         If ClockCounter = MAXIMUM_CLOCK_VALUE Then
+            ClockCounter = &H0%
+            CPU.Memory(AddressesE.ClockRollover) = &H0%
+         Else
+            ClockCounter += &H1%
+            If ClockCounter = MAXIMUM_CLOCK_VALUE Then CPU.Memory(AddressesE.ClockRollover) = &HFF%
+         End If
+
+         CPU.PutWord(AddressesE.Clock, ClockCounter And &HFF%)
+         CPU.PutWord(AddressesE.Clock + &H2%, ClockCounter And &HFF00%)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
 End Module
