@@ -10,6 +10,7 @@ Imports System.Convert
 Imports System.Environment
 Imports System.IO
 Imports System.Linq
+Imports System.Math
 Imports System.Windows.Forms
 
 'This module handles MS-DOS related functions.
@@ -105,6 +106,33 @@ Public Module MSDOSModule
       Return Nothing
    End Function
 
+   'This procedure returns the current time.
+   Private Sub GetCurrentTime()
+      Try
+         Dim Counter As Integer = (CPU.GET_WORD(AddressesE.Clock + &H2%) << &H10%) Or (CPU.GET_WORD(AddressesE.Clock))
+         Dim Hour As New Integer
+         Dim Hundreth As New Integer
+         Dim Minute As New Integer
+         Dim Second As New Integer
+         Dim TotalSeconds As New Double
+
+         TotalSeconds = Counter / 18.2065
+         Hour = CInt(Floor(TotalSeconds / 3600))
+         TotalSeconds -= Hour * 3600
+         Minute = CInt(Floor(TotalSeconds / 60))
+         TotalSeconds -= Minute * 60
+         Second = CInt(Floor(TotalSeconds))
+         Hundreth = CInt(Floor((TotalSeconds - Second) * 100))
+
+         CPU.Registers(CPU8086Class.SubRegisters8BitE.CH, NewValue:=Hour)
+         CPU.Registers(CPU8086Class.SubRegisters8BitE.CL, NewValue:=Minute)
+         CPU.Registers(CPU8086Class.SubRegisters8BitE.DH, NewValue:=Second)
+         CPU.Registers(CPU8086Class.SubRegisters8BitE.DL, NewValue:=Hundreth)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
    'This procedure handles the specified MS-DOS interrupt and returns whether or not is succeeded.
    Public Function HandleMSDOSInterrupt(Number As Integer, AH As Integer, ByRef Flags As Integer) As Boolean
       Try
@@ -157,6 +185,9 @@ Public Module MSDOSModule
                      CPU.PutWord(Address + &H2%, CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)))
                      CPU.PutWord(Address, CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
                      Success = True
+                     ''--->>>
+                  Case &H2C%
+                     GetCurrentTime()
                   Case &H30%
                      CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=VERSION)
                      CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=MS_DOS)
