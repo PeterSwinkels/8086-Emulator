@@ -7,6 +7,7 @@ Option Strict On
 Imports System
 Imports System.Collections.Generic
 Imports System.Convert
+Imports System.DateTime
 Imports System.Environment
 Imports System.IO
 Imports System.Linq
@@ -45,9 +46,11 @@ Public Module MSDOSModule
    Private ReadOnly ENVIRONMENT As String = $"COMSPEC=C:\COMMAND.COM{ToChar(&H0%)}PATH={ToChar(&H0%)}"   'Defines the MS-DOS environment.
    Private ReadOnly ENVIRONMENT_SEGMENT As Integer = LOWEST_ADDRESS                                      'Defines the MS-DOS environment's segment.
    Private ReadOnly EXE_MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}                                          'Defines the signature of an MZ exectuable.
+   Private ReadOnly LOWEST_FILE_HANDLE As Integer = STDFileHandlesE.STDPRN + &H1%                        'Defines the lowest possible file handle.
 
-   Private Allocations As New List(Of Tuple(Of Integer, Integer))   'Contains the memory allocations.
-   Private ProcessSegments As New Stack(Of Integer)                 'Contains the segments allocated to processes.
+   Private Allocations As New List(Of Tuple(Of Integer, Integer))      'Contains the memory allocations.
+   Private OpenFiles As New List(Of Tuple(Of FileStream, Integer))     'Contains the open file streams and their handles.
+   Private ProcessSegments As New Stack(Of Integer)                    'Contains the segments allocated to processes.
 
    'This procedure attempts to allocate the specified amount of memory and returns an address if successful.
    Private Function AllocateMemory(Size As Integer) As Integer?
@@ -88,6 +91,26 @@ Public Module MSDOSModule
       End Try
 
       Return Nothing
+   End Function
+
+   'This procudure attempts to close the specified file handle and returns whether or not it succeeded.
+   Private Function CloseFileHandle(ClosedHandle As Integer) As Boolean
+      Try
+         Dim OpenFileToBeClosed As Tuple(Of FileStream, Integer) = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = ClosedHandle)
+         Dim Success As Boolean = False
+
+         If OpenFileToBeClosed IsNot Nothing Then
+            ''OpenFileToBeClosed.Item1.Close() <<<---!!! Needs to be enabled when actual filestreams have been implemented.
+            OpenFiles.Remove(OpenFileToBeClosed)
+            Success = True
+         End If
+
+         Return Success
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return False
    End Function
 
    'This procedure attempts to free the specified allocated memory address and returns whether or not it succeeded.
@@ -133,6 +156,24 @@ Public Module MSDOSModule
       End Try
    End Sub
 
+   'This procedure returns the next free file handle.
+   Private Function GetNextFreeFileHandle() As Integer
+      Try
+         Dim NextHandle As Integer = LOWEST_FILE_HANDLE
+         Dim UsedHandles As HashSet(Of Integer) = OpenFiles.Select(Function(Handle) Handle.Item2).ToHashSet()
+
+         While UsedHandles.Contains(NextHandle)
+            NextHandle += 1
+         End While
+
+         Return NextHandle
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return Nothing
+   End Function
+
    'This procedure handles the specified MS-DOS interrupt and returns whether or not is succeeded.
    Public Function HandleMSDOSInterrupt(Number As Integer, AH As Integer, ByRef Flags As Integer) As Boolean
       Try
@@ -153,9 +194,21 @@ Public Module MSDOSModule
                   Case &H0%
                      TerminateProgram($"Program terminated.{NewLine}")
                      Success = True
+                  Case &H1%
+                     Do
+                        Application.DoEvents()
+                        KeyCode = LastBIOSKeyCode() And &HFF%
+                     Loop While (KeyCode = Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
+
+                     LastBIOSKeyCode(, Clear:=True)
+                     CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=KeyCode)
+                     TeleType(CByte(KeyCode))
+                     Success = True
+                  Case &H2%
+                     TeleType(CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.DL)))
+                     Success = True
                   Case &H8%
                      If ExtendedKeyCode = Nothing Then
-
                         Do
                            Application.DoEvents()
                            KeyCode = LastBIOSKeyCode()
@@ -185,6 +238,12 @@ Public Module MSDOSModule
                      CPU.PutWord(Address + &H2%, CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)))
                      CPU.PutWord(Address, CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
                      Success = True
+                  Case &H2A%
+                     CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=Now.DayOfWeek)
+                     CPU.Registers(CPU8086Class.Registers16BitE.CX, NewValue:=Now.Year)
+                     CPU.Registers(CPU8086Class.SubRegisters8BitE.DH, NewValue:=Now.Month)
+                     CPU.Registers(CPU8086Class.SubRegisters8BitE.DL, NewValue:=Now.Day)
+                     Success = True
                   Case &H2C%
                      GetCurrentTime()
                      Success = True
@@ -196,6 +255,59 @@ Public Module MSDOSModule
                      Address = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)) * &H4%
                      CPU.Registers(CPU8086Class.SegmentRegistersE.ES, NewValue:=CPU.GET_WORD(Address + &H2%))
                      CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=CPU.GET_WORD(Address))
+                     Success = True
+                  Case &H3D%
+                     ''	AH = 3D
+                     ''	AL = open access mode
+                     ''	     00  read only
+                     ''	     01  write only
+                     ''	     02  read/write
+                     ''	DS:DX = pointer to an ASCIIZ file name
+                     ''
+                     ''	on return:
+                     ''	AX = file handle if CF not set
+                     ''	   = error code if CF set  (see DOS ERROR CODES)
+
+                     ''
+                     '' LOWEST_FILE_HANDLE
+                     ''
+
+                     ''
+                     ''Dim fs As New FileStream("", FileMode.Open, FileAccess.Read/FileAcces.Write/FileAccess.ReadWrite)
+                     ''
+
+                     ''--->>> Dummy code!!! DOES NOT ACTUALLY OPEN A FILE!!!
+                     Dim tmp As Integer = GetNextFreeFileHandle()
+                     OpenFiles.Add(New Tuple(Of FileStream, Integer)(Nothing, tmp))
+
+                     Success = True
+                  Case &H3E%
+                     CloseFileHandle(CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)))
+                     ''!!!
+                     ''
+                     ''	on return:
+                     ''	AX = file handle if CF not set
+                     ''	   = error code if CF set  (see DOS ERROR CODES)
+                     Success = True
+                  Case &H3F%
+                     ''!!!
+                     ''
+                     ''	AH = 3F
+                     ''	BX = file handle
+                     ''	CX = number of bytes to read
+                     ''	DS:DX = pointer to read buffer
+                     ''
+                     ''
+                     ''	on return:
+                     ''	AX = number of bytes read is CF not set
+                     ''	   = error code if CF set  (see DOS ERROR CODES)
+                     ''
+                     ''
+                     ''	- read specified number of bytes from file into buffer DS:DX
+                     ''	- when AX is not equal to CX then a partial read occurred due
+                     ''	  to end of file
+                     ''	- if AX is zero, no data was read, and EOF occurred before read
+                     ''
                      Success = True
                   Case &H40%
                      Select Case DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.BX), STDFileHandlesE)
