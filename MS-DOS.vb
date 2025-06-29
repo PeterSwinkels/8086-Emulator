@@ -12,6 +12,7 @@ Imports System.Environment
 Imports System.IO
 Imports System.Linq
 Imports System.Math
+Imports System.Security
 Imports System.Windows.Forms
 
 'This module handles MS-DOS related functions.
@@ -26,8 +27,21 @@ Public Module MSDOSModule
    End Enum
 
    Private Const CARRY_FLAG_INDEX As Integer = &H0%                     'Defines the carry flag's bit index.
-   Private Const ERROR_INSUFFICIENT_MEMORY As Integer = &H8%            'Defines the insufficient memory error code.
+   Private Const ERROR_ACCESS_DENIED As Integer = &H5%                  'Defines the access denied error code.
+   Private Const ERROR_CRC As Integer = &H17%                           'Defines the CRC error code.
+   Private Const ERROR_DISK_FULL As Integer = &H70%                     'Defines the disk full error code.
+   Private Const ERROR_FILE_NOT_FOUND As Integer = &H2%                 'Defines the file not found error code.
+   Private Const ERROR_FILENAME_EXCED_RANGE As Integer = &HC3%          'Defines the filename exceeds range code.
+   Private Const ERROR_GEN_FAILURE As Integer = &H1F%                   'Defines the general failure error code.
+   Private Const ERROR_HANDLE_EOF As Integer = &H26%                    'Defines the handle EOF error code.
    Private Const ERROR_INVALID_MEMORY_BLOCK_ADDRESS As Integer = &H9%   'Defines the invalid memory block address error code.
+   Private Const ERROR_INSUFFICIENT_MEMORY As Integer = &H8%            'Defines the insufficient memory error code.
+   Private Const ERROR_INVALID_NAME As Integer = &H7B%                  'Defines the invalid name error code.
+   Private Const ERROR_LOCK_VIOLATION As Integer = &H21%                'Defines the lock violation error code.
+   Private Const ERROR_NOT_READY As Integer = &HF%                      'Defines the not ready error code.
+   Private Const ERROR_NOT_SUPPORTED As Integer = &H32%                 'Defines the not supported error code.
+   Private Const ERROR_PATH_NOT_FOUND As Integer = &H3%                 'Defines the path not found error code.
+   Private Const ERROR_SHARING_VIOLATION As Integer = &H20%             'Defines the sharing violation error code.
    Private Const EXE_HEADER_SIZE As Integer = &H8%                      'Defines where an executable's header size is stored.
    Private Const EXE_INITIAL_CS As Integer = &H16%                      'Defines where an executable's initial code segment is stored.
    Private Const EXE_INITIAL_IP As Integer = &H14%                      'Defines where an executable's initial instruction pointer is stored.
@@ -94,13 +108,19 @@ Public Module MSDOSModule
    End Function
 
    'This procudure attempts to close the specified file handle and returns whether or not it succeeded.
-   Private Function CloseFileHandle(ClosedHandle As Integer) As Boolean
+   Private Function CloseFileHandle() As Boolean
       Try
-         Dim OpenFileToBeClosed As Tuple(Of FileStream, Integer) = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = ClosedHandle)
+         Dim OpenFileToBeClosed As Tuple(Of FileStream, Integer) = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)))
          Dim Success As Boolean = False
 
          If OpenFileToBeClosed IsNot Nothing Then
-            ''OpenFileToBeClosed.Item1.Close() <<<---!!! Needs to be enabled when actual filestreams have been implemented.
+            Try
+               OpenFileToBeClosed.Item1.Close()
+            Catch MSDOSException As Exception
+               CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
+               CPU.Registers(CPU8086Class.FlagRegistersE.CF, NewValue:=CInt(True))
+            End Try
+
             OpenFiles.Remove(OpenFileToBeClosed)
             Success = True
          End If
@@ -155,6 +175,52 @@ Public Module MSDOSModule
          DisplayException(ExceptionO.Message)
       End Try
    End Sub
+
+   'This procedure translates the specified exception to a MS-DOS error code and returns the result.
+   Private Function GetMSDOSErrorCode(MSDOSException As Exception) As Integer
+      Try
+         Dim IOExceptionO As New IOException
+         Dim MSDOSErrorCode As Integer = ERROR_GEN_FAILURE
+
+         Select Case True
+            Case TypeOf MSDOSException Is DirectoryNotFoundException
+               MSDOSErrorCode = ERROR_PATH_NOT_FOUND
+            Case TypeOf MSDOSException Is DriveNotFoundException
+               MSDOSErrorCode = ERROR_NOT_READY
+            Case TypeOf MSDOSException Is EndOfStreamException
+               MSDOSErrorCode = ERROR_HANDLE_EOF
+            Case TypeOf MSDOSException Is FileNotFoundException
+               MSDOSErrorCode = ERROR_FILE_NOT_FOUND
+            Case TypeOf MSDOSException Is IOException
+               IOExceptionO = DirectCast(MSDOSException, IOException)
+
+               Select Case IOExceptionO.HResult And &HFFFF%
+                  Case ERROR_DISK_FULL, ERROR_INVALID_NAME, ERROR_LOCK_VIOLATION, ERROR_SHARING_VIOLATION, ERROR_CRC
+                     MSDOSErrorCode = (IOExceptionO.HResult And &HFFFF%)
+                  Case Else
+                     MSDOSErrorCode = ERROR_GEN_FAILURE
+               End Select
+            Case TypeOf MSDOSException Is NotSupportedException
+               MSDOSErrorCode = ERROR_NOT_SUPPORTED
+            Case TypeOf MSDOSException Is ObjectDisposedException
+               MSDOSErrorCode = ERROR_GEN_FAILURE
+            Case TypeOf MSDOSException Is PathTooLongException
+               MSDOSErrorCode = ERROR_FILENAME_EXCED_RANGE
+            Case TypeOf MSDOSException Is UnauthorizedAccessException
+               MSDOSErrorCode = ERROR_ACCESS_DENIED
+            Case TypeOf MSDOSException Is SecurityException
+               MSDOSErrorCode = ERROR_ACCESS_DENIED
+            Case Else
+               MSDOSErrorCode = ERROR_GEN_FAILURE
+         End Select
+
+         Return MSDOSErrorCode
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return Nothing
+   End Function
 
    'This procedure returns the next free file handle.
    Private Function GetNextFreeFileHandle() As Integer
@@ -257,57 +323,13 @@ Public Module MSDOSModule
                      CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=CPU.GET_WORD(Address))
                      Success = True
                   Case &H3D%
-                     ''	AH = 3D
-                     ''	AL = open access mode
-                     ''	     00  read only
-                     ''	     01  write only
-                     ''	     02  read/write
-                     ''	DS:DX = pointer to an ASCIIZ file name
-                     ''
-                     ''	on return:
-                     ''	AX = file handle if CF not set
-                     ''	   = error code if CF set  (see DOS ERROR CODES)
-
-                     ''
-                     '' LOWEST_FILE_HANDLE
-                     ''
-
-                     ''
-                     ''Dim fs As New FileStream("", FileMode.Open, FileAccess.Read/FileAcces.Write/FileAccess.ReadWrite)
-                     ''
-
-                     ''--->>> Dummy code!!! DOES NOT ACTUALLY OPEN A FILE!!!
-                     Dim tmp As Integer = GetNextFreeFileHandle()
-                     OpenFiles.Add(New Tuple(Of FileStream, Integer)(Nothing, tmp))
-
+                     OpenFile()
                      Success = True
                   Case &H3E%
-                     CloseFileHandle(CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)))
-                     ''!!!
-                     ''
-                     ''	on return:
-                     ''	AX = file handle if CF not set
-                     ''	   = error code if CF set  (see DOS ERROR CODES)
+                     CloseFileHandle()
                      Success = True
                   Case &H3F%
-                     ''!!!
-                     ''
-                     ''	AH = 3F
-                     ''	BX = file handle
-                     ''	CX = number of bytes to read
-                     ''	DS:DX = pointer to read buffer
-                     ''
-                     ''
-                     ''	on return:
-                     ''	AX = number of bytes read is CF not set
-                     ''	   = error code if CF set  (see DOS ERROR CODES)
-                     ''
-                     ''
-                     ''	- read specified number of bytes from file into buffer DS:DX
-                     ''	- when AX is not equal to CX then a partial read occurred due
-                     ''	  to end of file
-                     ''	- if AX is zero, no data was read, and EOF occurred before read
-                     ''
+                     ReadFile()
                      Success = True
                   Case &H40%
                      Select Case DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.BX), STDFileHandlesE)
@@ -320,9 +342,21 @@ Public Module MSDOSModule
                            Next Character
 
                            CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=Count)
-
-                           Success = True
+                        Case Else
+                           ''
+                           '' Write to file using handle. !!!
+                           ''
                      End Select
+
+                     Success = True
+                  Case &H41%
+                     ''
+                     '' Delete file. !!!
+                     ''
+                  Case &H42%
+                     ''
+                     '' Move file pointer using handle.
+                     ''
                   Case &H48%
                      Result = AllocateMemory(CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)) << &H4%)
                      CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=(LargestFreeMemoryBlock() >> &H4%))
@@ -546,10 +580,66 @@ Public Module MSDOSModule
       Return New List(Of Byte)
    End Function
 
+   'This prodecure opens a file.
+   Private Sub OpenFile()
+      Try
+         Dim FileAccessO As New FileAccess
+         Dim FileName As String = Nothing
+         Dim FileStreamO As FileStream = Nothing
+         Dim NextHandle As New Integer?
+
+         Try
+            Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)) And &H3% ''<<<--- Mask constant. - !!!
+               Case &H0%
+                  FileAccessO = FileAccess.Read
+               Case &H1%
+                  FileAccessO = FileAccess.Write
+               Case &H2%
+                  FileAccessO = FileAccess.ReadWrite
+            End Select
+
+            FileName = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+            FileStreamO = New FileStream(FileName, FileMode.Open, FileAccessO)
+            NextHandle = GetNextFreeFileHandle()
+         Catch MSDOSException As Exception
+            CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
+            CPU.Registers(CPU8086Class.FlagRegistersE.CF, NewValue:=CInt(True))
+         End Try
+
+         If NextHandle IsNot Nothing Then
+            CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CInt(NextHandle))
+            OpenFiles.Add(New Tuple(Of FileStream, Integer)(FileStreamO, CInt(NextHandle)))
+         End If
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure reads a file.
+   Private Sub ReadFile()
+      Try
+         Dim Bytes() As Byte = {}
+         Dim OpenFileToBeRead As Tuple(Of FileStream, Integer) = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)))
+
+         Try
+            ReDim Bytes(0 To CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX)) - 1)
+            OpenFileToBeRead.Item1.Read(Bytes, CInt(OpenFileToBeRead.Item1.Position), CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX)))
+            CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=Bytes.Count)
+            WriteBytesToMemory(Bytes, (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) Or CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+         Catch MSDOSException As Exception
+            CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
+            CPU.Registers(CPU8086Class.FlagRegistersE.CF, NewValue:=CInt(True))
+         End Try
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
    'This procedure resets the MS-DOS environment.
    Public Sub ResetMSDOS()
       Try
          Allocations.Clear()
+         OpenFiles.Clear()
          ProcessSegments.Clear()
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)

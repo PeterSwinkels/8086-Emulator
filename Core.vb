@@ -456,13 +456,32 @@ Public Module CoreModule
       Return Nothing
    End Function
 
+   'This produre reads a null terminated string from the specified position in memory and returns it.
+   Public Function GetStringZ(Segment As Integer, Offset As Integer) As String
+      Try
+         Dim Position As Integer = (Segment << &H4%) Or Offset
+         Dim StringZ As New StringBuilder
+
+         Do Until CPU.Memory(Position And CPU8086Class.ADDRESS_MASK) = &H0%
+            StringZ.Append(ToChar(CPU.Memory(Position And CPU8086Class.ADDRESS_MASK)))
+            Position += &H1%
+         Loop
+
+         Return StringZ.ToString()
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return Nothing
+   End Function
+
    'This procedure loads the specified binary file into the emulated CPU's memory.
    Private Sub LoadBinary(FileName As String, Offset As Integer)
       Try
          Dim Binary As New List(Of Byte)(File.ReadAllBytes(FileName))
 
          If Offset + Binary.Count <= CPU.Memory.Length Then
-            Output.AppendText($"Loading ""{FileName}"" ({Binary.Count:X8} bytes) at address {Offset:X8}.{NewLine}")
+            Output.AppendText($"Loading ""{FileName}"" ({Binary.Count: X8} bytes) at address {Offset:X8}.{NewLine}")
             Binary.CopyTo(CPU.Memory, Offset)
          Else
             Output.AppendText($"""{FileName}"" does not fit inside the emulated memory.{NewLine}")
