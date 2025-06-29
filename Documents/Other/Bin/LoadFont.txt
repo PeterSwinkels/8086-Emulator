@@ -1,3 +1,5 @@
+# This script loads binary font data into the emulated CPU's memory.
+
 [Script]
 AL=1F
 DS=C000

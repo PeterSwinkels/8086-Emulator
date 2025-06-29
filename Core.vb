@@ -288,8 +288,8 @@ Public Module CoreModule
       End Try
    End Sub
 
-   'This procedure escapes the specified byte or convert it to a character and returns the result.
-   Private Function EscapeByte([Byte] As Byte) As String
+   'This procedure escapes the specified byte or converts it to a character and returns the result.
+   Public Function EscapeByte([Byte] As Byte) As String
       Try
          Return If([Byte] >= ToByte(" "c) AndAlso [Byte] <= ToByte("~"c), If([Byte] = ESCAPE_CHARACTER, New String(ToChar(ESCAPE_CHARACTER), count:=2), ToChar([Byte])), $"{ToChar(ESCAPE_CHARACTER)}{[Byte]:X2}")
       Catch ExceptionO As Exception

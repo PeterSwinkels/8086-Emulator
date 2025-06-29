@@ -1,3 +1,5 @@
+# Sets the emulated CPU to the values defined in this script.
+
 [script]
 cs=600
 ip=0

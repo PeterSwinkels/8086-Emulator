@@ -7,7 +7,6 @@ Option Strict On
 Imports System
 Imports System.ComponentModel
 Imports System.Environment
-Imports System.IO
 Imports System.Linq
 Imports System.Threading.Tasks
 Imports System.Windows.Forms

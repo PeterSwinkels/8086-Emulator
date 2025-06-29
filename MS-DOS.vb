@@ -8,11 +8,14 @@ Imports System
 Imports System.Collections.Generic
 Imports System.Convert
 Imports System.DateTime
+Imports System.Drawing
+Imports System.Drawing.Printing
 Imports System.Environment
 Imports System.IO
 Imports System.Linq
 Imports System.Math
 Imports System.Security
+Imports System.Text
 Imports System.Windows.Forms
 
 'This module handles MS-DOS related functions.
@@ -49,6 +52,7 @@ Public Module MSDOSModule
    Private Const EXE_INITIAL_SS As Integer = &HE%                       'Defines where an executable's initial stack segment is stored.
    Private Const EXE_RELOCATION_ITEM_COUNT As Integer = &H6%            'Defines where an executable's number of relocation items is stored.
    Private Const EXE_RELOCATION_ITEM_TABLE As Integer = &H18%           'Defines where an executable's number of relocation item table offset is stored.
+   Private Const FILE_ACCESS_RW_MASK As Integer = &H3%                  'Defines the read/write bits for file access.
    Private Const HIGHEST_ADDRESS As Integer = &HA000%                   'Defines the highest address that can be allocated.
    Private Const LOWEST_ADDRESS As Integer = &H600%                     'Defines the lowest address that can be allocated.
    Private Const MS_DOS As Integer = &HFF00%                            'Defines a value indicating that the operating system is MS-DOS.
@@ -64,7 +68,10 @@ Public Module MSDOSModule
 
    Private Allocations As New List(Of Tuple(Of Integer, Integer))      'Contains the memory allocations.
    Private OpenFiles As New List(Of Tuple(Of FileStream, Integer))     'Contains the open file streams and their handles.
+   Private PrinterBuffer As New StringBuilder                          'Contains the printer buffer.
    Private ProcessSegments As New Stack(Of Integer)                    'Contains the segments allocated to processes.
+
+   Private WithEvents PrinterDocumentO As New PrintDocument   'Contains the document with output to STDPRN to be printed.
 
    'This procedure attempts to allocate the specified amount of memory and returns an address if successful.
    Private Function AllocateMemory(Size As Integer) As Integer?
@@ -157,9 +164,8 @@ Public Module MSDOSModule
          Dim Hundreth As New Integer
          Dim Minute As New Integer
          Dim Second As New Integer
-         Dim TotalSeconds As New Double
+         Dim TotalSeconds As Double = Counter / 18.2065
 
-         TotalSeconds = Counter / 18.2065
          Hour = CInt(Floor(TotalSeconds / 3600))
          TotalSeconds -= Hour * 3600
          Minute = CInt(Floor(TotalSeconds / 60))
@@ -240,6 +246,25 @@ Public Module MSDOSModule
       Return Nothing
    End Function
 
+   'This procedure reads a key with echo and returns the result.
+   Private Function GetKeyWithEcho() As Integer
+      Try
+         Dim KeyCode As New Integer
+
+         Do
+            Application.DoEvents()
+            KeyCode = LastBIOSKeyCode() And &HFF%
+         Loop While (KeyCode = Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
+
+         LastBIOSKeyCode(, Clear:=True)
+         TeleType(CByte(KeyCode))
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return Nothing
+   End Function
+
    'This procedure handles the specified MS-DOS interrupt and returns whether or not is succeeded.
    Public Function HandleMSDOSInterrupt(Number As Integer, AH As Integer, ByRef Flags As Integer) As Boolean
       Try
@@ -261,14 +286,7 @@ Public Module MSDOSModule
                      TerminateProgram($"Program terminated.{NewLine}")
                      Success = True
                   Case &H1%
-                     Do
-                        Application.DoEvents()
-                        KeyCode = LastBIOSKeyCode() And &HFF%
-                     Loop While (KeyCode = Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
-
-                     LastBIOSKeyCode(, Clear:=True)
-                     CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=KeyCode)
-                     TeleType(CByte(KeyCode))
+                     CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=GetKeyWithEcho())
                      Success = True
                   Case &H2%
                      TeleType(CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.DL)))
@@ -332,22 +350,7 @@ Public Module MSDOSModule
                      ReadFile()
                      Success = True
                   Case &H40%
-                     Select Case DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.BX), STDFileHandlesE)
-                        Case STDFileHandlesE.STDOUT, STDFileHandlesE.STDERR
-                           Count = CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX))
-                           Position = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
-                           For Character As Integer = &H0% To Count - &H1%
-                              TeleType(CPU.Memory(Position And CPU8086Class.ADDRESS_MASK))
-                              Position += &H1%
-                           Next Character
-
-                           CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=Count)
-                        Case Else
-                           ''
-                           '' Write to file using handle. !!!
-                           ''
-                     End Select
-
+                     WriteFile()
                      Success = True
                   Case &H41%
                      ''
@@ -355,7 +358,7 @@ Public Module MSDOSModule
                      ''
                   Case &H42%
                      ''
-                     '' Move file pointer using handle.
+                     '' Move file pointer using handle. !!!
                      ''
                   Case &H48%
                      Result = AllocateMemory(CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)) << &H4%)
@@ -589,7 +592,7 @@ Public Module MSDOSModule
          Dim NextHandle As New Integer?
 
          Try
-            Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)) And &H3% ''<<<--- Mask constant. - !!!
+            Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)) And FILE_ACCESS_RW_MASK
                Case &H0%
                   FileAccessO = FileAccess.Read
                Case &H1%
@@ -615,21 +618,47 @@ Public Module MSDOSModule
       End Try
    End Sub
 
+   'This procedure sends the printer buffer's content to the default printer.
+   Private Sub PrinterDocumentO_PrintPage(sender As Object, e As PrintPageEventArgs) Handles PrinterDocumentO.PrintPage
+      Try
+         e.Graphics.DrawString(PrinterBuffer.ToString(), New Font("Consolas", 10), Brushes.Black, New Point(8, 8))
+         PrinterBuffer.Clear()
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
    'This procedure reads a file.
    Private Sub ReadFile()
       Try
          Dim Bytes() As Byte = {}
-         Dim OpenFileToBeRead As Tuple(Of FileStream, Integer) = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)))
+         Dim Count As Integer = CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX))
+         Dim OpenFileToBeRead As Tuple(Of FileStream, Integer) = Nothing
+         Dim STDHandle As STDFileHandlesE = DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.BX), STDFileHandlesE)
 
-         Try
-            ReDim Bytes(0 To CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX)) - 1)
-            OpenFileToBeRead.Item1.Read(Bytes, CInt(OpenFileToBeRead.Item1.Position), CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX)))
-            CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=Bytes.Count)
-            WriteBytesToMemory(Bytes, (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) Or CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
-         Catch MSDOSException As Exception
-            CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
-            CPU.Registers(CPU8086Class.FlagRegistersE.CF, NewValue:=CInt(True))
-         End Try
+         ReDim Bytes(&H0% To Count - &H1%)
+
+         Select Case STDHandle
+            Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDIN
+               For Character As Integer = &H0% To Count - &H1%
+                  Bytes(Character) = ToByte(GetKeyWithEcho())
+               Next Character
+            Case STDFileHandlesE.STDERR, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
+               CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=ERROR_ACCESS_DENIED)
+               CPU.Registers(CPU8086Class.FlagRegistersE.CF, NewValue:=CInt(True))
+            Case Else
+               OpenFileToBeRead = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)))
+
+               Try
+                  Count = OpenFileToBeRead.Item1.Read(Bytes, CInt(OpenFileToBeRead.Item1.Position), Count)
+                  CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=Count)
+                  ReDim Preserve Bytes(&H0% To Count - &H1%)
+                  WriteBytesToMemory(Bytes, (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) Or CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+               Catch MSDOSException As Exception
+                  CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
+                  CPU.Registers(CPU8086Class.FlagRegistersE.CF, NewValue:=CInt(True))
+               End Try
+         End Select
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -656,6 +685,65 @@ Public Module MSDOSModule
          SyncLock Synchronizer
             CPUEvent.Append(Message)
          End SyncLock
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure writes to a file.
+   Private Sub WriteFile()
+      Try
+         Dim Buffer As New StringBuilder
+         Dim Bytes() As Byte = {}
+         Dim Count As Integer = CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX))
+         Dim OpenFileToBeWritten As Tuple(Of FileStream, Integer) = Nothing
+         Dim Position As New Integer
+         Dim STDHandle As STDFileHandlesE = DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.BX), STDFileHandlesE)
+
+         Select Case STDHandle
+            Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
+               Position = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
+               Select Case STDHandle
+                  Case STDFileHandlesE.STDAUX
+                     SyncLock Synchronizer
+                        CPUEvent.Append($"STDAUX:{NewLine}")
+
+                        For Character As Integer = &H0% To Count - &H1%
+                           Buffer.Append(EscapeByte(CPU.Memory(Position And CPU8086Class.ADDRESS_MASK)))
+                           Position += &H1%
+                        Next Character
+
+                        CPUEvent.Append($"{Buffer}{NewLine}")
+                     End SyncLock
+                  Case STDFileHandlesE.STDPRN
+                     PrinterBuffer.Clear()
+
+                     For Character As Integer = &H0% To Count - &H1%
+                        PrinterBuffer.Append(EscapeByte(CPU.Memory(Position And CPU8086Class.ADDRESS_MASK)))
+                        Position += &H1%
+                     Next Character
+
+                     PrinterDocumentO.Print()
+                  Case Else
+                     For Character As Integer = &H0% To Count - &H1%
+                        TeleType(CPU.Memory(Position And CPU8086Class.ADDRESS_MASK))
+                        Position += &H1%
+                     Next Character
+               End Select
+
+               CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=Count)
+            Case Else
+               OpenFileToBeWritten = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)))
+               Bytes = CPU.Memory.ToList.GetRange((CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) Or CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)), Count).ToArray()
+
+               Try
+                  OpenFileToBeWritten.Item1.Write(Bytes, CInt(OpenFileToBeWritten.Item1.Position), Count)
+                  CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=Count)
+               Catch MSDOSException As Exception
+                  CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
+                  CPU.Registers(CPU8086Class.FlagRegistersE.CF, NewValue:=CInt(True))
+               End Try
+         End Select
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
