@@ -1,9 +1,8 @@
 Ideas for things to be implemented/changed in the 8086 Emulator.
 
-1. OF and SF flags are improperly set by CMP causing issues with instructions such as JG!
-2. Add CGA character drawing. XOR on bit 7.
-3. Add VGA character drawing.
-4. EscapeByte and GetFlatCSIP can be converted to a single line procedure.
-5. INT 21h, 41h - Delete file.
-6. INT 21h, 42h - Move file pointer.
+1. Add CGA character drawing. XOR on bit 7.
+2. Add VGA character drawing.
+3. EscapeByte and GetFlatCSIP can be converted to a single line procedure.
+4. INT 21h, 41h - Delete file.
+5. INT 21h, 42h - Move file pointer.
 
