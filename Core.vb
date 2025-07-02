@@ -755,11 +755,7 @@ Public Module CoreModule
    'This procedure handles PIT events.
    Private Sub PIT_PITEvent(Counter As PITClass.CountersE, Mode As PITClass.ModesE) Handles PIT.PITEvent
       Try
-         If Counter = PITClass.CountersE.TimeOfDay Then
-            If CPU.Clock.Status = TaskStatus.Running Then
-               UpdateClockCounter()
-            End If
-         End If
+         CPU.UpdateClock = ((Counter = PITClass.CountersE.TimeOfDay) AndAlso (CPU.Clock.Status = TaskStatus.Running))
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

@@ -432,6 +432,7 @@ Public Class CPU8086Class
    Public ClockToken As New CancellationTokenSource                                'Indicates whether or not to stop the CPU.
    Public Memory() As Byte = Enumerable.Repeat(CByte(&H0%), &H100000%).ToArray()   'Contains the memory used by the emulated 8086 CPU.
    Public Tracing As Boolean = False                                               'Indicates whether or not tracing is enabled.
+   Public UpdateClock As Boolean = False                                           'Indicates whether or not the system clock is updated.
 
    Public Event Halt()                                                                   'Defines the halt event.
    Public Event Interrupt(Number As Integer, AH As Integer)                              'Defines the interrupt event.
@@ -585,6 +586,12 @@ Public Class CPU8086Class
    Public Function Execute() As Task(Of Integer)
       Do Until ClockToken.Token.IsCancellationRequested
          If Tracing Then RaiseEvent Trace(GetFlatCSIP())
+
+         If UpdateClock Then
+            ExecuteInterrupt(OpcodesE.INT, Number:=&H8%)
+            ExecuteInterrupt(OpcodesE.INT, Number:=&H1C%)
+            UpdateClock = False
+         End If
 
          If Not ExecuteOpcode() Then
             ExecuteInterrupt(OpcodesE.INT, Number:=INVALID_OPCODE)

@@ -154,6 +154,8 @@ Public Module InterruptHandlerModule
                      CPU.Registers(CPU8086Class.Registers16BitE.DX, NewValue:=CPU.Memory(AddressesE.Clock))
                      Success = True
                End Select
+            Case &H1C%
+               Success = True
             Case Else
                Success = HandleMSDOSInterrupt(Number, AH, Flags)
          End Select
