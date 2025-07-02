@@ -9,6 +9,7 @@ Imports System.Windows.Forms
 
 'This module contains the default interrupt handler.
 Public Module InterruptHandlerModule
+   Public Const CARRY_FLAG_INDEX As Integer = &H0%   'Defines the carry flag's bit index.
    Private Const CURSOR_MASK As Integer = &H1F1F%    'Defines the cursor end/start bits.
    Private Const VIDEO_MODE_MASK As Byte = &H7F%     'Defines the bits indicating a video mode.
    Private Const ZERO_FLAG_INDEX As Integer = &H6%   'Defines the zero flag's bit index.
@@ -143,7 +144,7 @@ Public Module InterruptHandlerModule
                      Success = True
                   Case &H1%
                      CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=LastBIOSKeyCode())
-                     Flags = SetBit(Flags, (CInt(CPU.Registers(CPU8086Class.Registers16BitE.AX)) = &H0%), ZERO_FLAG_INDEX)
+                     Flags = SetBit(Flags, Bit:=(CInt(CPU.Registers(CPU8086Class.Registers16BitE.AX)) = &H0%), ZERO_FLAG_INDEX)
                      Success = True
                End Select
             Case &H1A%
