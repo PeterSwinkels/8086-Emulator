@@ -127,8 +127,7 @@ APAGANDO:
         MOV ES:[DI],AL
         ADD DI,2
         CMP DI, 4000   ; 25X80 + ATRIBUTO DE COR PARA CADA BYTE
-        JA SAI ; There is a bug regarding the OF and SF flags being improperly set by the CMP instruction in the emulator! Use JA instead of JG.
-        ;;JG SAI
+        JG SAI
         JMP APAGANDO
 SAI:       
         POP AX
