@@ -585,7 +585,7 @@ Public Class CPU8086Class
    'This procedure gives the CPU the command to execute instructions.
    Public Function Execute() As Task(Of Integer)
       Do Until ClockToken.Token.IsCancellationRequested
-         If Tracing Then RaiseEvent Trace(GetFlatCSIP())
+         If Tracing Then RaiseEvent Trace(GET_FLAT_CS_IP())
 
          If UpdateClock Then
             ExecuteInterrupt(OpcodesE.INT, Number:=&H8%)
@@ -600,7 +600,7 @@ Public Class CPU8086Class
          If Tracing Then RaiseEvent Trace(Nothing)
       Loop
 
-      Return Task.FromResult(GetFlatCSIP())
+      Return Task.FromResult(GET_FLAT_CS_IP())
    End Function
 
    'This procedure executes control flow instructions.

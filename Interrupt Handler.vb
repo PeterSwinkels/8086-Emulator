@@ -43,7 +43,7 @@ Public Module InterruptHandlerModule
 
                      If [Enum].IsDefined(GetType(VideoModesE), VideoMode) Then
                         CPU.Memory(AddressesE.VideoMode) = VideoMode
-                        CPU.Memory(AddressesE.VideoModeOptions) = CByte(SetBit(CPU.Memory(AddressesE.VideoModeOptions), VideoModeBit7, Index:=&H7%))
+                        CPU.Memory(AddressesE.VideoModeOptions) = CByte(SET_BIT(CPU.Memory(AddressesE.VideoModeOptions), VideoModeBit7, &H7%))
 
                         CurrentVideoMode = DirectCast(VideoMode, VideoModesE)
                         SwitchVideoAdapter()
@@ -144,7 +144,7 @@ Public Module InterruptHandlerModule
                      Success = True
                   Case &H1%
                      CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=LastBIOSKeyCode())
-                     Flags = SetBit(Flags, Bit:=(CInt(CPU.Registers(CPU8086Class.Registers16BitE.AX)) = &H0%), ZERO_FLAG_INDEX)
+                     Flags = SET_BIT(Flags, (CInt(CPU.Registers(CPU8086Class.Registers16BitE.AX)) = &H0%), ZERO_FLAG_INDEX)
                      Success = True
                End Select
             Case &H1A%

@@ -17,6 +17,7 @@ Imports System.Math
 Imports System.Security
 Imports System.Text
 Imports System.Windows.Forms
+Imports System.Windows.Forms.VisualStyles.VisualStyleElement.ProgressBar
 
 'This module handles MS-DOS related functions.
 Public Module MSDOSModule
@@ -123,10 +124,10 @@ Public Module MSDOSModule
          If OpenFileToBeClosed IsNot Nothing Then
             Try
                OpenFileToBeClosed.Item1.Close()
-               Flags = SetBit(Flags, Bit:=False, CARRY_FLAG_INDEX)
+               Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
             Catch MSDOSException As Exception
                CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
-               Flags = SetBit(Flags, Bit:=True, CARRY_FLAG_INDEX)
+               Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
             End Try
 
             OpenFiles.Remove(OpenFileToBeClosed)
@@ -140,6 +141,42 @@ Public Module MSDOSModule
 
       Return False
    End Function
+
+   'This prodecure creates a file.
+   Private Sub CreateFile(ByRef Flags As Integer)
+      Try
+         Dim FileName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+
+         Try
+            File.Create(FileName)
+            File.SetAttributes(FileName, DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.CX), FileAttributes))
+            Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+         Catch MSDOSException As Exception
+            CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
+            Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+         End Try
+
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This prodecure deletes a file.
+   Private Sub DeleteFile(ByRef Flags As Integer)
+      Try
+         Dim FileName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+
+         Try
+            File.Delete(FileName)
+            Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+         Catch MSDOSException As Exception
+            CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
+            Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+         End Try
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
 
    'This procedure attempts to free the specified allocated memory address and returns whether or not it succeeded.
    Private Function FreeAllocatedMemory(StartAddress As Integer) As Boolean
@@ -341,6 +378,9 @@ Public Module MSDOSModule
                      CPU.Registers(CPU8086Class.SegmentRegistersE.ES, NewValue:=CPU.GET_WORD(Address + &H2%))
                      CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=CPU.GET_WORD(Address))
                      Success = True
+                  Case &H3C%
+                     CreateFile(Flags)
+                     Success = True
                   Case &H3D%
                      OpenFile(Flags)
                      Success = True
@@ -354,17 +394,15 @@ Public Module MSDOSModule
                      WriteFile(Flags)
                      Success = True
                   Case &H41%
-                     ''
-                     '' Delete file. !!!
-                     ''
+                     DeleteFile(Flags)
+                     Success = True
                   Case &H42%
-                     ''
-                     '' Move file pointer using handle. !!!
-                     ''
+                     SeekFile(Flags)
+                     Success = True
                   Case &H48%
                      Result = AllocateMemory(CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)) << &H4%)
                      CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=(LargestFreeMemoryBlock() >> &H4%))
-                     Flags = SetBit(Flags, Bit:=(Result Is Nothing), CARRY_FLAG_INDEX)
+                     Flags = SET_BIT(Flags, (Result Is Nothing), CARRY_FLAG_INDEX)
 
                      If Result Is Nothing Then
                         CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=ERROR_INSUFFICIENT_MEMORY)
@@ -375,16 +413,16 @@ Public Module MSDOSModule
                   Case &H49%
                      If FreeAllocatedMemory(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.ES)) << &H4%) Then
                         CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=&H0%)
-                        Flags = SetBit(Flags, Bit:=False, CARRY_FLAG_INDEX)
+                        Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
                      Else
                         CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=ERROR_INVALID_MEMORY_BLOCK_ADDRESS)
-                        Flags = SetBit(Flags, Bit:=True, CARRY_FLAG_INDEX)
+                        Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
                      End If
                      Success = True
                   Case &H4A%
                      Result = ModifyAllocatedMemory(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.ES)) << &H4%, CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)) << &H4%)
                      CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=(LargestFreeMemoryBlock() >> &H4%))
-                     Flags = SetBit(Flags, Bit:=(Result IsNot Nothing), CARRY_FLAG_INDEX)
+                     Flags = SET_BIT(Flags, (Result IsNot Nothing), CARRY_FLAG_INDEX)
 
                      If Result IsNot Nothing Then
                         CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CInt(Result))
@@ -588,27 +626,26 @@ Public Module MSDOSModule
    Private Sub OpenFile(ByRef Flags As Integer)
       Try
          Dim FileAccessO As New FileAccess
-         Dim FileName As String = Nothing
+         Dim FileName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
          Dim FileStreamO As FileStream = Nothing
          Dim NextHandle As New Integer?
 
-         Try
-            Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)) And FILE_ACCESS_RW_MASK
-               Case &H0%
-                  FileAccessO = FileAccess.Read
-               Case &H1%
-                  FileAccessO = FileAccess.Write
-               Case &H2%
-                  FileAccessO = FileAccess.ReadWrite
-            End Select
+         Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)) And FILE_ACCESS_RW_MASK
+            Case &H0%
+               FileAccessO = FileAccess.Read
+            Case &H1%
+               FileAccessO = FileAccess.Write
+            Case &H2%
+               FileAccessO = FileAccess.ReadWrite
+         End Select
 
-            FileName = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+         Try
             FileStreamO = New FileStream(FileName, FileMode.Open, FileAccessO)
             NextHandle = GetNextFreeFileHandle()
-            Flags = SetBit(Flags, Bit:=False, CARRY_FLAG_INDEX)
+            Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
          Catch MSDOSException As Exception
             CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
-            Flags = SetBit(Flags, Bit:=True, CARRY_FLAG_INDEX)
+            Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
          End Try
 
          If NextHandle IsNot Nothing Then
@@ -636,18 +673,17 @@ Public Module MSDOSModule
          Dim Bytes() As Byte = {}
          Dim Count As Integer = CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX))
          Dim OpenFileToBeRead As Tuple(Of FileStream, Integer) = Nothing
-         Dim STDHandle As STDFileHandlesE = DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.BX), STDFileHandlesE)
 
          ReDim Bytes(&H0% To Count - &H1%)
 
-         Select Case STDHandle
+         Select Case DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.BX), STDFileHandlesE)
             Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDIN
                For Character As Integer = &H0% To Count - &H1%
                   Bytes(Character) = ToByte(GetKeyWithEcho())
                Next Character
             Case STDFileHandlesE.STDERR, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
                CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=ERROR_ACCESS_DENIED)
-               Flags = SetBit(Flags, Bit:=True, CARRY_FLAG_INDEX)
+               Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
             Case Else
                OpenFileToBeRead = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)))
 
@@ -656,10 +692,10 @@ Public Module MSDOSModule
                   CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=Count)
                   ReDim Preserve Bytes(&H0% To Count - &H1%)
                   WriteBytesToMemory(Bytes, (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) Or CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
-                  Flags = SetBit(Flags, Bit:=False, CARRY_FLAG_INDEX)
+                  Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
                Catch MSDOSException As Exception
                   CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
-                  Flags = SetBit(Flags, Bit:=True, CARRY_FLAG_INDEX)
+                  Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
                End Try
          End Select
       Catch ExceptionO As Exception
@@ -673,6 +709,32 @@ Public Module MSDOSModule
          Allocations.Clear()
          OpenFiles.Clear()
          ProcessSegments.Clear()
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure seeks inside a file.
+   Private Sub SeekFile(ByRef Flags As Integer)
+      Try
+         Dim OpenFileToBeSeeked As Tuple(Of FileStream, Integer) = Nothing
+
+         Select Case DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.BX), STDFileHandlesE)
+            Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
+               CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=ERROR_ACCESS_DENIED)
+               Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+            Case Else
+               OpenFileToBeSeeked = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)))
+               Try
+                  OpenFileToBeSeeked.Item1.Seek((CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX)) << &H10%) Or CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)), DirectCast(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL), SeekOrigin))
+                  CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=OpenFileToBeSeeked.Item1.Position And &HFFFF%)
+                  CPU.Registers(CPU8086Class.Registers16BitE.DX, NewValue:=OpenFileToBeSeeked.Item1.Position >> &H10%)
+                  Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+               Catch MSDOSException As Exception
+                  CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
+                  Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+               End Try
+         End Select
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -712,7 +774,7 @@ Public Module MSDOSModule
                         CPUEvent.Append($"STDAUX:{NewLine}")
 
                         For Character As Integer = &H0% To Count - &H1%
-                           Buffer.Append(EscapeByte(CPU.Memory(Position And CPU8086Class.ADDRESS_MASK)))
+                           Buffer.Append(ESCAPE_BYTE(CPU.Memory(Position And CPU8086Class.ADDRESS_MASK)))
                            Position += &H1%
                         Next Character
 
@@ -722,7 +784,7 @@ Public Module MSDOSModule
                      PrinterBuffer.Clear()
 
                      For Character As Integer = &H0% To Count - &H1%
-                        PrinterBuffer.Append(EscapeByte(CPU.Memory(Position And CPU8086Class.ADDRESS_MASK)))
+                        PrinterBuffer.Append(ESCAPE_BYTE(CPU.Memory(Position And CPU8086Class.ADDRESS_MASK)))
                         Position += &H1%
                      Next Character
 
@@ -742,10 +804,10 @@ Public Module MSDOSModule
                Try
                   OpenFileToBeWritten.Item1.Write(Bytes, offset:=&H0%, Count)
                   CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=Count)
-                  Flags = SetBit(Flags, Bit:=False, CARRY_FLAG_INDEX)
+                  Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
                Catch MSDOSException As Exception
                   CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
-                  Flags = SetBit(Flags, Bit:=True, CARRY_FLAG_INDEX)
+                  Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
                End Try
          End Select
       Catch ExceptionO As Exception

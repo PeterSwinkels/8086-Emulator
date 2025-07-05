@@ -54,12 +54,16 @@ Public Module CoreModule
    Public VideoAdapter As VideoAdapterClass = Nothing          'Contains a reference to the video adapter used.
 
    Public ReadOnly CODE_PAGE_437() As Integer = {&H0%, &H263A%, &H263B%, &H2665%, &H2666%, &H2663%, &H2660%, &H2022%, &H25D8%, &H25CB%, &H25D9%, &H2642%, &H2640%, &H266A%, &H266B%, &H263C%, &H25BA%, &H25C4%, &H2195%, &H203C%, &HB6%, &HA7%, &H25AC%, &H21A8%, &H2191%, &H2193%, &H2192%, &H2190%, &H221F%, &H2194%, &H25B2%, &H25BC%, &H20%, &H21%, &H22%, &H23%, &H24%, &H25%, &H26%, &H27%, &H28%, &H29%, &H2A%, &H2B%, &H2C%, &H2D%, &H2E%, &H2F%, &H30%, &H31%, &H32%, &H33%, &H34%, &H35%, &H36%, &H37%, &H38%, &H39%, &H3A%, &H3B%, &H3C%, &H3D%, &H3E%, &H3F%, &H40%, &H41%, &H42%, &H43%, &H44%, &H45%, &H46%, &H47%, &H48%, &H49%, &H4A%, &H4B%, &H4C%, &H4D%, &H4E%, &H4F%, &H50%, &H51%, &H52%, &H53%, &H54%, &H55%, &H56%, &H57%, &H58%, &H59%, &H5A%, &H5B%, &H5C%, &H5D%, &H5E%, &H5F%, &H60%, &H61%, &H62%, &H63%, &H64%, &H65%, &H66%, &H67%, &H68%, &H69%, &H6A%, &H6B%, &H6C%, &H6D%, &H6E%, &H6F%, &H70%, &H71%, &H72%, &H73%, &H74%, &H75%, &H76%, &H77%, &H78%, &H79%, &H7A%, &H7B%, &H7C%, &H7D%, &H7E%, &H2302%, &HC7%, &HFC%, &HE9%, &HE2%, &HE4%, &HE0%, &HE5%, &HE7%, &HEA%, &HEB%, &HE8%, &HEF%, &HEE%, &HEC%, &HC4%, &HC5%, &HC9%, &HE6%, &HC6%, &HF4%, &HF6%, &HF2%, &HFB%, &HF9%, &HFF%, &HD6%, &HDC%, &HA2%, &HA3%, &HA5%, &H20A7%, &H192%, &HE1%, &HED%, &HF3%, &HFA%, &HF1%, &HD1%, &HAA%, &HBA%, &HBF%, &H2310%, &HAC%, &HBD%, &HBC%, &HA1%, &HAB%, &HBB%, &H2591%, &H2592%, &H2593%, &H2502%, &H2524%, &H2561%, &H2562%, &H2556%, &H2555%, &H2563%, &H2551%, &H2557%, &H255D%, &H255C%, &H255B%, &H2510%, &H2514%, &H2534%, &H252C%, &H251C%, &H2500%, &H253C%, &H255E%, &H255F%, &H255A%, &H2554%, &H2569%, &H2566%, &H2560%, &H2550%, &H256C%, &H2567%, &H2568%, &H2564%, &H2565%, &H2559%, &H2558%, &H2552%, &H2553%, &H256B%, &H256A%, &H2518%, &H250C%, &H2588%, &H2584%, &H258C%, &H2590%, &H2580%, &H3B1%, &HDF%, &H393%, &H3C0%, &H3A3%, &H3C3%, &HB5%, &H3C4%, &H3A6%, &H398%, &H3A9%, &H3B4%, &H221E%, &H3C6%, &H3B5%, &H2229%, &H2261%, &HB1%, &H2265%, &H2264%, &H2320%, &H2321%, &HF7%, &H2248%, &HB0%, &H2219%, &HB7%, &H221A%, &H207F%, &HB2%, &H25A0%, &HA0%}  'Contains the code page 437 to unicode mappings.
-   Private ReadOnly GET_OPERAND As Func(Of String, String) = Function(Input As String) (Input.Substring(Input.IndexOf(ASSIGNMENT_OPERATOR) + 1))                                                                                                             'Returns the specified input's operand.
-   Private ReadOnly IS_CHARACTER_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(CHARACTER_OPERAND_DELIMITER) AndAlso Operand.Trim().EndsWith(CHARACTER_OPERAND_DELIMITER) AndAlso Operand.Trim().Length = 3)   'Indicates whether the specified operand is a character.
-   Private ReadOnly IS_MEMORY_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(MEMORY_OPERAND_START) AndAlso Operand.Trim().EndsWith(MEMORY_OPERAND_END))                                                        'Indicates whether the specified operand is a memory location.
-   Private ReadOnly IS_STRING_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(STRING_OPERAND_DELIMITER) AndAlso Operand.Trim().EndsWith(STRING_OPERAND_DELIMITER))                                              'Indicates whether the specified operand is a string.
-   Private ReadOnly IS_VALUES_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(VALUES_OPERAND_START) AndAlso Operand.Trim().EndsWith(VALUES_OPERAND_END))                                                        'Indicates whether the specified operand is an array of values.
-   Private ReadOnly REMOVE_DELIMITERS As Func(Of String, String) = Function(Operand As String) (Operand.Substring(1, Operand.Length - 2))                                                                                                                    'Returns the specified operand with its first and last character removed.
+   Public ReadOnly ESCAPE_BYTE As Func(Of Byte, String) = Function([Byte] As Byte) If([Byte] >= ToByte(" "c) AndAlso [Byte] <= ToByte("~"c), If([Byte] = ESCAPE_CHARACTER, New String(ToChar(ESCAPE_CHARACTER), count:=2), ToChar([Byte])), $"{ToChar(ESCAPE_CHARACTER)}{[Byte]:X2}")    'Returns the specified as either a character or escape sequence.
+   Public ReadOnly GET_FLAT_CS_IP As Func(Of Integer) = Function() (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.IP)) And CPU8086Class.ADDRESS_MASK                                                                 'Returns the flat memory address for the emulated CPU's CS:IP registers.
+   Public ReadOnly SET_BIT As Func(Of Integer, Boolean, Integer, Integer) = Function(Value As Integer, Bit As Boolean, Index As Integer) If(Bit, Value Or (&H1% << Index), Value And ((&H1% << Index) Xor &HFFFF%))                                                                      'Returns the specified value with the specified bit set to the specified value.
+   Private ReadOnly GET_MEMORY_VALUE As Func(Of Integer, String) = Function(Address As Integer) $"Byte = 0x{CPU.Memory(Address):X2}   Word = 0x{CPU.GET_WORD(Address):X4}   Characters = '{ESCAPE_BYTE(CPU.Memory(Address))}{ESCAPE_BYTE(CPU.Memory(Address + &H1%))}'{NewLine}"         'Returns the specified memory location's value.
+   Private ReadOnly GET_OPERAND As Func(Of String, String) = Function(Input As String) (Input.Substring(Input.IndexOf(ASSIGNMENT_OPERATOR) + 1))                                                                                                                                         'Returns the specified input's operand.
+   Private ReadOnly IS_CHARACTER_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(CHARACTER_OPERAND_DELIMITER) AndAlso Operand.Trim().EndsWith(CHARACTER_OPERAND_DELIMITER) AndAlso Operand.Trim().Length = 3)                               'Indicates whether the specified operand is a character.
+   Private ReadOnly IS_MEMORY_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(MEMORY_OPERAND_START) AndAlso Operand.Trim().EndsWith(MEMORY_OPERAND_END))                                                                                    'Indicates whether the specified operand is a memory location.
+   Private ReadOnly IS_STRING_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(STRING_OPERAND_DELIMITER) AndAlso Operand.Trim().EndsWith(STRING_OPERAND_DELIMITER))                                                                          'Indicates whether the specified operand is a string.
+   Private ReadOnly IS_VALUES_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(VALUES_OPERAND_START) AndAlso Operand.Trim().EndsWith(VALUES_OPERAND_END))                                                                                    'Indicates whether the specified operand is an array of values.
+   Private ReadOnly REMOVE_DELIMITERS As Func(Of String, String) = Function(Operand As String) (Operand.Substring(1, Operand.Length - 2))                                                                                                                                                'Returns the specified operand with its first and last character removed.
 
    'This procedure translates the specified memory operands to a flat memory address.
    Private Function AddressFromOperand(Operand As String) As Integer?
@@ -130,10 +134,8 @@ Public Module CoreModule
 
    'This procedure handles any exceptions raised by the assembler.
    Private Sub Assembler_HandleError(AssemblerExceptionO As Exception) Handles Assembler.HandleError
-      Dim Message As String = AssemblerExceptionO.Message
-
       Try
-         Output.AppendText($"Assembler error: {Message}{NewLine}")
+         Output.AppendText($"Assembler error: {AssemblerExceptionO.Message}{NewLine}")
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -207,7 +209,7 @@ Public Module CoreModule
                      CPUEvent.Append($"{MEMORY_OPERAND_START}0x???{MEMORY_OPERAND_END} = ???{NewLine}{NewLine}")
                   Else
                      Address = Address And CPU8086Class.ADDRESS_MASK
-                     CPUEvent.Append($"{MEMORY_OPERAND_START}0x{Address:X8}{MEMORY_OPERAND_END} = {GetMemoryValue(CInt(Address))}{NewLine}")
+                     CPUEvent.Append($"{MEMORY_OPERAND_START}0x{Address:X8}{MEMORY_OPERAND_END} = {GET_MEMORY_VALUE(CInt(Address))}{NewLine}")
                   End If
                Else
                   CPUEvent.Append($"{NewLine}")
@@ -288,28 +290,6 @@ Public Module CoreModule
       End Try
    End Sub
 
-   'This procedure escapes the specified byte or converts it to a character and returns the result.
-   Public Function EscapeByte([Byte] As Byte) As String
-      Try
-         Return If([Byte] >= ToByte(" "c) AndAlso [Byte] <= ToByte("~"c), If([Byte] = ESCAPE_CHARACTER, New String(ToChar(ESCAPE_CHARACTER), count:=2), ToChar([Byte])), $"{ToChar(ESCAPE_CHARACTER)}{[Byte]:X2}")
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
-
-      Return Nothing
-   End Function
-
-   'This procedure returns the flat memory address for the emulated CPU's CS:IP registers.
-   Public Function GetFlatCSIP() As Integer
-      Try
-         Return (CInt(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.IP)) And CPU8086Class.ADDRESS_MASK)
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
-
-      Return Nothing
-   End Function
-
    'This procedure returns the literal value represented by a command element.
    Private Function GetLiteral(Element As String, Optional Is8Bit As Boolean = True) As Integer?
       Try
@@ -353,24 +333,13 @@ Public Module CoreModule
             If AllHexadecimal Then
                CPU.Memory.ToList().GetRange(Offset, CInt(Count)).ForEach(Sub([Byte] As Byte) .Append($"{[Byte]:X2} "))
             Else
-               CPU.Memory.ToList().GetRange(Offset, CInt(Count)).ForEach(Sub([Byte] As Byte) .Append(EscapeByte([Byte])))
+               CPU.Memory.ToList().GetRange(Offset, CInt(Count)).ForEach(Sub([Byte] As Byte) .Append(ESCAPE_BYTE([Byte])))
             End If
 
             .Append($"{NewLine}{NewLine}")
          End With
 
          Return Dump.ToString()
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
-
-      Return Nothing
-   End Function
-
-   'This procedure returns the specified memory location's value.
-   Private Function GetMemoryValue(Address As Integer) As String
-      Try
-         Return $"Byte = 0x{CPU.Memory(Address):X2}   Word = 0x{CPU.GET_WORD(Address):X4}   Characters = '{EscapeByte(CPU.Memory(Address))}{EscapeByte(CPU.Memory(Address + &H1%))}'{NewLine}"
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -541,11 +510,7 @@ Public Module CoreModule
                   Output.AppendText($"{Register} = {If(Is8Bit, $"{CInt(CPU.Registers(Register)):X2}", $"{CInt(CPU.Registers(Register)):X4}") }{NewLine}")
                ElseIf IS_MEMORY_OPERAND(Input) Then
                   Address = AddressFromOperand(Input)
-                  If Address Is Nothing Then
-                     Output.AppendText($"Invalid address.{NewLine}")
-                  Else
-                     Output.AppendText(GetMemoryValue(CInt(Address)))
-                  End If
+                  Output.AppendText(If(Address Is Nothing, $"Invalid address.{NewLine}", GET_MEMORY_VALUE(CInt(Address))))
                Else
                   Select Case Command
                      Case "$"
@@ -620,11 +585,7 @@ Public Module CoreModule
                            Address = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.IP)) And CPU8086Class.ADDRESS_MASK
                         End If
 
-                        If Input.ToUpper().StartsWith("MD") Then
-                           Output.AppendText(Disassemble(CPU.Memory.ToList(), CInt(Address), Count))
-                        Else
-                           Output.AppendText(GetMemoryDump(AllHexadecimal:=Not Input.ToUpper().StartsWith("MT"), CInt(Address), Count))
-                        End If
+                        Output.AppendText(If(Input.ToUpper().StartsWith("MD"), Disassemble(CPU.Memory.ToList(), CInt(Address), Count), GetMemoryDump(AllHexadecimal:=Not Input.ToUpper().StartsWith("MT"), CInt(Address), Count)))
                      Case "MA"
                         Parsed.Remainder = Input
                         Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=" "c, Ending:=" "c)
@@ -632,7 +593,7 @@ Public Module CoreModule
 
                         If Address Is Nothing Then
                            Output.AppendText($"Invalid or no address specified. CS:IP used instead.{NewLine}")
-                           Address = GetFlatCSIP()
+                           Address = GET_FLAT_CS_IP()
                         Else
                            CPU.Registers(CPU8086Class.SegmentRegistersE.CS, NewValue:=(Address >> &H4%))
                            CPU.Registers(CPU8086Class.Registers16BitE.IP, NewValue:=Address - (Address And &HFFF0%))
@@ -661,7 +622,7 @@ Public Module CoreModule
                      Case "ST"
                         Output.AppendText(GetStack())
                      Case "T"
-                        CPU_Trace(GetFlatCSIP)
+                        CPU_Trace(GET_FLAT_CS_IP())
 
                         If Not CPU.ExecuteOpcode() Then
                            CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Number:=CPU8086Class.INVALID_OPCODE)
@@ -695,11 +656,7 @@ Public Module CoreModule
                                     Output.AppendText($"Finished writing values at 0x{WriteValuesToMemory(Value, CInt(Address)):X8}.{NewLine}")
                                  ElseIf IS_STRING_OPERAND(Value) Then
                                     Value = Unescape(REMOVE_DELIMITERS(Value),, ErrorAt)
-                                    If ErrorAt = 0 Then
-                                       Output.AppendText($"Finished writing string at 0x{WriteStringToMemory(Value, CInt(Address)):X8}.{NewLine}")
-                                    Else
-                                       Output.AppendText($"Invalid escape sequence at: {ErrorAt}.{NewLine}")
-                                    End If
+                                    Output.AppendText(If(ErrorAt = 0, $"Finished writing string at 0x{WriteStringToMemory(Value, CInt(Address)):X8}.{NewLine}", $"Invalid escape sequence at: {ErrorAt}.{NewLine}"))
                                  Else
                                     NewValue = GetLiteral(Value)
                                     If NewValue Is Nothing Then
@@ -812,23 +769,6 @@ Public Module CoreModule
       End Try
    End Sub
 
-   'This procedure sets the specified bit with the specified index to the specified value and returns the result.
-   Public Function SetBit(Value As Integer, Bit As Boolean, Index As Integer) As Integer
-      Try
-         If Bit Then
-            Value = Value Or (&H1% << Index)
-         Else
-            Value = Value And ((&H1% << Index) Xor &HFFFF%)
-         End If
-
-         Return Value
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
-
-      Return Nothing
-   End Function
-
    'This procedure switches to a video adapter based on the current screen mode.
    Public Sub SwitchVideoAdapter()
       Try
@@ -899,12 +839,9 @@ Public Module CoreModule
    'This procedure writes the specified bytes to memory at the specified address.
    Public Function WriteBytesToMemory(Bytes() As Byte, Address As Integer) As Integer
       Try
-         For Each [Byte] As Byte In Bytes
-            CPU.Memory(Address) = [Byte]
-            Address += &H1%
-         Next [Byte]
+         Array.Copy(Bytes, &H0%, CPU.Memory, Address, Bytes.Count)
 
-         Return Address
+         Return Address + Bytes.Count
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
