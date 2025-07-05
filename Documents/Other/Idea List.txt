@@ -5,4 +5,6 @@ Ideas for things to be implemented/changed in the 8086 Emulator.
 3. EscapeByte and GetFlatCSIP can be converted to a single line procedure.
 4. INT 21h, 41h - Delete file.
 5. INT 21h, 42h - Move file pointer.
+6. Remove unnecessary CINT() in GetFlatCSIP.
+
 

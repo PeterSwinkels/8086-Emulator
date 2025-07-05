@@ -527,7 +527,7 @@ Public Class CPU8086Class
       Registers(FlagRegistersE.ZF, NewValue:=NewValue = &H0%)
 
       If NewOverflowFlag Is Nothing Then
-         Registers(FlagRegistersE.OF, NewValue:=(OldValue And SignMask) > (NewValue And SignMask))
+         Registers(FlagRegistersE.OF, NewValue:=Not ((OldValue And SignMask) = (NewValue And SignMask)))
       Else
          Registers(FlagRegistersE.OF, NewValue:=NewOverflowFlag)
       End If
