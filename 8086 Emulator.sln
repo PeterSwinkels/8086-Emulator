@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36203.30 d17.14
+VisualStudioVersion = 17.14.36301.6 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "8086 Emulator", "8086 Emulator.vbproj", "{6524A649-7DFB-4AE6-A759-003CAA79637D}"
 EndProject
@@ -32,6 +32,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {EB5B1A68-E704-40CA-8434-C9659678AAA2}
+		SolutionGuid = {1311736F-95C0-41A4-A962-E16071A7C00A}
 	EndGlobalSection
 EndGlobal
