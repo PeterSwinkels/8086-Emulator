@@ -518,8 +518,14 @@ Public Module CoreModule
                         If Not FileName = Nothing Then RunCommandScript(FileName)
                      Case "?"
                         Output.AppendText($"{My.Resources.Help}{NewLine}")
-                     Case = "C"
+                     Case "C"
                         Output.Clear()
+                     Case "CD"
+                        If Operands Is Nothing Then
+                           Output.AppendText(CurrentDirectory())
+                        Else
+                           CurrentDirectory = Operands
+                        End If
                      Case "E"
                         If CPU.Clock.Status = TaskStatus.Running Then
                            Output.AppendText("Already executing.")

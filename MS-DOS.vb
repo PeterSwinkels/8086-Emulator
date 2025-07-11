@@ -17,10 +17,18 @@ Imports System.Math
 Imports System.Security
 Imports System.Text
 Imports System.Windows.Forms
-Imports System.Windows.Forms.VisualStyles.VisualStyleElement.ProgressBar
 
 'This module handles MS-DOS related functions.
 Public Module MSDOSModule
+   'This enumaration lists addresses used inside a DTA block.
+   Private Enum DTAE As Integer
+      Attribute = &H15%   'File attribute.
+      FileTime = &H16%    'File time.
+      FileDate = &H18%    'File date.
+      FileSize = &H1A%    'File size.
+      FileName = &H1E%    'Null terminated file name.
+   End Enum
+
    'This enumeration lists the STD file handles.
    Private Enum STDFileHandlesE As Integer
       STDIN    'Input.
@@ -62,12 +70,15 @@ Public Module MSDOSModule
    Private Const PSP_SIZE As Integer = &H100%                           'Defines a PSP's size.
    Private Const VERSION As Integer = &H1606%                           'Defines the emulated MS-DOS version as 6.22.
 
+   Private ReadOnly DATE_TO_MSDOS_DATE As Func(Of Date, Integer) = Function([Date] As Date) ([Date].Day And &H1F%) Or (([Date].Month And &HF) << &H5%) Or ((If([Date].Year - 1980 >= &H0% AndAlso [Date].Year - 1980 < &H7F%, [Date].Year - 1980, Nothing) And &H7F%) << &H9%)   'Converts the specified date to a value suitable for MS-DOS and returns the result.
+   Private ReadOnly DATE_TO_MSDOS_TIME As Func(Of Date, Integer) = Function([Date] As Date) (([Date].Second \ &H2%) And &H1F%) Or (([Date].Minute And &H3F) << &H5%) Or (([Date].Hour And &H1F) << &HB%)   'Converts the specified time to a value suitable for MS-DOS and returns the result.
    Private ReadOnly ENVIRONMENT As String = $"COMSPEC=C:\COMMAND.COM{ToChar(&H0%)}PATH={ToChar(&H0%)}"   'Defines the MS-DOS environment.
    Private ReadOnly ENVIRONMENT_SEGMENT As Integer = LOWEST_ADDRESS                                      'Defines the MS-DOS environment's segment.
    Private ReadOnly EXE_MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}                                          'Defines the signature of an MZ exectuable.
    Private ReadOnly LOWEST_FILE_HANDLE As Integer = STDFileHandlesE.STDPRN + &H1%                        'Defines the lowest possible file handle.
 
    Private Allocations As New List(Of Tuple(Of Integer, Integer))      'Contains the memory allocations.
+   Private DTA As New Integer                                          'Contains the Disk Transfer Address.
    Private OpenFiles As New List(Of Tuple(Of FileStream, Integer))     'Contains the open file streams and their handles.
    Private PrinterBuffer As New StringBuilder                          'Contains the printer buffer.
    Private ProcessSegments As New Stack(Of Integer)                    'Contains the segments allocated to processes.
@@ -80,7 +91,7 @@ Public Module MSDOSModule
          Dim AllocatedAddress As New Integer?
          Dim PreviousEndAddress As Integer = LOWEST_ADDRESS
 
-         Allocations.Sort(Function(a, b) a.Item1.CompareTo(b.Item1))
+         Allocations.Sort(Function(Allocation1, Allocation2) Allocation1.Item1.CompareTo(Allocation2.Item1))
 
          If Allocations.Count = 0 Then
             AllocatedAddress = LOWEST_ADDRESS
@@ -164,11 +175,39 @@ Public Module MSDOSModule
    'This prodecure deletes a file.
    Private Sub DeleteFile(ByRef Flags As Integer)
       Try
-         Dim FileName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+         Try
+            File.Delete(GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))))
+            Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+         Catch MSDOSException As Exception
+            CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
+            Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+         End Try
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure attempts to find files matching a given pattern.
+   Private Sub FindFile(ByRef Flags As Integer, Optional IsFirst As Boolean = False)
+      Try
+         Dim Attributes As New FileAttributes
+         Dim FileName As String = Nothing
+         Static Files As New Stack(Of String)
 
          Try
-            File.Delete(FileName)
-            Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+            If IsFirst Then
+               FileName = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+               Attributes = DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.CX), FileAttributes)
+               Files = New Stack(Of String)(From Item In Directory.GetFiles(CurrentDirectory(), FileName) Where (File.GetAttributes(Item) And Attributes) = Attributes Select Path.GetFileName(Item))
+               WriteDTA(Files.Pop)
+            Else
+               If Files.Count = 0 Then
+                  CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=ERROR_FILE_NOT_FOUND)
+                  Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+               Else
+                  WriteDTA(Files.Pop)
+               End If
+            End If
          Catch MSDOSException As Exception
             CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
             Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
@@ -355,6 +394,9 @@ Public Module MSDOSModule
                      Loop
 
                      Success = True
+                  Case &H1A%
+                     DTA = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H10%) Or CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
+                     Success = True
                   Case &H25%
                      Address = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)) * &H4%
                      CPU.PutWord(Address + &H2%, CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)))
@@ -368,6 +410,10 @@ Public Module MSDOSModule
                      Success = True
                   Case &H2C%
                      GetCurrentTime()
+                     Success = True
+                  Case &H2F%
+                     CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=DTA And &HFFFF%)
+                     CPU.Registers(CPU8086Class.SegmentRegistersE.ES, NewValue:=DTA >> &H10%)
                      Success = True
                   Case &H30%
                      CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=VERSION)
@@ -431,6 +477,12 @@ Public Module MSDOSModule
                   Case &H4C%
                      TerminateProgram($"Program terminated with return code: {CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)):X2}.{NewLine}")
                      Success = True
+                  Case &H4E%
+                     Success = True
+                     FindFile(Flags, IsFirst:=True)
+                  Case &H4F%
+                     Success = True
+                     FindFile(Flags)
                End Select
          End Select
 
@@ -709,6 +761,8 @@ Public Module MSDOSModule
          Allocations.Clear()
          OpenFiles.Clear()
          ProcessSegments.Clear()
+
+         DTA = New Integer
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -750,6 +804,23 @@ Public Module MSDOSModule
          SyncLock Synchronizer
             CPUEvent.Append(Message)
          End SyncLock
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure writes information for the specified file to the DTA.
+   Private Sub WriteDTA(FilePath As String)
+      Try
+         Dim FileSize As Long = New FileInfo(FilePath).Length
+         Dim Offset As Integer = ((DTA And &HFFFF0000%) >> &HC%) + (DTA And &HFFFF%)
+
+         CPU.Memory(Offset + DTAE.Attribute) = ToByte(File.GetAttributes(FilePath))
+         CPU.PutWord(Offset + DTAE.FileDate, DATE_TO_MSDOS_DATE(File.GetLastWriteTime(FilePath)))
+         CPU.PutWord(Offset + DTAE.FileTime, DATE_TO_MSDOS_TIME(File.GetLastWriteTime(FilePath)))
+         CPU.PutWord(Offset + DTAE.FileSize, CInt(FileSize And &HFF%))
+         CPU.PutWord(Offset + DTAE.FileSize + &H2%, CInt(FileSize And &HFF00%) >> &H10%)
+         WriteStringToMemory($"{Path.GetFileName(FilePath)}{ToChar(&H0%)}", Offset + DTAE.FileName)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

@@ -8,6 +8,7 @@ $ Path                        Executes the commands in the specified file
 Register                      Displays the specified register's value.
 Register = Value              Set the specified register to the specified byte/word.
 C                             Clears the output window.
+CD [Path]                     Displays or sets the current directory.
 E                             Causes the emulated CPU to start executing code.
 ECXZ                          Executes until the CX register contains zero.
 EXE [Path]                    Loads a MS-DOS executable at CS:0000.
