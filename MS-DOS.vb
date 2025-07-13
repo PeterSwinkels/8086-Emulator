@@ -20,7 +20,7 @@ Imports System.Windows.Forms
 
 'This module handles MS-DOS related functions.
 Public Module MSDOSModule
-   'This enumaration lists addresses used inside a DTA block.
+   'This enumeration lists addresses used inside a DTA block.
    Private Enum DTAE As Integer
       Attribute = &H15%   'File attribute.
       FileTime = &H16%    'File time.
@@ -46,6 +46,7 @@ Public Module MSDOSModule
    Private Const ERROR_FILENAME_EXCED_RANGE As Integer = &HC3%          'Defines the filename exceeds range code.
    Private Const ERROR_GEN_FAILURE As Integer = &H1F%                   'Defines the general failure error code.
    Private Const ERROR_HANDLE_EOF As Integer = &H26%                    'Defines the handle EOF error code.
+   Private Const ERROR_INVALID_HANDLE As Integer = &H6%                 'Defines the invalid handle error code.
    Private Const ERROR_INVALID_MEMORY_BLOCK_ADDRESS As Integer = &H9%   'Defines the invalid memory block address error code.
    Private Const ERROR_INSUFFICIENT_MEMORY As Integer = &H8%            'Defines the insufficient memory error code.
    Private Const ERROR_INVALID_NAME As Integer = &H7B%                  'Defines the invalid name error code.
@@ -71,11 +72,11 @@ Public Module MSDOSModule
    Private Const VERSION As Integer = &H1606%                           'Defines the emulated MS-DOS version as 6.22.
 
    Private ReadOnly DATE_TO_MSDOS_DATE As Func(Of Date, Integer) = Function([Date] As Date) ([Date].Day And &H1F%) Or (([Date].Month And &HF) << &H5%) Or ((If([Date].Year - 1980 >= &H0% AndAlso [Date].Year - 1980 < &H7F%, [Date].Year - 1980, Nothing) And &H7F%) << &H9%)   'Converts the specified date to a value suitable for MS-DOS and returns the result.
-   Private ReadOnly DATE_TO_MSDOS_TIME As Func(Of Date, Integer) = Function([Date] As Date) (([Date].Second \ &H2%) And &H1F%) Or (([Date].Minute And &H3F) << &H5%) Or (([Date].Hour And &H1F) << &HB%)   'Converts the specified time to a value suitable for MS-DOS and returns the result.
    Private ReadOnly ENVIRONMENT As String = $"COMSPEC=C:\COMMAND.COM{ToChar(&H0%)}PATH={ToChar(&H0%)}"   'Defines the MS-DOS environment.
    Private ReadOnly ENVIRONMENT_SEGMENT As Integer = LOWEST_ADDRESS                                      'Defines the MS-DOS environment's segment.
    Private ReadOnly EXE_MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}                                          'Defines the signature of an MZ exectuable.
    Private ReadOnly LOWEST_FILE_HANDLE As Integer = STDFileHandlesE.STDPRN + &H1%                        'Defines the lowest possible file handle.
+   Private ReadOnly TIME_TO_MSDOS_TIME As Func(Of Date, Integer) = Function([Date] As Date) (([Date].Second \ &H2%) And &H1F%) Or (([Date].Minute And &H3F) << &H5%) Or (([Date].Hour And &H1F) << &HB%)   'Converts the specified time to a value suitable for MS-DOS and returns the result.
 
    Private Allocations As New List(Of Tuple(Of Integer, Integer))      'Contains the memory allocations.
    Private DTA As New Integer                                          'Contains the Disk Transfer Address.
@@ -153,7 +154,7 @@ Public Module MSDOSModule
       Return False
    End Function
 
-   'This prodecure creates a file.
+   'This procedure creates a file.
    Private Sub CreateFile(ByRef Flags As Integer)
       Try
          Dim FileName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
@@ -172,7 +173,7 @@ Public Module MSDOSModule
       End Try
    End Sub
 
-   'This prodecure deletes a file.
+   'This procedure deletes a file.
    Private Sub DeleteFile(ByRef Flags As Integer)
       Try
          Try
@@ -238,7 +239,7 @@ Public Module MSDOSModule
       Try
          Dim Counter As Integer = (CPU.GET_WORD(AddressesE.Clock + &H2%) << &H10%) Or (CPU.GET_WORD(AddressesE.Clock))
          Dim Hour As New Integer
-         Dim Hundreth As New Integer
+         Dim Hundredth As New Integer
          Dim Minute As New Integer
          Dim Second As New Integer
          Dim TotalSeconds As Double = Counter / 18.2065
@@ -248,12 +249,38 @@ Public Module MSDOSModule
          Minute = CInt(Floor(TotalSeconds / 60))
          TotalSeconds -= Minute * 60
          Second = CInt(Floor(TotalSeconds))
-         Hundreth = CInt(Floor((TotalSeconds - Second) * 100))
+         Hundredth = CInt(Floor((TotalSeconds - Second) * 100))
 
          CPU.Registers(CPU8086Class.SubRegisters8BitE.CH, NewValue:=Hour)
          CPU.Registers(CPU8086Class.SubRegisters8BitE.CL, NewValue:=Minute)
          CPU.Registers(CPU8086Class.SubRegisters8BitE.DH, NewValue:=Second)
-         CPU.Registers(CPU8086Class.SubRegisters8BitE.DL, NewValue:=Hundreth)
+         CPU.Registers(CPU8086Class.SubRegisters8BitE.DL, NewValue:=Hundredth)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure returns a file's date and time.
+   Private Sub GetFileDateTime(ByRef Flags As Integer)
+      Try
+         Dim OpenFileToBeChecked As Tuple(Of FileStream, Integer) = Nothing
+
+         Select Case DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.BX), STDFileHandlesE)
+            Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
+               CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=ERROR_INVALID_HANDLE)
+               Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+            Case Else
+               OpenFileToBeChecked = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)))
+
+               Try
+                  CPU.Registers(CPU8086Class.Registers16BitE.CX, NewValue:=TIME_TO_MSDOS_TIME(File.GetCreationTime(OpenFileToBeChecked.Item1.Name)))
+                  CPU.Registers(CPU8086Class.Registers16BitE.DX, NewValue:=DATE_TO_MSDOS_DATE(File.GetCreationTime(OpenFileToBeChecked.Item1.Name)))
+                  Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+               Catch MSDOSException As Exception
+                  CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
+                  Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+               End Try
+         End Select
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -478,11 +505,19 @@ Public Module MSDOSModule
                      TerminateProgram($"Program terminated with return code: {CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)):X2}.{NewLine}")
                      Success = True
                   Case &H4E%
-                     Success = True
                      FindFile(Flags, IsFirst:=True)
-                  Case &H4F%
                      Success = True
+                  Case &H4F%
                      FindFile(Flags)
+                     Success = True
+                  Case &H57%
+                     Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
+                        Case &H0%
+                           GetFileDateTime(Flags)
+                           Success = True
+                        Case &H1%
+                           Success = False ''--->>> !!!
+                     End Select
                End Select
          End Select
 
@@ -817,7 +852,7 @@ Public Module MSDOSModule
 
          CPU.Memory(Offset + DTAE.Attribute) = ToByte(File.GetAttributes(FilePath))
          CPU.PutWord(Offset + DTAE.FileDate, DATE_TO_MSDOS_DATE(File.GetLastWriteTime(FilePath)))
-         CPU.PutWord(Offset + DTAE.FileTime, DATE_TO_MSDOS_TIME(File.GetLastWriteTime(FilePath)))
+         CPU.PutWord(Offset + DTAE.FileTime, TIME_TO_MSDOS_TIME(File.GetLastWriteTime(FilePath)))
          CPU.PutWord(Offset + DTAE.FileSize, CInt(FileSize And &HFF%))
          CPU.PutWord(Offset + DTAE.FileSize + &H2%, CInt(FileSize And &HFF00%) >> &H10%)
          WriteStringToMemory($"{Path.GetFileName(FilePath)}{ToChar(&H0%)}", Offset + DTAE.FileName)

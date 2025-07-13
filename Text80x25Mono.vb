@@ -6,9 +6,9 @@ Option Strict On
 
 Imports System
 Imports System.Convert
-Imports System.Diagnostics
 Imports System.Drawing
 Imports System.Linq
+Imports System.Math
 Imports System.Windows.Forms
 
 'This class emulates a text 80x25 monochrome graphics adapter.
@@ -23,9 +23,10 @@ Public Class Text80x25MonoClass
    Private Const UNDERLINE_BITMASK As Integer = &H7%       'Defines the character underline attribute bits.
 
    Private ReadOnly BLACK_ATTRIBUTES() As Integer = {&H0%, &H8%, &H80%, &H88%}                                        'Defines the black character attributes.
-   Private ReadOnly CHARACTER_SIZE As Size = New Size(9, 14)                                                          'Defines the character size.
-   Private ReadOnly FONT_NORMAL As New Font("Px437 IBM MDA", emSize:=12)                                              'Defines the normal font.
-   Private ReadOnly FONT_UNDERLINE As New Font("Px437 IBM MDA", emSize:=12, FontStyle.Underline)                      'Defines the underlined font.
+   Private ReadOnly CHARACTER_SIZE As Size = New Size(11, 16)                                                         'Defines the character size.
+   Private ReadOnly FONT_NORMAL As New Font("Px437 IBM MDA", emSize:=14)                                              'Defines the normal font.
+   Private ReadOnly FONT_UNDERLINE As New Font("Px437 IBM MDA", emSize:=14, FontStyle.Underline)                      'Defines the underlined font.
+   Private ReadOnly HORIZONTAL_MARGIN As Integer = CInt(Ceiling(CHARACTER_SIZE.Width / 2))                            'Defines the horizontal screen size margin.
    Private ReadOnly TEXT_SCREEN_SIZE As Size = New Size(&H50% * CHARACTER_SIZE.Width, &H19% * CHARACTER_SIZE.Height)  'Defines the screen size measured in characters.
 
    Private BlinkCharactersVisible As Boolean = True  'Indicates whether or not the blinking characters are visible.
@@ -39,11 +40,12 @@ Public Class Text80x25MonoClass
       Dim CharacterColor As Brush = Nothing
       Dim CharacterFont As Font = Nothing
       Dim Target As New Point(0, 0)
+      Dim VideoPageAddress As Integer = If(CPU.Memory(AddressesE.VideoPage) = 0, AddressesE.Text80x25MonoPage0, AddressesE.Text80x25MonoPage1)
 
       With Graphics.FromImage(Screen)
          .Clear(Color.Black)
 
-         For Position As Integer = AddressesE.Text80x25Mono To AddressesE.Text80x25Mono + TEXT_80_X_25_MONO_BUFFER_SIZE Step &H2%
+         For Position As Integer = VideoPageAddress To VideoPageAddress + TEXT_80_X_25_MONO_BUFFER_SIZE Step &H2%
             Character = ToChar(CodePage(Memory(Position)))
             Attribute = Memory(Position + &H1%)
 
@@ -87,7 +89,7 @@ Public Class Text80x25MonoClass
       End With
    End Sub
 
-   'This procedure regulates the blinking characters's blinking.
+   'This procedure regulates the blinking character's blinking.
    Private Sub CharacterBlink_Tick(sender As Object, e As EventArgs) Handles CharacterBlink.Tick
       BlinkCharactersVisible = Not BlinkCharactersVisible
    End Sub
@@ -96,9 +98,10 @@ Public Class Text80x25MonoClass
    Public Sub ClearBuffer() Implements VideoAdapterClass.ClearBuffer
       Dim Count As Integer = TEXT_80_X_25_MONO_BUFFER_SIZE \ &H2%
       Dim Position As Integer = &H0%
+      Dim VideoPageAddress As Integer = If(CPU.Memory(AddressesE.VideoPage) = 0, AddressesE.Text80x25MonoPage0, AddressesE.Text80x25MonoPage1)
 
       Do While Count > &H0%
-         CPU.PutWord(AddressesE.Text80x25Mono + Position, &H200%)
+         CPU.PutWord(VideoPageAddress + Position, &H200%)
          Count -= &H1%
          Position += &H2%
       Loop
@@ -116,7 +119,7 @@ Public Class Text80x25MonoClass
 
    'This procedure returns the screen size used by a video adapter.
    Public Function Resolution() As Size Implements VideoAdapterClass.Resolution
-      Return New Size(TEXT_SCREEN_SIZE.Width, TEXT_SCREEN_SIZE.Height)
+      Return New Size(TEXT_SCREEN_SIZE.Width + HORIZONTAL_MARGIN, TEXT_SCREEN_SIZE.Height)
    End Function
 
    'This procedure scrolls the video adapter's buffer.
@@ -124,6 +127,7 @@ Public Class Text80x25MonoClass
       Dim Attribute As Integer = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH))
       Dim CharacterCell As New Integer
       Dim Position As New Integer
+      Dim VideoPageAddress As Integer = If(CPU.Memory(AddressesE.VideoPage) = 0, AddressesE.Text80x25MonoPage0, AddressesE.Text80x25MonoPage1)
 
       If Count = &H0% OrElse Count > TEXT_80_X_25_LINE_COUNT Then
          VideoAdapter.ClearBuffer()
@@ -133,28 +137,28 @@ Public Class Text80x25MonoClass
                Case True
                   For Row As Integer = ScrollArea.ULCRow To ScrollArea.LRCRow
                      For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
-                        If Row <= ScrollArea.LRCRow Then
-                           CharacterCell = CPU.GET_WORD(AddressesE.Text80x25Mono + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
-                           CPU.PutWord(AddressesE.Text80x25Mono + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
+                        If Row < ScrollArea.LRCRow Then
+                           CharacterCell = CPU.GET_WORD(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
+                           CPU.PutWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
                         Else
-                           CharacterCell = Attribute
+                           CharacterCell = (Attribute << &H8%)
                         End If
                         If Row >= ScrollArea.ULCRow Then
-                           CPU.PutWord(AddressesE.Text80x25Mono + (((Row - &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), CharacterCell)
+                           CPU.PutWord(VideoPageAddress + (((Row - &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), CharacterCell)
                         End If
                      Next Column
                   Next Row
                Case False
                   For Row As Integer = ScrollArea.LRCRow To ScrollArea.ULCRow Step -&H1%
                      For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
-                        If Row >= ScrollArea.ULCRow Then
-                           CharacterCell = CPU.GET_WORD(AddressesE.Text80x25Mono + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
-                           CPU.PutWord(AddressesE.Text80x25Mono + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
+                        If Row > ScrollArea.ULCRow Then
+                           CharacterCell = CPU.GET_WORD(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
+                           CPU.PutWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
                         Else
-                           CharacterCell = Attribute
+                           CharacterCell = (Attribute << &H8%)
                         End If
                         If Row <= ScrollArea.LRCRow Then
-                           CPU.PutWord(AddressesE.Text80x25Mono + (((Row + &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), CharacterCell)
+                           CPU.PutWord(VideoPageAddress + (((Row + &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), CharacterCell)
                         End If
                      Next Column
                   Next Row

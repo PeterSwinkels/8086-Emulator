@@ -10,7 +10,7 @@ Imports System.Windows.Forms
 
 'This class contains the screen output window.
 Public Class ScreenWindow
-   'This procedure initalizes this window.
+   'This procedure initializes this window.
    Public Sub New()
       Try
          InitializeComponent()

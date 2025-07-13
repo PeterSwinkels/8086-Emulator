@@ -34,20 +34,21 @@ Public Module BIOSModule
 
    'This enumeration lists the flat addresses of BIOS data area locations.
    Public Enum AddressesE As Integer
-      BIOS = &HF0000%              'BIOS.
-      BIOSStack = &HF30000%        'BIOS stack segment.
-      CGA320x200 = &HB8000%        '320x200 CGA video buffer.
-      Clock = &H46C%               'Clock.
-      ClockRollover = &H470%       'Clock rollover flag.
-      CursorPositions = &H450%     'Cursor positions.
-      CursorScanLines = &H460%     'Cursor scan line start/end.
-      EquipmentFlags = &H410%      'Equipment flags.
-      MemorySize = &H413%          'Memory size.
-      Text80x25Mono = &HB0000%     '80x25 monochrome text video buffer.
-      VGA320x200 = &HA0000%        '320x200 VGA video buffer.
-      VideoMode = &H449%           'Current video mode.
-      VideoModeOptions = &H487%    'Video mode options.
-      VideoPage = &H462%           'Current video page.
+      BIOS = &HF0000%                   'BIOS.
+      BIOSStack = &HF30000%             'BIOS stack segment.
+      CGA320x200 = &HB8000%             '320x200 CGA video buffer.
+      Clock = &H46C%                    'Clock.
+      ClockRollover = &H470%            'Clock rollover flag.
+      CursorPositions = &H450%          'Cursor positions.
+      CursorScanLines = &H460%          'Cursor scan line start/end.
+      EquipmentFlags = &H410%           'Equipment flags.
+      MemorySize = &H413%               'Memory size.
+      Text80x25MonoPage0 = &HB0000%     '80x25 monochrome text video buffer.
+      Text80x25MonoPage1 = &HB8000%     '80x25 monochrome text video buffer.
+      VGA320x200 = &HA0000%             '320x200 VGA video buffer.
+      VideoMode = &H449%                'Current video mode.
+      VideoModeOptions = &H487%         'Video mode options.
+      VideoPage = &H462%                'Current video page.
    End Enum
 
    'This enumeration lists the supported Teletype control characters
@@ -100,6 +101,7 @@ Public Module BIOSModule
          CPU.PutWord(AddressesE.EquipmentFlags, EQUIPMENT_FLAGS)
          CPU.PutWord(AddressesE.MemorySize, (CPU.Memory.Length \ &H400%))
          CPU.Memory(AddressesE.VideoMode) = VideoModesE.Text80x25Mono
+         SwitchVideoAdapter()
 
          CPU.Registers(CPU8086Class.SegmentRegistersE.SS, NewValue:=AddressesE.BIOSStack)
          CPU.Registers(CPU8086Class.Registers16BitE.SP, NewValue:=INITIAL_STACK_SIZE)
