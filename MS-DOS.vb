@@ -63,7 +63,7 @@ Public Module MSDOSModule
    Private Const EXE_RELOCATION_ITEM_COUNT As Integer = &H6%            'Defines where an executable's number of relocation items is stored.
    Private Const EXE_RELOCATION_ITEM_TABLE As Integer = &H18%           'Defines where an executable's number of relocation item table offset is stored.
    Private Const FILE_ACCESS_RW_MASK As Integer = &H3%                  'Defines the read/write bits for file access.
-   Private Const HIGHEST_ADDRESS As Integer = &HA000%                   'Defines the highest address that can be allocated.
+   Private Const HIGHEST_ADDRESS As Integer = &HA0000%                  'Defines the highest address that can be allocated.
    Private Const LOWEST_ADDRESS As Integer = &H600%                     'Defines the lowest address that can be allocated.
    Private Const MS_DOS As Integer = &HFF00%                            'Defines a value indicating that the operating system is MS-DOS.
    Private Const PSP_ENVIRONMENT_SEGMENT As Integer = &H2C%             'Defines the segment of the MS-DOS environment in a PSP.
@@ -435,6 +435,8 @@ Public Module MSDOSModule
                      CPU.Registers(CPU8086Class.SubRegisters8BitE.DH, NewValue:=Now.Month)
                      CPU.Registers(CPU8086Class.SubRegisters8BitE.DL, NewValue:=Now.Day)
                      Success = True
+                  Case &H2B%
+                     Success = True
                   Case &H2C%
                      GetCurrentTime()
                      Success = True
@@ -482,6 +484,7 @@ Public Module MSDOSModule
                      Else
                         CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CInt(Result) >> &H4%)
                      End If
+
                      Success = True
                   Case &H49%
                      If FreeAllocatedMemory(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.ES)) << &H4%) Then
@@ -515,8 +518,6 @@ Public Module MSDOSModule
                         Case &H0%
                            GetFileDateTime(Flags)
                            Success = True
-                        Case &H1%
-                           Success = False ''--->>> !!!
                      End Select
                End Select
          End Select
@@ -529,7 +530,7 @@ Public Module MSDOSModule
       Return False
    End Function
 
-   ' This function returns the size of the largest amount of memory that can be allocated.
+   'This function returns the size of the largest amount of memory that can be allocated.
    Private Function LargestFreeMemoryBlock() As Integer
       Try
          Dim FreeBlockSize As New Integer
@@ -537,7 +538,7 @@ Public Module MSDOSModule
          Dim LastFreeBlock As New Integer
          Dim PreviousEndAddress As Integer = LOWEST_ADDRESS
 
-         Allocations.Sort(Function(a, b) a.Item1.CompareTo(b.Item1))
+         Allocations.Sort(Function(Allocation1, Allocation2) Allocation1.Item1.CompareTo(Allocation2.Item1))
 
          If Allocations.Count = 0 Then
             LargestBlock = HIGHEST_ADDRESS - LOWEST_ADDRESS
@@ -548,7 +549,7 @@ Public Module MSDOSModule
                   LargestBlock = FreeBlockSize
                End If
 
-               PreviousEndAddress = Allocation.Item2 + 1
+               PreviousEndAddress = Allocation.Item2 + &H1%
             Next Allocation
 
             LastFreeBlock = HIGHEST_ADDRESS - PreviousEndAddress

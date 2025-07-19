@@ -18,6 +18,7 @@ Public Module InterruptHandlerModule
    'This procedure handles the specified interrupt and returns whether or not is succeeded.
    Public Function HandleInterrupt(Number As Integer, AH As Integer) As Boolean
       Try
+         Dim Address As New Integer
          Dim Attribute As New Byte
          Dim Character As New Byte
          Dim Count As New Integer
@@ -84,6 +85,12 @@ Public Module InterruptHandlerModule
                   Case &H7%
                      VideoAdapter.ScrollBuffer(Up:=False, ScrollArea:=New VideoAdapterClass.ScreenAreaStr With {.ULCRow = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.CH)), .ULCColumn = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.CL)), .LRCRow = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.DH)), .LRCColumn = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.DL))}, Count:=CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)))
                      Success = True
+                  Case &H8%
+                     Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
+                        Case VideoModesE.Text80x25Mono
+                           CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CPU.GET_WORD(If(CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH)) = &H0%, AddressesE.Text80x25MonoPage0, AddressesE.Text80x25MonoPage1) + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)))
+                           Success = True
+                     End Select
                   Case &H9%, &HA%
                      Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
                         Case VideoModesE.Text80x25Mono
@@ -123,11 +130,24 @@ Public Module InterruptHandlerModule
                      CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=VideoMode)
                      CPU.Registers(CPU8086Class.SubRegisters8BitE.BH, NewValue:=CPU.Memory(AddressesE.VideoPage))
                      Success = True
+                  Case &H11%
+                     Select Case CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
+                        Case &H30%
+                           Select Case CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL))
+                              Case &H0%
+                                 Address = &H1F% * &H4%
+                                 CPU.Registers(CPU8086Class.SegmentRegistersE.ES, NewValue:=CPU.GET_WORD(Address + &H2%))
+                                 CPU.Registers(CPU8086Class.Registers16BitE.BP, NewValue:=CPU.GET_WORD(Address))
+                                 Success = True
+                           End Select
+                     End Select
                   Case &H12%
                      Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
                         Case VideoModesE.Text80x25Mono
                            Success = True
                      End Select
+                  Case &HFE%
+                     Success = True
                End Select
             Case &H11%
                CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CPU.GET_WORD(AddressesE.EquipmentFlags))

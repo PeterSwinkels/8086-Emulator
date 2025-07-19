@@ -1,7 +1,8 @@
 Ideas for things to be implemented/changed in the 8086 Emulator.
 
-1. Add CGA character drawing. XOR on bit 7.
-2. Add VGA character drawing.
+1. Extensive testing for negative literal values in memory addresses is required.
+2. Add CGA character drawing. XOR on bit 7.
+3. Add VGA character drawing.
 
 
 

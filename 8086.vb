@@ -407,15 +407,15 @@ Public Class CPU8086Class
 
    'This structure defines a source and target.
    Private Structure OperandPairStr
-      Public Address As Integer?       'Defines a relative address for a memory operand.
-      Public Is8Bit As Boolean         'Indicates whether the source and target are 8 or 16 bits.
-      Public FlatAddress As Integer?   'Defines an absolute flat address for a memory operand.
-      Public Literal As Integer?       'Defines an optional literal value that is part of one of the operands.
-      Public NewValue As Integer       'Defines the result of an operation performed using the first and second values.
-      Public Operand1 As Object        'Defines the first operand.
-      Public Operand2 As Object        'Defines the second operand.
-      Public Value1 As Integer         'Defines the value referred to be the first operand.
-      Public Value2 As Integer         'Defines the value referred to be the second operand.
+      Public Address As Integer?        'Defines a relative address for a memory operand.
+      Public Is8Bit As Boolean          'Indicates whether the source and target are 8 or 16 bits.
+      Public FlatAddress As Integer?    'Defines an absolute flat address for a memory operand.
+      Public Displacement As Integer?   'Defines an optional displacement value that is part of one of the operands.
+      Public NewValue As Integer        'Defines the result of an operation performed using the first and second values.
+      Public Operand1 As Object         'Defines the first operand.
+      Public Operand2 As Object         'Defines the second operand.
+      Public Value1 As Integer          'Defines the value referred to be the first operand.
+      Public Value2 As Integer          'Defines the value referred to be the second operand.
    End Structure
 
    Public Const SYSTEM_TIMER As Integer = &H8%           'Defines the system timer's interrupt number.
@@ -440,6 +440,7 @@ Public Class CPU8086Class
    Public Event Trace(FlatCSIP As Integer)                                               'Defines the trace event.
    Public Event WriteIOPort(Port As Integer, Value As Integer, Is8Bit As Boolean)        'Defines the IO port write event.
 
+   Public ReadOnly GET_FLAT_CS_IP As Func(Of Integer) = Function() (CInt(Registers(CPU8086Class.SegmentRegistersE.CS)) << &H4%) + CInt(Registers(Registers16BitE.IP)) And ADDRESS_MASK  'Returns the flat memory address for the emulated CPU's CS:IP registers.
    Public ReadOnly GET_WORD As Func(Of Integer, Integer) = Function(Address As Integer) (ToUInt16(Memory, Address And ADDRESS_MASK))   'This procedure returns the word at the specified address.
 
    'This procedure initializes the CPU.
@@ -456,7 +457,7 @@ Public Class CPU8086Class
    End Sub
 
    'This procedure returns the memory address indicated by the specified operand and current data segment.
-   Public Function AddressFromOperand(Operand As MemoryOperandsE, Optional Literal As Integer? = Nothing) As AddressesStr
+   Public Function AddressFromOperand(Operand As MemoryOperandsE, Optional Displacement As Integer? = Nothing) As AddressesStr
       Dim Addresses As New AddressesStr
       Dim Override As New SegmentRegistersE?
       Dim Segment As SegmentRegistersE = SegmentRegistersE.DS
@@ -508,7 +509,7 @@ Public Class CPU8086Class
                Addresses.Address = CInt(Registers(Registers16BitE.BX))
          End Select
 
-         If Literal IsNot Nothing Then Addresses.Address += Literal
+         If Displacement IsNot Nothing Then Addresses.Address += ConvertWidening(Displacement.Value, Is8Bit:=True)
          Addresses.FlatAddress = ((CInt(If(Override Is Nothing, Registers(Segment), Registers(Override))) << &H4%) + Addresses.Address) And ADDRESS_MASK
          LastAddresses = Addresses
       End If
@@ -569,7 +570,7 @@ Public Class CPU8086Class
       Return NewBits And If(Is8Bit, &HFF%, &HFFFF%)
    End Function
 
-   'This procedure converts the specified byte/word to a word/dword.
+   'This procedure converts the specified byte/word to a word/dword and returns the result.
    Private Function ConvertWidening(Value As Integer, Is8Bit As Boolean) As Integer
       Value = Value And If(Is8Bit, &HFF%, &HFFFF%)
 
@@ -1120,7 +1121,7 @@ Public Class CPU8086Class
             PutWord((CInt(If(Override Is Nothing, Registers(SegmentRegistersE.DS), Registers(Override))) << &H4%) + GetWordCSIP(), CInt(Registers(Registers16BitE.AX)))
          Case OpcodesE.MOV_SG_SRC
             With GetSegmentAndTarget(Opcode, GetByteCSIP())
-               If TypeOf .Operand2 Is MemoryOperandsE Then NewValue = GET_WORD(CInt(AddressFromOperand(DirectCast(.Operand2, MemoryOperandsE), .Literal).FlatAddress)) Else NewValue = CInt(Registers(.Operand2))
+               If TypeOf .Operand2 Is MemoryOperandsE Then NewValue = GET_WORD(CInt(AddressFromOperand(DirectCast(.Operand2, MemoryOperandsE), .Displacement).FlatAddress)) Else NewValue = CInt(Registers(.Operand2))
                Registers(.Operand1, NewValue:=NewValue)
             End With
          Case OpcodesE.MOV_TGT_BYTE
@@ -1130,7 +1131,7 @@ Public Class CPU8086Class
          Case OpcodesE.MOV_TGT_SG
             With GetSegmentAndTarget(Opcode, GetByteCSIP())
                NewValue = CInt(Registers(.Operand1))
-               If TypeOf .Operand2 Is MemoryOperandsE Then PutWord(CInt(AddressFromOperand(DirectCast(.Operand2, MemoryOperandsE), .Literal).FlatAddress), NewValue) Else Registers(.Operand2, NewValue:=NewValue)
+               If TypeOf .Operand2 Is MemoryOperandsE Then PutWord(CInt(AddressFromOperand(DirectCast(.Operand2, MemoryOperandsE), .Displacement).FlatAddress), NewValue) Else Registers(.Operand2, NewValue:=NewValue)
             End With
          Case OpcodesE.MOV_TGT_WORD
             With GetOperandPair(Opcode, GetByteCSIP())
@@ -1381,7 +1382,7 @@ Public Class CPU8086Class
    Private Function GetOperandPair(Opcode As Byte, Operand As Byte, Optional IsMemReg16Byte As Boolean = False, Optional HasNoLiteral As Boolean = False) As OperandPairStr
       Dim Addresses As New AddressesStr
       Dim MemoryOperand As MemoryOperandsE = DirectCast(((Operand And &HC0%) >> &H3%) + (Operand And &H7%), MemoryOperandsE)
-      Dim OperandPair As New OperandPairStr With {.Is8Bit = Not CBool(Opcode And &H1%), .Literal = Nothing, .Operand1 = Nothing, .Operand2 = Nothing}
+      Dim OperandPair As New OperandPairStr With {.Is8Bit = Not CBool(Opcode And &H1%), .Displacement = Nothing, .Operand1 = Nothing, .Operand2 = Nothing}
       Dim OperandPairType As OperandPairsE = If(IsMemReg16Byte, OperandPairsE.MemReg_16_Byte, DirectCast(CByte(Opcode And &H7%), OperandPairsE))
       Dim Register1 As Integer = (Operand And &H38%) >> &H3%
       Dim Register2 As Integer = Operand And &H7%
@@ -1389,7 +1390,7 @@ Public Class CPU8086Class
       With OperandPair
          Select Case OperandPairType
             Case OperandPairsE.MemReg_Reg_8 To OperandPairsE.Reg_MemReg_16, OperandPairsE.MemReg_Byte To OperandPairsE.MemReg_Word
-               If MemoryOperand >= MemoryOperandsE.BX_SI_BYTE Then .Literal = GetOperandLiteral(MemoryOperand)
+               If MemoryOperand >= MemoryOperandsE.BX_SI_BYTE Then .Displacement = GetOperandLiteral(MemoryOperand)
          End Select
 
          Select Case OperandPairType
@@ -1421,11 +1422,11 @@ Public Class CPU8086Class
          End Select
 
          If TypeOf .Operand1 Is MemoryOperandsE Then
-            Addresses = AddressFromOperand(DirectCast(.Operand1, MemoryOperandsE), .Literal)
+            Addresses = AddressFromOperand(DirectCast(.Operand1, MemoryOperandsE), .Displacement)
             .Address = CInt(Addresses.Address)
             .FlatAddress = CInt(Addresses.FlatAddress)
          ElseIf TypeOf .Operand2 Is MemoryOperandsE Then
-            Addresses = AddressFromOperand(DirectCast(.Operand2, MemoryOperandsE), .Literal)
+            Addresses = AddressFromOperand(DirectCast(.Operand2, MemoryOperandsE), .Displacement)
             .Address = CInt(Addresses.Address)
             .FlatAddress = CInt(Addresses.FlatAddress)
          End If
