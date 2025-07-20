@@ -64,7 +64,7 @@ Public Module CoreModule
    Private ReadOnly IS_VALUES_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(VALUES_OPERAND_START) AndAlso Operand.Trim().EndsWith(VALUES_OPERAND_END))                                                                                    'Indicates whether the specified operand is an array of values.
    Private ReadOnly REMOVE_DELIMITERS As Func(Of String, String) = Function(Operand As String) (Operand.Substring(1, Operand.Length - 2))                                                                                                                                                'Returns the specified operand with its first and last character removed.
 
-   'This procedure translates the specified memory operands to a flat memory address.
+   'This procedure translates the specified memory operands to a flat memory address and returns the result.
    Private Function AddressFromOperand(Operand As String) As Integer?
       Try
          Dim Offset As New Integer?
@@ -431,7 +431,7 @@ Public Module CoreModule
       Return Nothing
    End Function
 
-   'This produre reads a null terminated string from the specified position in memory and returns it.
+   'This procedure reads a null terminated string from the specified position in memory and returns it.
    Public Function GetStringZ(Segment As Integer, Offset As Integer) As String
       Try
          Dim Position As Integer = (Segment << &H4%) Or Offset
@@ -451,20 +451,26 @@ Public Module CoreModule
    End Function
 
    'This procedure loads the specified binary file into the emulated CPU's memory.
-   Private Sub LoadBinary(FileName As String, Offset As Integer)
+   Private Function LoadBinary(FileName As String, Offset As Integer) As Boolean
       Try
          Dim Binary As New List(Of Byte)(File.ReadAllBytes(FileName))
+         Dim Success As Boolean = True
 
          If Offset + Binary.Count <= CPU.Memory.Length Then
             Output.AppendText($"Loading ""{FileName}"" ({Binary.Count:X8} bytes) at address {Offset:X8}.{NewLine}")
             Binary.CopyTo(CPU.Memory, Offset)
          Else
             Output.AppendText($"""{FileName}"" does not fit inside the emulated memory.{NewLine}")
+            Success = False
          End If
+
+         Return Success
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
-   End Sub
+
+      Return False
+   End Function
 
    'This procedure manages the mouse cursor status.
    Public Sub MouseCursorStatus(Busy As Boolean)
@@ -480,8 +486,8 @@ Public Module CoreModule
       End Try
    End Sub
 
-   'This procedure parses the specified command.
-   Public Sub ParseCommand(Input As String)
+   'This procedure parses the specified command and returns whether or not a critical error occurred.
+   Public Function ParseCommand(Input As String) As Boolean
       Try
          Dim Address As New Integer?
          Dim AH As New Integer?
@@ -496,6 +502,7 @@ Public Module CoreModule
          Dim Parsed As New ParsedStr
          Dim Position As New Integer
          Dim Register As Object = GetRegisterByName(Input.Trim().ToUpper(), Is8Bit)
+         Dim Success As Boolean = True
          Dim Value As String = Nothing
 
          Input = Input.Trim()
@@ -554,7 +561,7 @@ Public Module CoreModule
                         Output.AppendText($"CX = 0{NewLine}")
                      Case "EXE"
                         FileName = If(Operands Is Nothing, RequestFileName("Load Executable."), Operands)
-                        If Not FileName = Nothing Then LoadMSDOSProgram(FileName)
+                        If Not FileName = Nothing Then Success = LoadMSDOSProgram(FileName)
                      Case "INT"
                         Parsed.Remainder = Input
 
@@ -582,7 +589,7 @@ Public Module CoreModule
                      Case "L"
                         Address = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + (CInt(CPU.Registers(CPU8086Class.Registers16BitE.DI))) And CPU8086Class.ADDRESS_MASK
                         FileName = If(Operands Is Nothing, RequestFileName("Load binary."), Operands)
-                        If Not FileName = Nothing Then LoadBinary(FileName, CInt(Address))
+                        If Not FileName = Nothing Then Success = LoadBinary(FileName, CInt(Address))
                      Case "M", "MD", "MT"
                         Parsed.Remainder = Input
 
@@ -699,10 +706,14 @@ Public Module CoreModule
                End If
             End If
          End If
+
+         Return Success
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
-   End Sub
+
+      Return False
+   End Function
 
    'This procedure extracts an element from the specified text and returns the result.
    Private Function ParseElement(Text As String, Start As String, Ending As String) As ParsedStr
@@ -730,7 +741,7 @@ Public Module CoreModule
       End Try
    End Sub
 
-   'This procedure displays a file dialog requesting the user to specify a file.
+   'This procedure displays a file dialog requesting the user to specify a file and returns the user's selection.
    Private Function RequestFileName(Title As String) As String
       Try
          With New OpenFileDialog With {.Title = Title}
@@ -753,9 +764,13 @@ Public Module CoreModule
             Output.AppendText($"Running script ""{FileName}"".{NewLine}")
             Script.RemoveAt(0)
             Directory.SetCurrentDirectory(Path.GetDirectoryName(FileName))
-            For Each LineV As String In Script
-               If AssemblyModeOn Then Assemble(LineV) Else ParseCommand(LineV)
-            Next LineV
+            For Each Line As String In Script
+               If AssemblyModeOn Then
+                  Assemble(Line)
+               Else
+                  If Not ParseCommand(Line) Then Exit For
+               End If
+            Next Line
             Directory.SetCurrentDirectory(PreviousPath)
          Else
             Output.AppendText($"Invalid script file.{NewLine}")
@@ -803,7 +818,7 @@ Public Module CoreModule
       End Try
    End Sub
 
-   'This procedure converts any escape sequences in the specified text to characters.
+   'This procedure converts any escape sequences in the specified text to characters and returns the result.
    Private Function Unescape(Text As String, Optional EscapeCharacter As Char = "/"c, Optional ByRef ErrorAt As Integer = 0) As String
       Try
          Dim Character As New Char
@@ -848,7 +863,7 @@ Public Module CoreModule
       Return Nothing
    End Function
 
-   'This procedure writes the specified bytes to memory at the specified address.
+   'This procedure writes the specified bytes to memory at the specified address and returns the last address written to.
    Public Function WriteBytesToMemory(Bytes() As Byte, Address As Integer) As Integer
       Try
          Array.Copy(Bytes, &H0%, CPU.Memory, Address, Bytes.Count)
@@ -861,7 +876,7 @@ Public Module CoreModule
       Return Nothing
    End Function
 
-   'This procedure writes the specified string to memory at the specified address.
+   'This procedure writes the specified string to memory at the specified address and returns the last address written to.
    Public Function WriteStringToMemory([String] As String, Address As Integer) As Integer
       Try
          For Each Character As Char In [String].ToCharArray()
@@ -877,7 +892,7 @@ Public Module CoreModule
       Return Nothing
    End Function
 
-   'This procedure writes the specified values to memory at the specified address.
+   'This procedure writes the specified values to memory at the specified address and returns the last address written to.
    Private Function WriteValuesToMemory(Values As String, Address As Integer) As Integer
       Try
          Dim Character As New Char

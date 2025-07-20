@@ -1,4 +1,4 @@
-﻿'This modules's imports and settings.
+﻿'This module's imports and settings.
 Option Compare Binary
 Option Explicit On
 Option Infer Off
@@ -14,8 +14,8 @@ Public Module CursorModule
       Public ScanLineEnd As Integer     'Defines the cursor's end scan line.
       Public ScanLineStart As Integer   'Defines the cursor's start scan line.
       Public Visible As Boolean         'Indicates whether or not the cursor is visible.
-      Public X As Integer               'Defines the cursors's horizontal position.
-      Public Y As Integer               'Defines the cursors's vertical position.
+      Public X As Integer               'Defines the cursor's horizontal position.
+      Public Y As Integer               'Defines the cursor's vertical position.
    End Structure
 
    Public Const CURSOR_DEFAULT As Integer = &HD0E%     'Defines the default cursor's scan lines.

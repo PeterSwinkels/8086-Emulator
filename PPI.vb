@@ -6,7 +6,7 @@ Option Strict On
 
 'This class contains the 8255 Programmable Peripheral Interface's related procedures.
 Public Class PPIClass
-   'This procedure manages I/O port B.
+   'This procedure manages I/O port B and returns any value read from it.
    Public Function PortB(Optional NewValue As Integer? = Nothing) As Integer
       Static CurrentValue As New Integer
 

@@ -1,10 +1,11 @@
-﻿'This modules's imports and settings.
+﻿'This module's imports and settings.
 Option Compare Binary
 Option Explicit On
 Option Infer Off
 Option Strict On
 
 Imports System
+Imports System.Threading.Tasks
 Imports System.Drawing
 
 'This module contains BIOS related procedures.
@@ -105,6 +106,69 @@ Public Module BIOSModule
 
          CPU.Registers(CPU8086Class.SegmentRegistersE.SS, NewValue:=AddressesE.BIOSStack)
          CPU.Registers(CPU8086Class.Registers16BitE.SP, NewValue:=INITIAL_STACK_SIZE)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure emulates character output in Teletype mode.
+   Public Sub TeleType(Character As Byte)
+      Try
+         Dim ScrollArea As New VideoAdapterClass.ScreenAreaStr With {.ULCColumn = &H0%, .ULCRow = &H0%, .LRCColumn = TEXT_80_X_25_COLUMN_COUNT - &H1%, .LRCRow = TEXT_80_X_25_LINE_COUNT}
+         Dim VideoPage As Integer = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH))
+         Dim VideoPageAddress As Integer = If(VideoPage = &H0%, AddressesE.Text80x25MonoPage0, AddressesE.Text80x25MonoPage1)
+         Dim Attribute As Integer = CPU.Memory(VideoPageAddress + ((Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%)) + &H1%)
+
+         CPU.Registers(CPU8086Class.SubRegisters8BitE.BH, NewValue:=Attribute)
+
+         Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
+            Case VideoModesE.Text80x25Mono
+               CursorBlink.Enabled = False
+
+               Select Case DirectCast(Character, TeletypeE)
+                  Case TeletypeE.BEL
+                     Task.Run(Sub() Console.Beep())
+                  Case TeletypeE.BS
+                     If Cursor.X > &H0% Then Cursor.X -= &H1%
+                  Case TeletypeE.CR
+                     Cursor.X = &H0%
+                  Case TeletypeE.LF
+                     If Cursor.Y < TEXT_80_X_25_LINE_COUNT - &H1% Then
+                        Cursor.Y += &H1%
+                     Else
+                        VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
+                     End If
+                  Case TeletypeE.TAB
+                     Cursor.X = ((((Cursor.X + &H1%) \ &H8%) + &H1%) * &H8%) - &H1%
+                     If Cursor.X >= TEXT_80_X_25_COLUMN_COUNT - &H1% Then
+                        Cursor.X = &H0%
+                        If Cursor.Y < TEXT_80_X_25_LINE_COUNT - &H1% Then
+                           Cursor.Y += &H1%
+                        Else
+                           VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
+                        End If
+                     End If
+                  Case Else
+                     CPU.Memory(VideoPageAddress + (Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%)) = Character
+
+                     If Cursor.X < TEXT_80_X_25_COLUMN_COUNT - &H1% Then
+                        Cursor.X += &H1%
+                     Else
+                        Cursor.X = &H0%
+                        If Cursor.Y < TEXT_80_X_25_LINE_COUNT - &H1% Then
+                           Cursor.Y += &H1%
+                        Else
+                           VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
+                        End If
+                     End If
+               End Select
+
+               CPU.Memory(AddressesE.CursorPositions) = CByte(Cursor.X)
+               CPU.Memory(AddressesE.CursorPositions + &H1%) = CByte(Cursor.Y)
+               CPU.Registers(CPU8086Class.SubRegisters8BitE.BH, NewValue:=VideoPage)
+
+               CursorBlink.Enabled = True
+         End Select
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

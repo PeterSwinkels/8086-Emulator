@@ -34,15 +34,15 @@ Public Class PITClass
 
    'This structure defines a counter and its settings.
    Private Structure CounterStr
-      Public BCD As Boolean                    'Defines whether or not a counter is in BCD mode.
-      Public Format As FormatsE                'Defines a counter's format.
-      Public Mode As ModesE                    'Defines a counter's mode.
-      Public MSB As Byte?                      'Defines a counter's most significant byte.
-      Public Latched As Boolean                'Indicates whether or not a counter is latched.
-      Public LSB As Byte?                      'Defines a counter's least significant byte.
-      Public LSBRead As Boolean                'Indicates whether or not a counter's lsb has been read.
-      Public Reload As Integer                 'Defines a counter's reload value.
-      Public Value As Integer                  'Defines a counter's value.
+      Public BCD As Boolean       'Defines whether or not a counter is in BCD mode.
+      Public Format As FormatsE   'Defines a counter's format.
+      Public Mode As ModesE       'Defines a counter's mode.
+      Public MSB As Byte?         'Defines a counter's most significant byte.
+      Public Latched As Boolean   'Indicates whether or not a counter is latched.
+      Public LSB As Byte?         'Defines a counter's least significant byte.
+      Public LSBRead As Boolean   'Indicates whether or not a counter's lsb has been read.
+      Public Reload As Integer    'Defines a counter's reload value.
+      Public Value As Integer     'Defines a counter's value.
    End Structure
 
    Private Const BINARY_BCD_MASK As Integer = &H1%   'Defines the binary/BCD bit.
@@ -73,14 +73,14 @@ Public Class PITClass
       HighPrecisionTimer.Clock.Start()
    End Sub
 
-   'This procedure caps the specified value's octeds, if necessary, to ensure the value is in BCD and returns the result.
+   'This procedure caps the specified value's octets, if necessary, to ensure the value is in BCD and returns the result.
    Private Function BCDCap(Value As Integer) As Integer
       Dim BCD As Integer = 0
-      Dim Octed As New Integer
+      Dim Octet As New Integer
 
       Do
-         Octed = Value And &HF%
-         BCD = BCD Or If(Octed < &HA%, Octed, &H9%)
+         Octet = Value And &HF%
+         BCD = BCD Or If(Octet < &HA%, Octet, &H9%)
          Value = Value >> &H4%
          If Value = &H0% Then Exit Do
          BCD = BCD << &H4%

@@ -72,10 +72,10 @@ Public Module MSDOSModule
    Private Const VERSION As Integer = &H1606%                           'Defines the emulated MS-DOS version as 6.22.
 
    Private ReadOnly DATE_TO_MSDOS_DATE As Func(Of Date, Integer) = Function([Date] As Date) ([Date].Day And &H1F%) Or (([Date].Month And &HF) << &H5%) Or ((If([Date].Year - 1980 >= &H0% AndAlso [Date].Year - 1980 < &H7F%, [Date].Year - 1980, Nothing) And &H7F%) << &H9%)   'Converts the specified date to a value suitable for MS-DOS and returns the result.
-   Private ReadOnly ENVIRONMENT As String = $"COMSPEC=C:\COMMAND.COM{ToChar(&H0%)}PATH={ToChar(&H0%)}"   'Defines the MS-DOS environment.
-   Private ReadOnly ENVIRONMENT_SEGMENT As Integer = LOWEST_ADDRESS                                      'Defines the MS-DOS environment's segment.
-   Private ReadOnly EXE_MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}                                          'Defines the signature of an MZ exectuable.
-   Private ReadOnly LOWEST_FILE_HANDLE As Integer = STDFileHandlesE.STDPRN + &H1%                        'Defines the lowest possible file handle.
+   Private ReadOnly ENVIRONMENT_SEGMENT As Integer = LOWEST_ADDRESS                                           'Defines the MS-DOS environment's segment.
+   Private ReadOnly ENVIRONMENT_TEXT As String = $"COMSPEC=C:\COMMAND.COM{ToChar(&H0%)}PATH={ToChar(&H0%)}"   'Defines the MS-DOS environment.
+   Private ReadOnly EXE_MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}                                               'Defines the signature of an MZ executable.
+   Private ReadOnly LOWEST_FILE_HANDLE As Integer = STDFileHandlesE.STDPRN + &H1%                             'Defines the lowest possible file handle.
    Private ReadOnly TIME_TO_MSDOS_TIME As Func(Of Date, Integer) = Function([Date] As Date) (([Date].Second \ &H2%) And &H1F%) Or (([Date].Minute And &H3F) << &H5%) Or (([Date].Hour And &H1F) << &HB%)   'Converts the specified time to a value suitable for MS-DOS and returns the result.
 
    Private Allocations As New List(Of Tuple(Of Integer, Integer))      'Contains the memory allocations.
@@ -127,7 +127,7 @@ Public Module MSDOSModule
       Return Nothing
    End Function
 
-   'This procudure attempts to close the specified file handle and returns whether or not it succeeded.
+   'This procedure attempts to close the specified file handle and returns whether or not it succeeded.
    Private Function CloseFileHandle(ByRef Flags As Integer) As Boolean
       Try
          Dim OpenFileToBeClosed As Tuple(Of FileStream, Integer) = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)))
@@ -286,7 +286,7 @@ Public Module MSDOSModule
       End Try
    End Sub
 
-   'This procedure translates the specified exception to a MS-DOS error code and returns the result.
+   'This procedure returns the MS-DOS error code for the specified exception.
    Private Function GetMSDOSErrorCode(MSDOSException As Exception) As Integer
       Try
          Dim IOExceptionO As New IOException
@@ -369,7 +369,7 @@ Public Module MSDOSModule
       Return Nothing
    End Function
 
-   'This procedure handles the specified MS-DOS interrupt and returns whether or not is succeeded.
+   'This procedure handles the specified MS-DOS interrupt and returns whether or not it succeeded.
    Public Function HandleMSDOSInterrupt(Number As Integer, AH As Integer, ByRef Flags As Integer) As Boolean
       Try
          Dim Address As New Integer
@@ -570,49 +570,22 @@ Public Module MSDOSModule
    'This procedure loads "MS-DOS" into memory.
    Public Sub LoadMSDOS()
       Try
-         WriteStringToMemory(ENVIRONMENT, ENVIRONMENT_SEGMENT << &H4%)
+         WriteStringToMemory(ENVIRONMENT_TEXT, ENVIRONMENT_SEGMENT << &H4%)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
    End Sub
 
-   'This procedure attempts to modify the specified allocated memory address and returns whether or not it succeeded.
-   Private Function ModifyAllocatedMemory(StartAddress As Integer, NewSize As Integer) As Integer?
-      Try
-         Dim ErrorCode As New Integer?
-         Dim Index As Integer = Allocations.FindIndex(Function(Allocation) Allocation.Item1 = StartAddress)
-         Dim ModifiedAllocation As Tuple(Of Integer, Integer) = Nothing
-         Dim NewEnd As New Integer
-
-         If Index >= 0 Then
-            ModifiedAllocation = Allocations(Index)
-            NewEnd = ModifiedAllocation.Item1 + NewSize
-
-            If NewEnd <= HIGHEST_ADDRESS OrElse Index = Allocations.Count - 1 OrElse NewEnd < Allocations(Index + 1).Item1 Then
-               Allocations(Index) = Tuple.Create(ModifiedAllocation.Item1, NewEnd)
-            Else
-               ErrorCode = ERROR_INSUFFICIENT_MEMORY
-            End If
-         Else
-            ErrorCode = ERROR_INVALID_MEMORY_BLOCK_ADDRESS
-         End If
-
-         Return ErrorCode
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
-
-      Return Nothing
-   End Function
-
-   'This procedure loads the specified MS-DOS program into the emulated CPU's memory after processing its header.
-   Public Sub LoadMSDOSProgram(FileName As String)
+   'This procedure loads the specified MS-DOS program into the emulated CPU's memory after processing its header and returns whether or not it succeeded.
+   Public Function LoadMSDOSProgram(FileName As String) As Boolean
       Try
          Dim Executable As New List(Of Byte)(File.ReadAllBytes(FileName))
          Dim LoadAddress As Integer = CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)) << &H4%
+         Dim Success As Boolean = True
 
          If Executable.Count >= &H2% AndAlso Executable.GetRange(&H0%, EXE_MZ_SIGNATURE.Length).SequenceEqual(EXE_MZ_SIGNATURE) Then
             Executable = LoadMZEXE(Executable, FileName, LoadAddress)
+            Success = Executable.Any
          Else
             Output.AppendText($"Loading the compact binary executable ""{FileName}"" at address {LoadAddress:X8}.{NewLine}")
 
@@ -640,13 +613,19 @@ Public Module MSDOSModule
             SyncLock Synchronizer
                CPUEvent.Append($"Memory allocation failure.{NewLine}")
             End SyncLock
+
+            Success = False
          End If
+
+         Return Success
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
-   End Sub
 
-   'This procedure loads the specified MZ executable.
+      Return False
+   End Function
+
+   'This procedure loads the specified MZ executable and returns the result.
    Private Function LoadMZEXE(Executable As List(Of Byte), FileName As String, LoadAddress As Integer) As List(Of Byte)
       Try
          Dim HeaderSize As Integer = BitConverter.ToUInt16(Executable.ToArray(), EXE_HEADER_SIZE) << &H4%
@@ -710,7 +689,36 @@ Public Module MSDOSModule
       Return New List(Of Byte)
    End Function
 
-   'This prodecure opens a file.
+   'This procedure attempts to modify the specified allocated memory address and returns whether or not it succeeded.
+   Private Function ModifyAllocatedMemory(StartAddress As Integer, NewSize As Integer) As Integer?
+      Try
+         Dim ErrorCode As New Integer?
+         Dim Index As Integer = Allocations.FindIndex(Function(Allocation) Allocation.Item1 = StartAddress)
+         Dim ModifiedAllocation As Tuple(Of Integer, Integer) = Nothing
+         Dim NewEnd As New Integer
+
+         If Index >= 0 Then
+            ModifiedAllocation = Allocations(Index)
+            NewEnd = ModifiedAllocation.Item1 + NewSize
+
+            If NewEnd <= HIGHEST_ADDRESS OrElse Index = Allocations.Count - 1 OrElse NewEnd < Allocations(Index + 1).Item1 Then
+               Allocations(Index) = Tuple.Create(ModifiedAllocation.Item1, NewEnd)
+            Else
+               ErrorCode = ERROR_INSUFFICIENT_MEMORY
+            End If
+         Else
+            ErrorCode = ERROR_INVALID_MEMORY_BLOCK_ADDRESS
+         End If
+
+         Return ErrorCode
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return Nothing
+   End Function
+
+   'This procedure opens a file.
    Private Sub OpenFile(ByRef Flags As Integer)
       Try
          Dim FileAccessO As New FileAccess
@@ -807,18 +815,18 @@ Public Module MSDOSModule
    'This procedure seeks inside a file.
    Private Sub SeekFile(ByRef Flags As Integer)
       Try
-         Dim OpenFileToBeSeeked As Tuple(Of FileStream, Integer) = Nothing
+         Dim OpenFileToBeSought As Tuple(Of FileStream, Integer) = Nothing
 
          Select Case DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.BX), STDFileHandlesE)
             Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
                CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=ERROR_ACCESS_DENIED)
                Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
             Case Else
-               OpenFileToBeSeeked = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)))
+               OpenFileToBeSought = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)))
                Try
-                  OpenFileToBeSeeked.Item1.Seek((CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX)) << &H10%) Or CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)), DirectCast(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL), SeekOrigin))
-                  CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=OpenFileToBeSeeked.Item1.Position And &HFFFF%)
-                  CPU.Registers(CPU8086Class.Registers16BitE.DX, NewValue:=OpenFileToBeSeeked.Item1.Position >> &H10%)
+                  OpenFileToBeSought.Item1.Seek((CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX)) << &H10%) Or CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)), DirectCast(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL), SeekOrigin))
+                  CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=OpenFileToBeSought.Item1.Position And &HFFFF%)
+                  CPU.Registers(CPU8086Class.Registers16BitE.DX, NewValue:=OpenFileToBeSought.Item1.Position >> &H10%)
                   Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
                Catch MSDOSException As Exception
                   CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))

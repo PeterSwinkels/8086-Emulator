@@ -29,7 +29,7 @@ Public Class InterfaceWindow
          End With
 
          ToolTip.SetToolTip(CommandBox, "Enter commands here. Specify ""?"" for help.")
-         ToolTip.SetToolTip(EnterButton, "Sends a commmand to the CPU emulator.")
+         ToolTip.SetToolTip(EnterButton, "Sends a command to the CPU emulator.")
          ToolTip.SetToolTip(OutputBox, "This box displays CPU memory contents, register values, etc.")
 
          Output = Me.OutputBox
