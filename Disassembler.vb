@@ -221,9 +221,9 @@ Public Class DisassemblerClass
 
                   If Not Instruction = Nothing Then
                      If Opcode = &HC6% Then
-                        Instruction &= $"{If(Operand < &HC0%, " BYTE ", Nothing)}{GetOperand(Code, Position, Operand, LH_REGISTERS)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
+                        Instruction &= $"{If(Operand < &HC0%, " BYTE ", " ")}{GetOperand(Code, Position, Operand, LH_REGISTERS)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
                      ElseIf Opcode = &HC7% Then
-                        Instruction &= $"{If(Operand < &HC0%, " WORD ", Nothing)}{GetOperand(Code, Position, Operand, XP_REGISTERS)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
+                        Instruction &= $"{If(Operand < &HC0%, " WORD ", " ")}{GetOperand(Code, Position, Operand, XP_REGISTERS)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
                      End If
                   End If
                Case &HCA% : Instruction = $"RETF {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
