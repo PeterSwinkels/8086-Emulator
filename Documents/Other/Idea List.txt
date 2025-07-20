@@ -1,6 +1,7 @@
 Ideas for things to be implemented/changed in the 8086 Emulator.
 
 1. The program's internal assembler misinterprets "mov byte ax, ff".
+   A. Same issue with "mov word ax, ffff".
 2. Add CGA character drawing. XOR on bit 7.
 3. Add VGA character drawing.
 
