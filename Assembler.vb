@@ -463,9 +463,13 @@ Public Class AssemblerClass
                               End If
                            End If
                         Case MOV_WORD_OPCODE.ContainsKey(Instruction)
-                           Opcodes.Add(MOV_WORD_OPCODE(Instruction))
-                           Opcodes.AddRange(OperandsToOpcodes(LeftOperand, RightOperand, Is8Bit:=False))
-                           Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=False))
+                           If IS_8_BIT_REGISTER_OPERAND(LeftOperand.Operand) Then
+                              Throw New Exception("Invalid combination of operands.")
+                           Else
+                              Opcodes.Add(MOV_WORD_OPCODE(Instruction))
+                              Opcodes.AddRange(OperandsToOpcodes(LeftOperand, RightOperand, Is8Bit:=False))
+                              Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=False))
+                           End If
                         Case OPCODES_80.Contains(Instruction)
                            Opcodes.Add(VARIOUS_BYTE)
                            Opcodes.Add(ToByte(CInt(ParseMemoryOperand(LeftOperand.Operand, ImmediateBytes)) Or OPCODES_80.IndexOf(Instruction) << &H3%))
@@ -676,25 +680,35 @@ Public Class AssemblerClass
       If RightOperand.Type = OperandTypesE.Numeric AndAlso Is8Bit IsNot Nothing Then
          Select Case LeftOperand.Type
             Case OperandTypesE.Memory
-               LeftOpcode = CInt(ParseMemoryOperand(LeftOperand.Operand, ImmediateBytes))
+               LeftOpcode = ParseMemoryOperand(LeftOperand.Operand, ImmediateBytes)
                RightOpcode = &H0%
+            Case OperandTypesE.Register8Bit
+               LeftOpcode = &HC0%
+               RightOpcode = RegisterOperandToIndex(LeftOperand) << &H3%
+            Case Else
+               If LeftOperand.Type = OperandTypesE.Register16Bit AndAlso Not Is8Bit Then
+                  LeftOpcode = &HC0%
+                  RightOpcode = RegisterOperandToIndex(LeftOperand) << &H3%
+               Else
+                  Throw New Exception("Invalid combination of operands.")
+               End If
          End Select
       Else
          If LeftOperand.Type = OperandTypesE.Memory Then
-            LeftOpcode = CInt(ParseMemoryOperand(LeftOperand.Operand, ImmediateBytes))
-            RightOpcode = CInt(RegisterOperandToIndex(RightOperand) << &H3%)
+            LeftOpcode = ParseMemoryOperand(LeftOperand.Operand, ImmediateBytes)
+            RightOpcode = RegisterOperandToIndex(RightOperand) << &H3%
          ElseIf RightOperand.Type = OperandTypesE.Memory Then
-            RightOpcode = CInt(ParseMemoryOperand(RightOperand.Operand, ImmediateBytes))
-            LeftOpcode = CInt(RegisterOperandToIndex(LeftOperand) << &H3%)
+            RightOpcode = ParseMemoryOperand(RightOperand.Operand, ImmediateBytes)
+            LeftOpcode = RegisterOperandToIndex(LeftOperand) << &H3%
          ElseIf LeftOperand.Type = OperandTypesE.Register16Bit AndAlso RightOperand.Type = OperandTypesE.Segment Then
-            LeftOpcode = OperandOpcodesE.Registers Or CInt(RegisterOperandToIndex(LeftOperand))
-            RightOpcode = CInt(RegisterOperandToIndex(RightOperand) << &H3%)
+            LeftOpcode = OperandOpcodesE.Registers Or RegisterOperandToIndex(LeftOperand)
+            RightOpcode = RegisterOperandToIndex(RightOperand) << &H3%
          ElseIf LeftOperand.Type = OperandTypesE.Segment AndAlso RightOperand.Type = OperandTypesE.Register16Bit Then
-            LeftOpcode = CInt(RegisterOperandToIndex(LeftOperand) << &H3%)
-            RightOpcode = OperandOpcodesE.Registers Or CInt(RegisterOperandToIndex(RightOperand))
+            LeftOpcode = RegisterOperandToIndex(LeftOperand) << &H3%
+            RightOpcode = OperandOpcodesE.Registers Or RegisterOperandToIndex(RightOperand)
          Else
-            LeftOpcode = OperandOpcodesE.Registers Or CInt(RegisterOperandToIndex(LeftOperand))
-            RightOpcode = CInt(RegisterOperandToIndex(RightOperand) << &H3%)
+            LeftOpcode = OperandOpcodesE.Registers Or RegisterOperandToIndex(LeftOperand)
+            RightOpcode = RegisterOperandToIndex(RightOperand) << &H3%
          End If
       End If
 
