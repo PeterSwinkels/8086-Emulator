@@ -512,9 +512,7 @@ Public Class CPU8086Class
 
          If Displacement IsNot Nothing Then
             If DisplacementIs8Bit Then
-               Windows.Forms.MessageBox.Show("Was:" & Displacement.Value.ToString("X"))
                Displacement = ConvertWidening(Displacement.Value, Is8Bit:=True)
-               Windows.Forms.MessageBox.Show("Is: " & Displacement.Value.ToString("X"))
             End If
             Addresses.Address += Displacement.Value
          End If
