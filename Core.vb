@@ -418,7 +418,7 @@ Public Module CoreModule
          Dim Stack As New StringBuilder
 
          With Stack
-            For Offset As Integer = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BP)) - &H2% To CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)) Step -&H2%
+            For Offset As Integer = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BP)) To CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP))
                Stack.Append($"{CPU.GET_WORD((SS << &H4%) + Offset):X4}{NewLine}")
             Next Offset
 

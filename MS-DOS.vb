@@ -64,9 +64,11 @@ Public Module MSDOSModule
    Private Const EXE_RELOCATION_ITEM_TABLE As Integer = &H18%           'Defines where an executable's number of relocation item table offset is stored.
    Private Const FILE_ACCESS_RW_MASK As Integer = &H3%                  'Defines the read/write bits for file access.
    Private Const HIGHEST_ADDRESS As Integer = &HA0000%                  'Defines the highest address that can be allocated.
+   Private Const INT_20H As Integer = &H20CD%                           'Defines the INT 20h instruction.
    Private Const LOWEST_ADDRESS As Integer = &H600%                     'Defines the lowest address that can be allocated.
    Private Const MS_DOS As Integer = &HFF00%                            'Defines a value indicating that the operating system is MS-DOS.
    Private Const PSP_ENVIRONMENT_SEGMENT As Integer = &H2C%             'Defines the segment of the MS-DOS environment in a PSP.
+   Private Const PSP_INT_20H As Integer = &H0%                          'Defines the offset of the INT 20h handler in a PSP.
    Private Const PSP_MEMORY_TOP As Integer = &H2%                       'Defines the offset of the top of memory value in a PSP.
    Private Const PSP_SIZE As Integer = &H100%                           'Defines a PSP's size.
    Private Const VERSION As Integer = &H1606%                           'Defines the emulated MS-DOS version as 6.22.
@@ -597,8 +599,11 @@ Public Module MSDOSModule
             CPU.Registers(CPU8086Class.SegmentRegistersE.ES, NewValue:=CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)))
             CPU.Registers(CPU8086Class.Registers16BitE.IP, NewValue:=PSP_SIZE)
             CPU.Registers(CPU8086Class.Registers16BitE.BP, NewValue:=&H0%)
-            CPU.Registers(CPU8086Class.Registers16BitE.SP, NewValue:=&HFFFF%)
             CPU.Registers(CPU8086Class.SegmentRegistersE.SS, NewValue:=CPU.Registers(CPU8086Class.SegmentRegistersE.CS))
+            CPU.Registers(CPU8086Class.Registers16BitE.SP, NewValue:=&HFFFC%)
+            CPU.PutWord((CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.SS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)), CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)))
+            CPU.PutWord((CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.SS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)) + &H2%, &H0%)
+            CPU.PutWord(LoadAddress + PSP_INT_20H, INT_20H)
 
             CPU.PutWord(LoadAddress + PSP_ENVIRONMENT_SEGMENT, ENVIRONMENT_SEGMENT)
             CPU.PutWord(LoadAddress + PSP_MEMORY_TOP, LargestFreeMemoryBlock())

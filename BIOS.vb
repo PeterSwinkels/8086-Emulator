@@ -36,7 +36,7 @@ Public Module BIOSModule
    'This enumeration lists the flat addresses of BIOS data area locations.
    Public Enum AddressesE As Integer
       BIOS = &HF0000%                   'BIOS.
-      BIOSStack = &HF30000%             'BIOS stack segment.
+      BIOSStack = &HF3000%              'BIOS stack segment.
       CGA320x200 = &HB8000%             '320x200 CGA video buffer.
       Clock = &H46C%                    'Clock.
       ClockRollover = &H470%            'Clock rollover flag.
