@@ -160,16 +160,23 @@ Public Module MSDOSModule
    Private Sub CreateFile(ByRef Flags As Integer)
       Try
          Dim FileName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+         Dim FileStreamO As FileStream = Nothing
+         Dim NextHandle As New Integer?
 
          Try
-            File.Create(FileName)
+            FileStreamO = New FileStream(FileName, FileMode.OpenOrCreate, FileAccess.Write)
             File.SetAttributes(FileName, DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.CX), FileAttributes))
+            NextHandle = GetNextFreeFileHandle()
             Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
          Catch MSDOSException As Exception
             CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
             Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
          End Try
 
+         If NextHandle IsNot Nothing Then
+            CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CInt(NextHandle))
+            OpenFiles.Add(New Tuple(Of FileStream, Integer)(FileStreamO, CInt(NextHandle)))
+         End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
