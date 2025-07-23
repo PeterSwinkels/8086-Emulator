@@ -1151,7 +1151,7 @@ Public Class CPU8086Class
          Case OpcodesE.OUT_DX_AX
             RaiseEvent WriteIOPort(Port:=CInt(Registers(Registers16BitE.DX)), Value:=CInt(Registers(Registers16BitE.AX)), Is8Bit:=False)
          Case OpcodesE.OUT_WORD_AX
-            RaiseEvent WriteIOPort(GetWordCSIP(), Value:=CInt(Registers(Registers16BitE.AX)), Is8Bit:=False)
+            RaiseEvent WriteIOPort(GetByteCSIP(), Value:=CInt(Registers(Registers16BitE.AX)), Is8Bit:=False)
          Case OpcodesE.REPNE, OpcodesE.REPZ
             If Opcode = OpcodesE.REPNE Then
                CFStopValue = True

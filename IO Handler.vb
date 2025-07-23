@@ -5,6 +5,7 @@ Option Infer Off
 Option Strict On
 
 Imports System
+Imports System.Environment
 
 'This module contains the default I/O handler.
 Public Module IOHandlerModule
@@ -66,7 +67,7 @@ Public Module IOHandlerModule
 
          Return Value
       Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
+         CPUEvent.Append($"{ExceptionO.Message}{NewLine}")
       End Try
 
       Return Nothing
@@ -92,7 +93,7 @@ Public Module IOHandlerModule
 
          Return Success
       Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
+         CPUEvent.Append($"{ExceptionO.Message}{NewLine}")
       End Try
 
       Return False

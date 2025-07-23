@@ -249,7 +249,7 @@ Public Class DisassemblerClass
                Case &HE4% : Instruction = $"IN {LH_REGISTERS(ACCUMULATOR_REGISTER)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
                Case &HE5% : Instruction = $"IN {XP_REGISTERS(ACCUMULATOR_REGISTER)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
                Case &HE6% : Instruction = $"OUT {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}, {LH_REGISTERS(ACCUMULATOR_REGISTER)}"
-               Case &HE7% : Instruction = $"OUT {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}, {XP_REGISTERS(ACCUMULATOR_REGISTER)}"
+               Case &HE7% : Instruction = $"OUT {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}, {XP_REGISTERS(ACCUMULATOR_REGISTER)}"
                Case &HE8% : Instruction = $"CALL NEAR {NearAddressToHexadecimal(GetBytes(Code, Position, Length:=2), Position)}"
                Case &HE9% : Instruction = $"JMP NEAR {NearAddressToHexadecimal(GetBytes(Code, Position, Length:=2), Position)}"
                Case &HEA% : Instruction = $"JMP FAR {FarAddressToHexadecimal(GetBytes(Code, Position, Length:=4))}"
