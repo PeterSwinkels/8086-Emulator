@@ -450,9 +450,15 @@ Public Class CPU8086Class
          Registers(Register, NewValue:=&H0%)
       Next Register
 
+      For Each Register As FlagRegistersE In [Enum].GetValues(GetType(FlagRegistersE))
+         Registers(Register, NewValue:=False)
+      Next Register
+
       For Each Register As SegmentRegistersE In [Enum].GetValues(GetType(SegmentRegistersE))
          Registers(Register, NewValue:=&H0%)
       Next Register
+
+      Registers(FlagRegistersE.IF, NewValue:=True)
 
       Memory = Enumerable.Repeat(CByte(&H0%), &H100000%).ToArray()
    End Sub

@@ -67,7 +67,9 @@ Public Module IOHandlerModule
 
          Return Value
       Catch ExceptionO As Exception
-         CPUEvent.Append($"{ExceptionO.Message}{NewLine}")
+         SyncLock Synchronizer
+            CPUEvent.Append($"{ExceptionO.Message}{NewLine}")
+         End SyncLock
       End Try
 
       Return Nothing
@@ -93,7 +95,9 @@ Public Module IOHandlerModule
 
          Return Success
       Catch ExceptionO As Exception
-         CPUEvent.Append($"{ExceptionO.Message}{NewLine}")
+         SyncLock Synchronizer
+            CPUEvent.Append($"{ExceptionO.Message}{NewLine}")
+         End SyncLock
       End Try
 
       Return False
