@@ -960,16 +960,26 @@ Public Class CPU8086Class
 
             Registers(SubRegisters8BitE.AL, NewValue:=CInt(Registers(SubRegisters8BitE.AL)) And &HF%)
          Case OpcodesE.AAD
-            NewValue = (CInt(Registers(SubRegisters8BitE.AL)) + (CInt(Registers(SubRegisters8BitE.AH)) * &HA%)) And &HFF%
-            AdjustFlags(CInt(Registers(Registers16BitE.AX)), NewValue)
-            Registers(SubRegisters8BitE.AL, NewValue:=NewValue)
-            Registers(SubRegisters8BitE.AH, NewValue:=&H0%)
+            Operand = GetByteCSIP()
+            If Operand = &HA% Then
+               NewValue = (CInt(Registers(SubRegisters8BitE.AL)) + (CInt(Registers(SubRegisters8BitE.AH)) * Operand)) And &HFF%
+               AdjustFlags(CInt(Registers(Registers16BitE.AX)), NewValue)
+               Registers(SubRegisters8BitE.AL, NewValue:=NewValue)
+               Registers(SubRegisters8BitE.AH, NewValue:=&H0%)
+            Else
+               Return False
+            End If
          Case OpcodesE.AAM
             Value = CInt(Registers(Registers16BitE.AX))
             NewValue = CInt(Registers(SubRegisters8BitE.AL))
-            Registers(SubRegisters8BitE.AH, NewValue:=CInt(Math.Floor(NewValue / &HA%)))
-            Registers(SubRegisters8BitE.AL, NewValue:=NewValue Mod &HA%)
-            AdjustFlags(Value, CInt(Registers(Registers16BitE.AX)), Is8Bit:=False)
+            Operand = GetByteCSIP()
+            If Operand = &HA% Then
+               Registers(SubRegisters8BitE.AH, NewValue:=CInt(Math.Floor(NewValue / Operand)))
+               Registers(SubRegisters8BitE.AL, NewValue:=NewValue Mod Operand)
+               AdjustFlags(Value, CInt(Registers(Registers16BitE.AX)), Is8Bit:=False)
+            Else
+               Return False
+            End If
          Case OpcodesE.ADC_TGT_REG8 To OpcodesE.ADC_AX_WORD,
               OpcodesE.ADD_TGT_REG8 To OpcodesE.ADD_AX_WORD,
               OpcodesE.AND_TGT_REG8 To OpcodesE.AND_AX_WORD,
