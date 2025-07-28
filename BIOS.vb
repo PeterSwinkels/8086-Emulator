@@ -185,8 +185,8 @@ Public Module BIOSModule
             If ClockCounter = MAXIMUM_CLOCK_VALUE Then CPU.Memory(AddressesE.ClockRollover) = &HFF%
          End If
 
-         CPU.PutWord(AddressesE.Clock, ClockCounter And &HFF%)
-         CPU.PutWord(AddressesE.Clock + &H2%, ClockCounter And &HFF00%)
+         CPU.PutWord(AddressesE.Clock, ClockCounter And &HFFFF%)
+         CPU.PutWord(AddressesE.Clock + &H2%, ClockCounter >> &H10%)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
