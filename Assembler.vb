@@ -270,10 +270,10 @@ Public Class AssemblerClass
    Private ReadOnly OPCODES_8183 As New List(Of String)({"ADD WORD", "OR WORD", "ADC WORD", "SBB WORD", "AND WORD", "SUB WORD", "XOR WORD", "CMP WORD"})                                                          'Contains various word instructions.
    Private ReadOnly OPCODES_D2 As New List(Of String)({"ROL BYTE", "ROR BYTE", "RCL BYTE", "RCR BYTE", "SHL BYTE", "SHR BYTE", Nothing, "SAR BYTE"})                                                              'Contains the rotate/shift byte instructions.
    Private ReadOnly OPCODES_D3 As New List(Of String)({"ROL WORD", "ROR WORD", "RCL WORD", "RCR WORD", "SHL WORD", "SHR WORD", Nothing, "SAR WORD"})                                                              'Contains the rotate/shift word instructions.
-   Private ReadOnly OPCODES_F6 As New List(Of String)({Nothing, Nothing, "NOT BYTE", "NEG BYTE", Nothing, Nothing, Nothing, Nothing})                                                                             'Contains various byte instructions.
-   Private ReadOnly OPCODES_F6_BYTE As New List(Of String)({"TEST BYTE", Nothing, Nothing, Nothing, "MUL BYTE", "IMUL BYTE", "DIV BYTE", "IDIV BYTE"})                                                            'Contains various byte instructions.
-   Private ReadOnly OPCODES_F7 As New List(Of String)({Nothing, Nothing, "NOT WORD", "NEG WORD", Nothing, Nothing, Nothing, Nothing})                                                                             'Contains various word instructions.
-   Private ReadOnly OPCODES_F7_WORD As New List(Of String)({"TEST WORD", Nothing, Nothing, Nothing, "MUL WORD", "IMUL WORD", "DIV WORD", "IDIV WORD"})                                                            'Contains various word instructions.
+   Private ReadOnly OPCODES_F6_BYTE_1 As New List(Of String)({Nothing, Nothing, "NOT BYTE", "NEG BYTE", "MUL BYTE", "IMUL BYTE", "DIV BYTE", "IDIV BYTE"})                                                        'Contains various byte instructions which take one operand.
+   Private ReadOnly OPCODES_F6_BYTE_2 As New List(Of String)({"TEST BYTE", Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing})                                                                        'Contains various byte instructions which take two operands.
+   Private ReadOnly OPCODES_F7_WORD_1 As New List(Of String)({Nothing, Nothing, "NOT WORD", "NEG WORD", "MUL WORD", "IMUL WORD", "DIV WORD", "IDIV WORD"})                                                        'Contains various word instructions which take one operand.
+   Private ReadOnly OPCODES_F7_WORD_2 As New List(Of String)({"TEST WORD", Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing})                                                                        'Contains various word instructions which take two operands.
    Private ReadOnly OPCODES_FE__00BF As New List(Of String)({"INC BYTE", "DEC BYTE", "CALL WORD NEAR", "CALL WORD FAR", "JMP WORD NEAR", "JMP WORD FAR", "PUSH WORD", Nothing})                                   'Contains various instructions.
    Private ReadOnly OPCODES_FE__C0FF As New List(Of String)({"INC BYTE", "DEC BYTE", "CALL", Nothing, "JMP", Nothing, "PUSH", Nothing})                                                                           'Contains various instructions.
    Private ReadOnly OPCODES_FF__00BF As New List(Of String)({"INC WORD", "DEC WORD", "CALL WORD NEAR", "CALL WORD FAR", "JMP WORD NEAR", "JMP WORD FAR", "PUSH WORD", Nothing})                                   'Contains various instructions.
@@ -357,23 +357,23 @@ Public Class AssemblerClass
                      Opcodes.Add(NEAR_JUMP_OPCODES(Instruction))
                      If RightOperand.Operand.StartsWith(ABSOLUTE_ADDRESS_PREFIX) Then RightOperand.Operand = AbsoluteToRelativeAddress(Address + JUMP_NEAR_OPCODE_LENGTH, RightOperand.Operand, IsShort:=False)
                      Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=False))
-                  Case OPCODES_F6.Contains(Instruction)
+                  Case OPCODES_F6_BYTE_1.Contains(Instruction) AndAlso RightOperand.Type = OperandTypesE.Register8Bit
                      Opcodes.Add(VARIOUS_BYTE_LITERAL)
 
                      If RightOperand.Type = OperandTypesE.Memory Then
-                        Opcodes.Add(ToByte(ParseMemoryOperand(RightOperand.Operand, ImmediateBytes) Or (OPCODES_F6.IndexOf(Instruction) << &H3%)))
+                        Opcodes.Add(ToByte(ParseMemoryOperand(RightOperand.Operand, ImmediateBytes) Or (OPCODES_F6_BYTE_1.IndexOf(Instruction) << &H3%)))
                         If ImmediateBytes.Count > 0 Then Opcodes.AddRange(ImmediateBytes)
                      ElseIf RightOperand.Type = OperandTypesE.Register8Bit Then
-                        Opcodes.Add(ToByte((LH_REGISTERS.IndexOf(RightOperand.Operand) Or OperandOpcodesE.Registers) Or (OPCODES_F6.IndexOf(Instruction) << &H3%)))
+                        Opcodes.Add(ToByte((LH_REGISTERS.IndexOf(RightOperand.Operand) Or OperandOpcodesE.Registers) Or (OPCODES_F6_BYTE_1.IndexOf(Instruction) << &H3%)))
                      End If
-                  Case OPCODES_F7.Contains(Instruction)
+                  Case OPCODES_F7_WORD_1.Contains(Instruction) AndAlso RightOperand.Type = OperandTypesE.Register16Bit
                      Opcodes.Add(VARIOUS_WORD_LITERAL)
 
                      If RightOperand.Type = OperandTypesE.Memory Then
-                        Opcodes.Add(ToByte(ParseMemoryOperand(RightOperand.Operand, ImmediateBytes) Or (OPCODES_F7.IndexOf(Instruction) << &H3%)))
+                        Opcodes.Add(ToByte(ParseMemoryOperand(RightOperand.Operand, ImmediateBytes) Or (OPCODES_F7_WORD_1.IndexOf(Instruction) << &H3%)))
                         If ImmediateBytes.Count > 0 Then Opcodes.AddRange(ImmediateBytes)
                      ElseIf RightOperand.Type = OperandTypesE.Register16Bit Then
-                        Opcodes.Add(ToByte((XP_REGISTERS.IndexOf(RightOperand.Operand) Or OperandOpcodesE.Registers) Or (OPCODES_F7.IndexOf(Instruction) << &H3%)))
+                        Opcodes.Add(ToByte((XP_REGISTERS.IndexOf(RightOperand.Operand) Or OperandOpcodesE.Registers) Or (OPCODES_F7_WORD_1.IndexOf(Instruction) << &H3%)))
                      End If
                   Case SEGMENT_PREFIX_OPCODES.ContainsKey(Instruction)
                      Opcodes.Add(SEGMENT_PREFIX_OPCODES(Instruction))
@@ -498,14 +498,14 @@ Public Class AssemblerClass
 
                            If ImmediateBytes.Count > 0 Then Opcodes.AddRange(ImmediateBytes)
                            Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=False))
-                        Case OPCODES_F6_BYTE.Contains(Instruction) AndAlso RightOperand.Type = OperandTypesE.Numeric
+                        Case OPCODES_F6_BYTE_2.Contains(Instruction) AndAlso RightOperand.Type = OperandTypesE.Numeric
                            Opcodes.Add(VARIOUS_BYTE_LITERAL)
 
                            If LeftOperand.Type = OperandTypesE.Memory Then
-                              Opcodes.Add(ToByte(ParseMemoryOperand(LeftOperand.Operand, ImmediateBytes) Or (OPCODES_F6_BYTE.IndexOf(Instruction) << &H3%)))
+                              Opcodes.Add(ToByte(ParseMemoryOperand(LeftOperand.Operand, ImmediateBytes) Or (OPCODES_F6_BYTE_2.IndexOf(Instruction) << &H3%)))
                               If ImmediateBytes.Count > 0 Then Opcodes.AddRange(ImmediateBytes)
                            ElseIf LeftOperand.Type = OperandTypesE.Register8Bit Then
-                              Opcodes.Add(ToByte((LH_REGISTERS.IndexOf(LeftOperand.Operand) Or OperandOpcodesE.Registers) Or (OPCODES_F6_BYTE.IndexOf(Instruction) << &H3%)))
+                              Opcodes.Add(ToByte((LH_REGISTERS.IndexOf(LeftOperand.Operand) Or OperandOpcodesE.Registers) Or (OPCODES_F6_BYTE_2.IndexOf(Instruction) << &H3%)))
                            End If
 
                            Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=True))
@@ -531,14 +531,14 @@ Public Class AssemblerClass
                            ElseIf LeftOperand.Type = OperandTypesE.Register16Bit Then
                               Opcodes.Add(ToByte(XP_REGISTERS.IndexOf(LeftOperand.Operand) Or OperandOpcodesE.Registers Or SubOpcode))
                            End If
-                        Case OPCODES_F7_WORD.Contains(Instruction) AndAlso RightOperand.Type = OperandTypesE.Numeric
+                        Case OPCODES_F7_WORD_2.Contains(Instruction) AndAlso RightOperand.Type = OperandTypesE.Numeric
                            Opcodes.Add(VARIOUS_WORD_LITERAL)
 
                            If LeftOperand.Type = OperandTypesE.Memory Then
-                              Opcodes.Add(ToByte(ParseMemoryOperand(LeftOperand.Operand, ImmediateBytes) Or (OPCODES_F7_WORD.IndexOf(Instruction) << &H3%)))
+                              Opcodes.Add(ToByte(ParseMemoryOperand(LeftOperand.Operand, ImmediateBytes) Or (OPCODES_F7_WORD_2.IndexOf(Instruction) << &H3%)))
                               If ImmediateBytes.Count > 0 Then Opcodes.AddRange(ImmediateBytes)
                            ElseIf LeftOperand.Type = OperandTypesE.Register16Bit Then
-                              Opcodes.Add(ToByte((XP_REGISTERS.IndexOf(LeftOperand.Operand) Or OperandOpcodesE.Registers) Or (OPCODES_F7_WORD.IndexOf(Instruction) << &H3%)))
+                              Opcodes.Add(ToByte((XP_REGISTERS.IndexOf(LeftOperand.Operand) Or OperandOpcodesE.Registers) Or (OPCODES_F7_WORD_2.IndexOf(Instruction) << &H3%)))
                            End If
 
                            Opcodes.AddRange(BytesFromHexadecimal(RightOperand.Operand, Is8Bit:=False))

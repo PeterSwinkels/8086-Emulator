@@ -629,8 +629,8 @@ Public Class CPU8086Class
 
       Select Case Opcode
          Case OpcodesE.CALL_FAR
-            Segment = GetWordCSIP()
             Offset = GetWordCSIP()
+            Segment = GetWordCSIP()
             Stack(Push:=CInt(Registers(SegmentRegistersE.CS)))
             Stack(Push:=CInt(Registers(Registers16BitE.IP)))
             Registers(SegmentRegistersE.CS, NewValue:=Segment)
@@ -640,8 +640,8 @@ Public Class CPU8086Class
             Stack(Push:=CInt(Registers(Registers16BitE.IP)))
             Registers(Registers16BitE.IP, NewValue:=CInt(Registers(Registers16BitE.IP)) + Operand)
          Case OpcodesE.JMP_FAR
-            Segment = GetWordCSIP()
             Offset = GetWordCSIP()
+            Segment = GetWordCSIP()
             Registers(SegmentRegistersE.CS, NewValue:=Segment)
             Registers(Registers16BitE.IP, NewValue:=Offset)
          Case OpcodesE.JMP_NEAR
@@ -845,10 +845,10 @@ Public Class CPU8086Class
                      AdjustFlags(.Value1, .NewValue, Is8Bit:= .Is8Bit)
                   Case OperationsF6_F7E.MUL, OperationsF6_F7E.IMUL
                      If .Is8Bit Then
-                        .NewValue = ConvertWidening(CInt(Registers(SubRegisters8BitE.AL)) * .Value1, .Is8Bit)
+                        .NewValue = CInt(Registers(SubRegisters8BitE.AL)) * .Value1
                         Registers(Registers16BitE.AX, NewValue:= .NewValue)
                      Else
-                        .NewValue = ConvertWidening(CInt(Registers(Registers16BitE.AX)) * .Value1, .Is8Bit)
+                        .NewValue = CInt(Registers(Registers16BitE.AX)) * .Value1
                         Registers(Registers16BitE.AX, NewValue:= .NewValue And &HFFFF%)
                         Registers(Registers16BitE.DX, NewValue:=(.NewValue And &HFFFF0000%) >> &H10%)
                      End If

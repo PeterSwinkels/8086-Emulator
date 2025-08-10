@@ -81,10 +81,12 @@ Public Module MSDOSModule
    Private ReadOnly TIME_TO_MSDOS_TIME As Func(Of Date, Integer) = Function([Date] As Date) (([Date].Second \ &H2%) And &H1F%) Or (([Date].Minute And &H3F) << &H5%) Or (([Date].Hour And &H1F) << &HB%)   'Converts the specified time to a value suitable for MS-DOS and returns the result.
 
    Private Allocations As New List(Of Tuple(Of Integer, Integer))      'Contains the memory allocations.
+   Private AvailableDevices As Boolean = True                          'Contains the AVAILDEV flag.
    Private DTA As New Integer                                          'Contains the Disk Transfer Address.
    Private OpenFiles As New List(Of Tuple(Of FileStream, Integer))     'Contains the open file streams and their handles.
    Private PrinterBuffer As New StringBuilder                          'Contains the printer buffer.
    Private ProcessSegments As New Stack(Of Integer)                    'Contains the segments allocated to processes.
+   Private SwitchCharacter As Char = "-"c                              'Contains the switch character.
 
    Private WithEvents PrinterDocumentO As New PrintDocument   'Contains the document with output to STDPRN to be printed.
 
@@ -462,6 +464,20 @@ Public Module MSDOSModule
                      CPU.Registers(CPU8086Class.SegmentRegistersE.ES, NewValue:=CPU.GET_WORD(Address + &H2%))
                      CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=CPU.GET_WORD(Address))
                      Success = True
+                  Case &H37%
+                     Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
+                        Case &H0%
+                           CPU.Registers(CPU8086Class.SubRegisters8BitE.DL, NewValue:=ToByte(SwitchCharacter))
+                        Case &H1%
+                           SwitchCharacter = ToChar(CPU.Registers(CPU8086Class.SubRegisters8BitE.DL))
+                        Case &H2%
+                           CPU.Registers(CPU8086Class.SubRegisters8BitE.DL, NewValue:=Abs(CInt(AvailableDevices)))
+                        Case &H3%
+                           AvailableDevices = CBool(CPU.Registers(CPU8086Class.SubRegisters8BitE.DL))
+                        Case Else
+                           CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&HFF%)
+                     End Select
+                     Success = True
                   Case &H3C%
                      CreateFile(Flags)
                      Success = True
@@ -483,6 +499,15 @@ Public Module MSDOSModule
                   Case &H42%
                      SeekFile(Flags)
                      Success = True
+                  Case &H44%
+                     Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
+                        Case &H0%
+                           Select Case DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.BX), STDFileHandlesE)
+                              Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
+                                 CPU.Registers(CPU8086Class.Registers16BitE.DX, NewValue:=&H80%)
+                                 Success = True
+                           End Select
+                     End Select
                   Case &H48%
                      Result = AllocateMemory(CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)) << &H4%)
                      CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=(LargestFreeMemoryBlock() >> &H4%))
@@ -674,10 +699,13 @@ Public Module MSDOSModule
 
                   RelocationItemFlatAddress = HeaderSize + ((RelocationItemSegment << &H4%) + RelocationItemOffset)
 
-                  RelocationItem = (BitConverter.ToUInt16(Executable.ToArray(), RelocationItemFlatAddress) + (LoadAddress >> &H4%)) And &HFFFF%
+                  If RelocationItemFlatAddress < Executable.Count Then
+                     RelocationItem = BitConverter.ToUInt16(Executable.ToArray(), RelocationItemFlatAddress)
+                     RelocationItem = (BitConverter.ToUInt16(Executable.ToArray(), RelocationItemFlatAddress) + (LoadAddress >> &H4%)) And &HFFFF%
 
-                  Executable(RelocationItemFlatAddress) = ToByte(RelocationItem And &HFF%)
-                  Executable(RelocationItemFlatAddress + &H1%) = ToByte(RelocationItem >> &H8%)
+                     Executable(RelocationItemFlatAddress) = ToByte(RelocationItem And &HFF%)
+                     Executable(RelocationItemFlatAddress + &H1%) = ToByte(RelocationItem >> &H8%)
+                  End If
 
                   Position += &H4%
                Loop Until Position >= (RelocationTable + RelocationTableSize) - &H1%

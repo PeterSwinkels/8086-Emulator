@@ -629,6 +629,7 @@ Public Module CoreModule
 
                         CPU.ClockToken.Cancel()
                         CPU = New CPU8086Class
+                        CursorPositionUpdate()
                         LoadBIOS()
                         LoadMSDOS()
                         Output.AppendText($"CPU reset.{NewLine}")
@@ -760,6 +761,7 @@ Public Module CoreModule
    Public Sub RunCommandScript(FileName As String)
       Try
          Dim PreviousPath As String = Directory.GetCurrentDirectory()
+         Dim ResetPath As Boolean = True
          Dim Script As New List(Of String)(File.ReadAllLines(FileName))
 
          If Script.First().Trim().ToUpper() = SCRIPT_HEADER Then
@@ -770,10 +772,11 @@ Public Module CoreModule
                If AssemblyModeOn Then
                   Assemble(Line)
                Else
+                  If Line.Trim().ToUpper().StartsWith("CD") Then ResetPath = False
                   If Not ParseCommand(Line) Then Exit For
                End If
             Next Line
-            Directory.SetCurrentDirectory(PreviousPath)
+            If ResetPath Then Directory.SetCurrentDirectory(PreviousPath)
          Else
             Output.AppendText($"Invalid script file.{NewLine}")
          End If

@@ -40,6 +40,8 @@ Public Module BIOSModule
       CGA320x200 = &HB8000%             '320x200 CGA video buffer.
       Clock = &H46C%                    'Clock.
       ClockRollover = &H470%            'Clock rollover flag.
+      ColumnCount = &H44A%              'Column count.
+      CRTControllerBasePOrt = &H463%    'CRT controller base port.
       CursorPositions = &H450%          'Cursor positions.
       CursorScanLines = &H460%          'Cursor scan line start/end.
       EquipmentFlags = &H410%           'Equipment flags.
@@ -102,6 +104,8 @@ Public Module BIOSModule
          CPU.PutWord(AddressesE.EquipmentFlags, EQUIPMENT_FLAGS)
          CPU.PutWord(AddressesE.MemorySize, (CPU.Memory.Length \ &H400%))
          CPU.Memory(AddressesE.VideoMode) = VideoModesE.Text80x25Mono
+         CPU.Memory(AddressesE.ColumnCount) = TEXT_80_X_25_COLUMN_COUNT
+         CPU.PutWord(AddressesE.CRTControllerBasePOrt, IOPortsE.MDA3B0)
          SwitchVideoAdapter()
 
          CPU.Registers(CPU8086Class.SegmentRegistersE.SS, NewValue:=AddressesE.BIOSStack)

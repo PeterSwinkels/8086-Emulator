@@ -11,7 +11,7 @@ Imports System.Environment
 Public Module IOHandlerModule
 
    'This enumeration lists the I/O ports recognized by the CPU.
-   Private Enum IOPortsE As Integer
+   Public Enum IOPortsE As Integer
       PITCounter0 = &H40%               'Time of day clock.
       PITCounter1 = &H41%               'RAM refresh counter.
       PITCounter2 = &H42%               'Cassette and speaker.
