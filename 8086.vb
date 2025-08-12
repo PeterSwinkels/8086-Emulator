@@ -661,7 +661,7 @@ Public Class CPU8086Class
                Case OpcodesE.JCXZ
                   If CInt(Registers(Registers16BitE.CX)) = &H0% Then Registers(Registers16BitE.IP, NewValue:=Offset)
                Case OpcodesE.JG
-                  If (Not CBool(Registers(FlagRegistersE.ZF))) OrElse CBool(Registers(FlagRegistersE.OF)) = CBool(Registers(FlagRegistersE.SF)) Then Registers(Registers16BitE.IP, NewValue:=Offset)
+                  If CBool(Registers(FlagRegistersE.OF)) = CBool(Registers(FlagRegistersE.SF)) AndAlso (Not CBool(Registers(FlagRegistersE.ZF))) Then Registers(Registers16BitE.IP, NewValue:=Offset)
                Case OpcodesE.JL
                   If Not CBool(Registers(FlagRegistersE.OF)) = CBool(Registers(FlagRegistersE.SF)) Then Registers(Registers16BitE.IP, NewValue:=Offset)
                Case OpcodesE.JNA
@@ -669,7 +669,7 @@ Public Class CPU8086Class
                Case OpcodesE.JNC
                   If Not CBool(Registers(FlagRegistersE.CF)) Then Registers(Registers16BitE.IP, NewValue:=Offset)
                Case OpcodesE.JNG
-                  If CBool(Registers(FlagRegistersE.ZF)) OrElse Not (CBool(Registers(FlagRegistersE.OF)) = CBool(Registers(FlagRegistersE.SF))) Then Registers(Registers16BitE.IP, NewValue:=Offset)
+                  If Not (CBool(Registers(FlagRegistersE.OF)) = CBool(Registers(FlagRegistersE.SF)) AndAlso (Not CBool(Registers(FlagRegistersE.ZF)))) Then Registers(Registers16BitE.IP, NewValue:=Offset)
                Case OpcodesE.JNL
                   If CBool(Registers(FlagRegistersE.OF)) = CBool(Registers(FlagRegistersE.SF)) Then Registers(Registers16BitE.IP, NewValue:=Offset)
                Case OpcodesE.JNO

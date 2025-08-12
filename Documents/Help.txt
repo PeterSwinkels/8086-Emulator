@@ -6,7 +6,8 @@ $ Path                        Executes the commands in the specified file
 [Segment:Offset] = {values}   Writes the specified values of any supported type (except strings) to the specified memory address.
 [Segment:Offset] = "String"   Writes the specified string to the specified memory address.
 Register                      Displays the specified register's value.
-Register = Value              Set the specified register to the specified byte/word.
+Register = Value              Sets the specified register to the specified byte/word.
+ARG Value                     Sets the command line argument to the specified value.
 C                             Clears the output window.
 CD [Path]                     Displays or sets the current directory.
 E                             Causes the emulated CPU to start executing code.

@@ -531,6 +531,9 @@ Public Module CoreModule
                         If Not FileName = Nothing Then RunCommandScript(FileName)
                      Case "?"
                         Output.AppendText($"{My.Resources.Help}{NewLine}")
+                     Case "ARG"
+                        CommandTail = $" {If(Operands.Length > COMMAND_TAIL_MAXIMUM_LENGTH, Operands.Substring(1, COMMAND_TAIL_MAXIMUM_LENGTH), Operands)}"
+                        Output.AppendText($"Command tail set to: ""{CommandTail}""{NewLine}")
                      Case "C"
                         Output.Clear()
                      Case "CD"

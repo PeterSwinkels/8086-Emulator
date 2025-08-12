@@ -38,6 +38,7 @@ Public Module MSDOSModule
       STDPRN   'Printer.
    End Enum
 
+   Public Const COMMAND_TAIL_MAXIMUM_LENGTH As Integer = &H7E%          'Defines the maximum length of a command tail in a PSP.
    Private Const CARRY_FLAG_INDEX As Integer = &H0%                     'Defines the carry flag's bit index.
    Private Const ERROR_ACCESS_DENIED As Integer = &H5%                  'Defines the access denied error code.
    Private Const ERROR_CRC As Integer = &H17%                           'Defines the CRC error code.
@@ -67,19 +68,29 @@ Public Module MSDOSModule
    Private Const INT_20H As Integer = &H20CD%                           'Defines the INT 20h instruction.
    Private Const LOWEST_ADDRESS As Integer = &H600%                     'Defines the lowest address that can be allocated.
    Private Const MS_DOS As Integer = &HFF00%                            'Defines a value indicating that the operating system is MS-DOS.
+   Private Const PSP_BYTES_AVAILABLE As Integer = &H6%                  'Defines the number of bytes available in a block of memory less the space used by the PSP.
+   Private Const PSP_COMMAND_TAIL As Integer = &H80%                    'Defines the offset of the command tail in a PSP.
    Private Const PSP_ENVIRONMENT_SEGMENT As Integer = &H2C%             'Defines the segment of the MS-DOS environment in a PSP.
-   Private Const PSP_INT_20H As Integer = &H0%                          'Defines the offset of the INT 20h handler in a PSP.
+   Private Const PSP_INT_20H As Integer = &H0%                          'Defines a call to the INT 20h handler in a PSP.
+   Private Const PSP_INT_21H As Integer = &H50%                         'Defines a call to the INT 21h handler in a PSP.
+   Private Const PSP_INT_22H As Integer = &HA%                          'Defines the offset of the INT 22h handler in a PSP.
+   Private Const PSP_INT_23H As Integer = &HE%                          'Defines the offset of the INT 23h handler in a PSP.
+   Private Const PSP_INT_24H As Integer = &H12%                         'Defines the offset of the INT 24h handler in a PSP.
    Private Const PSP_MEMORY_TOP As Integer = &H2%                       'Defines the offset of the top of memory value in a PSP.
+   Private Const PSP_PREVIOUS_PSP As Integer = &H38%                    'Defines the offset of the previous PSP in a PSP.
    Private Const PSP_SIZE As Integer = &H100%                           'Defines a PSP's size.
+   Private Const PSP_SSSP As Integer = &H2E%                            'Defines the SS:SP values in a PSP.
    Private Const VERSION As Integer = &H1606%                           'Defines the emulated MS-DOS version as 6.22.
 
    Private ReadOnly DATE_TO_MSDOS_DATE As Func(Of Date, Integer) = Function([Date] As Date) ([Date].Day And &H1F%) Or (([Date].Month And &HF) << &H5%) Or ((If([Date].Year - 1980 >= &H0% AndAlso [Date].Year - 1980 < &H7F%, [Date].Year - 1980, Nothing) And &H7F%) << &H9%)   'Converts the specified date to a value suitable for MS-DOS and returns the result.
    Private ReadOnly ENVIRONMENT_SEGMENT As Integer = LOWEST_ADDRESS                                           'Defines the MS-DOS environment's segment.
    Private ReadOnly ENVIRONMENT_TEXT As String = $"COMSPEC=C:\COMMAND.COM{ToChar(&H0%)}PATH={ToChar(&H0%)}"   'Defines the MS-DOS environment.
    Private ReadOnly EXE_MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}                                               'Defines the signature of an MZ executable.
+   Private ReadOnly INT_21H_RETF() As Byte = {&HCD%, &H21%, &HCB%}                                            'Defines the INT 21h and RETF instructions.
    Private ReadOnly LOWEST_FILE_HANDLE As Integer = STDFileHandlesE.STDPRN + &H1%                             'Defines the lowest possible file handle.
    Private ReadOnly TIME_TO_MSDOS_TIME As Func(Of Date, Integer) = Function([Date] As Date) (([Date].Second \ &H2%) And &H1F%) Or (([Date].Minute And &H3F) << &H5%) Or (([Date].Hour And &H1F) << &HB%)   'Converts the specified time to a value suitable for MS-DOS and returns the result.
 
+   Public CommandTail As String = ""                                   'Contains the command tail used in a new PSP.
    Private Allocations As New List(Of Tuple(Of Integer, Integer))      'Contains the memory allocations.
    Private AvailableDevices As Boolean = True                          'Contains the AVAILDEV flag.
    Private DTA As New Integer                                          'Contains the Disk Transfer Address.
@@ -183,6 +194,32 @@ Public Module MSDOSModule
          DisplayException(ExceptionO.Message)
       End Try
    End Sub
+
+   'This procedure creates a PSP.
+   Private Sub CreatePSP(Address As Integer)
+      Try
+         CPU.PutWord(Address + PSP_INT_20H, INT_20H)
+         CPU.PutWord(Address + PSP_MEMORY_TOP, LargestFreeMemoryBlock())
+         CPU.PutWord(Address + PSP_BYTES_AVAILABLE, &HFEF0%)
+         CPU.PutWord(Address + PSP_INT_22H, CPU.GET_WORD(&H8A%))
+         CPU.PutWord(Address + PSP_INT_22H + &H2%, CPU.GET_WORD(&H88%))
+         CPU.PutWord(Address + PSP_INT_23H, CPU.GET_WORD(&H8E%))
+         CPU.PutWord(Address + PSP_INT_23H + &H2%, CPU.GET_WORD(&H8C%))
+         CPU.PutWord(Address + PSP_INT_24H, CPU.GET_WORD(&H91%))
+         CPU.PutWord(Address + PSP_INT_24H + &H2%, CPU.GET_WORD(&H90%))
+         CPU.PutWord(Address + PSP_SSSP, CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)))
+         CPU.PutWord(Address + PSP_SSSP + &H2%, CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.SS)))
+         CPU.PutWord(Address + PSP_ENVIRONMENT_SEGMENT, ENVIRONMENT_SEGMENT)
+         CPU.PutWord(Address + PSP_PREVIOUS_PSP, &HFFFF%)
+         CPU.PutWord(Address + PSP_PREVIOUS_PSP + &H2%, &HFFFF%)
+         WriteBytesToMemory(INT_21H_RETF, Address + PSP_INT_21H)
+         CPU.Memory(Address + PSP_COMMAND_TAIL) = ToByte(CommandTail.Length)
+         WriteStringToMemory($"{CommandTail}{ToChar(&HD%)}", Address + PSP_COMMAND_TAIL + &H1%)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
 
    'This procedure deletes a file.
    Private Sub DeleteFile(ByRef Flags As Integer)
@@ -392,7 +429,7 @@ Public Module MSDOSModule
          Static ExtendedKeyCode As New Integer
 
          Select Case Number
-            Case &H20%
+            Case &H20%, &H22%
                TerminateProgram($"Program terminated.{NewLine}")
                Success = True
             Case &H21%
@@ -554,6 +591,15 @@ Public Module MSDOSModule
                            Success = True
                      End Select
                End Select
+            Case &H23%
+               TerminateProgram($"CTRL+Break.{NewLine}")
+               Success = True
+            Case &H24%
+               TerminateProgram($"INT 24h - Critical error.{NewLine}")
+               Success = True
+            Case &H27%
+               TerminateProgram($"Terminate and stay resident.{NewLine}")
+               Success = True
          End Select
 
          Return Success
@@ -635,10 +681,8 @@ Public Module MSDOSModule
             CPU.Registers(CPU8086Class.Registers16BitE.SP, NewValue:=&HFFFC%)
             CPU.PutWord((CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.SS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)), CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)))
             CPU.PutWord((CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.SS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)) + &H2%, &H0%)
-            CPU.PutWord(LoadAddress + PSP_INT_20H, INT_20H)
 
-            CPU.PutWord(LoadAddress + PSP_ENVIRONMENT_SEGMENT, ENVIRONMENT_SEGMENT)
-            CPU.PutWord(LoadAddress + PSP_MEMORY_TOP, LargestFreeMemoryBlock())
+            CreatePSP(LoadAddress)
 
             Executable.CopyTo(CPU.Memory, LoadAddress + PSP_SIZE)
          End If
@@ -711,8 +755,7 @@ Public Module MSDOSModule
                Loop Until Position >= (RelocationTable + RelocationTableSize) - &H1%
             End If
 
-            CPU.PutWord((LoadAddress - PSP_SIZE) + PSP_ENVIRONMENT_SEGMENT, ENVIRONMENT_SEGMENT)
-            CPU.PutWord((LoadAddress - PSP_SIZE) + PSP_MEMORY_TOP, LargestFreeMemoryBlock())
+            CreatePSP(LoadAddress - PSP_SIZE)
 
             Executable = Executable.GetRange(HeaderSize, Executable.Count - HeaderSize)
 
@@ -843,10 +886,13 @@ Public Module MSDOSModule
    Public Sub ResetMSDOS()
       Try
          Allocations.Clear()
-         OpenFiles.Clear()
-         ProcessSegments.Clear()
-
+         AvailableDevices = True
+         CommandTail = ""
          DTA = New Integer
+         OpenFiles.Clear()
+         PrinterBuffer.Clear()
+         ProcessSegments.Clear()
+         SwitchCharacter = "-"c
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -879,11 +925,11 @@ Public Module MSDOSModule
    End Sub
 
    'This procedure terminates the currently running MS-DOS program.
-   Private Sub TerminateProgram(Message As String)
+   Private Sub TerminateProgram(Message As String, Optional IsResident As Boolean = False)
       Try
          CPU.ClockToken.Cancel()
 
-         FreeAllocatedMemory(ProcessSegments.Pop())
+         If Not IsResident Then FreeAllocatedMemory(ProcessSegments.Pop())
 
          SyncLock Synchronizer
             CPUEvent.Append(Message)

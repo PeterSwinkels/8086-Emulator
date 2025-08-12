@@ -94,7 +94,7 @@ Public Module BIOSModule
          Dim Address As New Integer
          Dim Offset As Integer = AddressesE.BIOS
 
-         For Interrupt As Integer = &H0% To &H21%
+         For Interrupt As Integer = &H0% To &H28%
             Address = Interrupt * &H4%
             CPU.PutWord(Address + &H2%, AddressesE.BIOS >> &H4%)
             CPU.PutWord(Address, Offset)
@@ -121,8 +121,10 @@ Public Module BIOSModule
          Dim ScrollArea As New VideoAdapterClass.ScreenAreaStr With {.ULCColumn = &H0%, .ULCRow = &H0%, .LRCColumn = TEXT_80_X_25_COLUMN_COUNT - &H1%, .LRCRow = TEXT_80_X_25_LINE_COUNT}
          Dim VideoPage As Integer = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH))
          Dim VideoPageAddress As Integer = If(VideoPage = &H0%, AddressesE.Text80x25MonoPage0, AddressesE.Text80x25MonoPage1)
-         Dim Attribute As Integer = CPU.Memory(VideoPageAddress + ((Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%)) + &H1%)
+         Dim Attribute As New Integer
 
+         CursorPositionUpdate()
+         Attribute = CPU.Memory(VideoPageAddress + ((Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%)) + &H1%)
          CPU.Registers(CPU8086Class.SubRegisters8BitE.BH, NewValue:=Attribute)
 
          Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)

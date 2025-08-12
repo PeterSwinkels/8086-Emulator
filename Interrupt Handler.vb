@@ -87,6 +87,7 @@ Public Module InterruptHandlerModule
                   Case &H8%
                      Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
                         Case VideoModesE.Text80x25Mono
+                           CursorPositionUpdate()
                            CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CPU.GET_WORD(If(CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH)) = &H0%, AddressesE.Text80x25MonoPage0, AddressesE.Text80x25MonoPage1) + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)))
                            Success = True
                      End Select
@@ -97,6 +98,7 @@ Public Module InterruptHandlerModule
                            Character = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
                            Attribute = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL))
                            Count = CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX))
+                           CursorPositionUpdate()
                            Position = VideoPageAddress + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)
                            Do While Count > &H0%
                               CPU.Memory(Position) = Character
@@ -145,7 +147,7 @@ Public Module InterruptHandlerModule
                         Case VideoModesE.Text80x25Mono
                            Success = True
                      End Select
-                  Case &HFE%
+                  Case &H4F%, &HFE%
                      Success = True
                End Select
             Case &H11%
