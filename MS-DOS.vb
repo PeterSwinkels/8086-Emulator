@@ -82,13 +82,13 @@ Public Module MSDOSModule
    Private Const PSP_SSSP As Integer = &H2E%                            'Defines the SS:SP values in a PSP.
    Private Const VERSION As Integer = &H1606%                           'Defines the emulated MS-DOS version as 6.22.
 
-   Private ReadOnly DATE_TO_MSDOS_DATE As Func(Of Date, Integer) = Function([Date] As Date) ([Date].Day And &H1F%) Or (([Date].Month And &HF) << &H5%) Or ((If([Date].Year - 1980 >= &H0% AndAlso [Date].Year - 1980 < &H7F%, [Date].Year - 1980, Nothing) And &H7F%) << &H9%)   'Converts the specified date to a value suitable for MS-DOS and returns the result.
+   Private ReadOnly DATE_TO_MSDOS_DATE As Func(Of Date, Integer) = Function([Date] As Date) [Date].Day Or ([Date].Month << &H5%) Or (([Date].Year - 1980) << &H9%)   'Converts the specified date to a value suitable for MS-DOS and returns the result.
    Private ReadOnly ENVIRONMENT_SEGMENT As Integer = LOWEST_ADDRESS                                           'Defines the MS-DOS environment's segment.
    Private ReadOnly ENVIRONMENT_TEXT As String = $"COMSPEC=C:\COMMAND.COM{ToChar(&H0%)}PATH={ToChar(&H0%)}"   'Defines the MS-DOS environment.
    Private ReadOnly EXE_MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}                                               'Defines the signature of an MZ executable.
    Private ReadOnly INT_21H_RETF() As Byte = {&HCD%, &H21%, &HCB%}                                            'Defines the INT 21h and RETF instructions.
    Private ReadOnly LOWEST_FILE_HANDLE As Integer = STDFileHandlesE.STDPRN + &H1%                             'Defines the lowest possible file handle.
-   Private ReadOnly TIME_TO_MSDOS_TIME As Func(Of Date, Integer) = Function([Date] As Date) (([Date].Second \ &H2%) And &H1F%) Or (([Date].Minute And &H3F) << &H5%) Or (([Date].Hour And &H1F) << &HB%)   'Converts the specified time to a value suitable for MS-DOS and returns the result.
+   Private ReadOnly TIME_TO_MSDOS_TIME As Func(Of Date, Integer) = Function([Time] As Date) Time.Second Or (Time.Minute << &H5%) Or (Time.Hour << &HB%)   'Converts the specified time to a value suitable for MS-DOS and returns the result.
 
    Public CommandTail As String = ""                                   'Contains the command tail used in a new PSP.
    Private Allocations As New List(Of Tuple(Of Integer, Integer))      'Contains the memory allocations.
@@ -220,7 +220,6 @@ Public Module MSDOSModule
       End Try
    End Sub
 
-
    'This procedure deletes a file.
    Private Sub DeleteFile(ByRef Flags As Integer)
       Try
@@ -321,8 +320,8 @@ Public Module MSDOSModule
                OpenFileToBeChecked = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)))
 
                Try
-                  CPU.Registers(CPU8086Class.Registers16BitE.CX, NewValue:=TIME_TO_MSDOS_TIME(File.GetCreationTime(OpenFileToBeChecked.Item1.Name)))
-                  CPU.Registers(CPU8086Class.Registers16BitE.DX, NewValue:=DATE_TO_MSDOS_DATE(File.GetCreationTime(OpenFileToBeChecked.Item1.Name)))
+                  CPU.Registers(CPU8086Class.Registers16BitE.CX, NewValue:=TIME_TO_MSDOS_TIME(File.GetLastWriteTime(OpenFileToBeChecked.Item1.Name)))
+                  CPU.Registers(CPU8086Class.Registers16BitE.DX, NewValue:=DATE_TO_MSDOS_DATE(File.GetLastWriteTime(OpenFileToBeChecked.Item1.Name)))
                   Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
                Catch MSDOSException As Exception
                   CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))

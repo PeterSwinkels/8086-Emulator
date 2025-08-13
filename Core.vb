@@ -204,12 +204,19 @@ Public Module CoreModule
                      Address = (CInt(CPU.Registers(If(Override Is Nothing, CPU8086Class.SegmentRegistersE.DS, Override))) << &H4%) + ParsedAddress
                   End If
 
-                  If Address Is Nothing Then
-                     CPUEvent.Append($"{MEMORY_OPERAND_START}0x???{MEMORY_OPERAND_END} = ???{NewLine}{NewLine}")
-                  Else
-                     Address = Address And CPU8086Class.ADDRESS_MASK
-                     CPUEvent.Append($"{MEMORY_OPERAND_START}0x{Address:X8}{MEMORY_OPERAND_END} = {GET_MEMORY_VALUE(CInt(Address))}{NewLine}")
-                  End If
+                  GenerateAddressContent(Address)
+               ElseIf Code IsNot Nothing AndAlso (Code.Contains("LODSB") OrElse Code.Contains("LODSW")) Then
+                  Address = AddressFromOperand("[DS:SI]") + (If(CBool(CPU.Registers(CPU8086Class.FlagRegistersE.DF)), 1, -1))
+                  GenerateAddressContent(Address)
+               ElseIf Code IsNot Nothing AndAlso {"SCASB", "SCASW", "STOSB", "STOSW"}.Any(Function(Opcode) Code.Contains(Opcode)) Then
+                  Address = AddressFromOperand("[ES:DI]") + (If(CBool(CPU.Registers(CPU8086Class.FlagRegistersE.DF)), 1, -1))
+                  GenerateAddressContent(Address)
+               ElseIf Code IsNot Nothing AndAlso {"CMPSB", "CMPSW", "MOVSB", "MOVSW"}.Any(Function(Opcode) Code.Contains(Opcode)) Then
+                  Address = AddressFromOperand("[DS:SI]") + (If(CBool(CPU.Registers(CPU8086Class.FlagRegistersE.DF)), 1, -1))
+                  GenerateAddressContent(Address, AddNewLine:=False)
+
+                  Address = AddressFromOperand("[ES:DI]") + (If(CBool(CPU.Registers(CPU8086Class.FlagRegistersE.DF)), 1, -1))
+                  GenerateAddressContent(Address)
                Else
                   CPUEvent.Append($"{NewLine}")
                End If
@@ -293,6 +300,22 @@ Public Module CoreModule
          End If
       Catch
          Application.Exit()
+      End Try
+   End Sub
+
+   'This procedure generates the output for the contents of the specified memory address.
+   Private Sub GenerateAddressContent(Address As Integer?, Optional AddNewLine As Boolean = True)
+      Try
+         If Address Is Nothing Then
+            CPUEvent.Append($"{MEMORY_OPERAND_START}0x???{MEMORY_OPERAND_END} = ???{NewLine}")
+         Else
+            Address = Address And CPU8086Class.ADDRESS_MASK
+            CPUEvent.Append($"{MEMORY_OPERAND_START}0x{Address:X8}{MEMORY_OPERAND_END} = {GET_MEMORY_VALUE(CInt(Address))}")
+         End If
+
+         If AddNewLine Then CPUEvent.Append(NewLine)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
       End Try
    End Sub
 
