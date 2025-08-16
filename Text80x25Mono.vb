@@ -130,18 +130,22 @@ Public Class Text80x25MonoClass
       Dim VideoPageAddress As Integer = If(CPU.Memory(AddressesE.VideoPage) = 0, AddressesE.Text80x25MonoPage0, AddressesE.Text80x25MonoPage1)
 
       If Count = &H0% OrElse Count > TEXT_80_X_25_LINE_COUNT Then
-         VideoAdapter.ClearBuffer()
+         For Row As Integer = ScrollArea.ULCRow To ScrollArea.LRCRow
+            For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
+               CPU.PutWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute << &H8%)
+            Next Column
+         Next Row
       Else
          For Scroll As Integer = &H1% To Count
             Select Case Up
                Case True
-                  For Row As Integer = ScrollArea.ULCRow To ScrollArea.LRCRow
+                  For Row As Integer = ScrollArea.ULCRow + &H1% To ScrollArea.LRCRow
                      For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
-                        If Row < ScrollArea.LRCRow Then
+                        If Row <= ScrollArea.LRCRow Then
                            CharacterCell = CPU.GET_WORD(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
                            CPU.PutWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
                         Else
-                           CharacterCell = (Attribute << &H8%)
+                           CharacterCell = Attribute << &H8%
                         End If
                         If Row >= ScrollArea.ULCRow Then
                            CPU.PutWord(VideoPageAddress + (((Row - &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), CharacterCell)
@@ -149,9 +153,9 @@ Public Class Text80x25MonoClass
                      Next Column
                   Next Row
                Case False
-                  For Row As Integer = ScrollArea.LRCRow To ScrollArea.ULCRow Step -&H1%
+                  For Row As Integer = ScrollArea.LRCRow - &H1% To ScrollArea.ULCRow Step -&H1%
                      For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
-                        If Row > ScrollArea.ULCRow Then
+                        If Row >= ScrollArea.ULCRow Then
                            CharacterCell = CPU.GET_WORD(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
                            CPU.PutWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
                         Else

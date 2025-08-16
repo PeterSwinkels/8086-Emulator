@@ -142,6 +142,52 @@ Public Module MSDOSModule
       Return Nothing
    End Function
 
+   'This procedure performs buffered keyboard input.
+   Private Sub BufferedKeyboardInput()
+      Try
+         Dim Address As Integer = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) Or CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
+         Dim Buffer As New List(Of Byte)
+         Dim Maximum As Integer = CPU.Memory(Address)
+         Dim KeyCode As New Integer
+
+         Do Until Buffer.Count = Maximum
+            KeyCode = ReadCharacter()
+            Select Case KeyCode
+               Case &H8%
+                  If Buffer.Count > &H0% Then
+                     TeleType(&H8%)
+                     TeleType(&H20%)
+                     TeleType(&H8%)
+                     Buffer.RemoveAt(Buffer.Count - &H1%)
+                  End If
+               Case &HD%
+                  Buffer.Add(&HD%)
+                  CPU.Memory(Address + &H1%) = ToByte(Buffer.Count)
+                  WriteBytesToMemory(Buffer.ToArray(), Address + &H2%)
+                  Exit Do
+               Case Else
+                  If Buffer.Count < Maximum - &H1% Then
+                     TeleType(ToByte(KeyCode))
+                     Buffer.Add(ToByte(KeyCode))
+                     If KeyCode = &H0% Then
+                        If Buffer.Count < Maximum - &H1% Then
+                           KeyCode = ReadCharacter()
+                           TeleType(ToByte(KeyCode))
+                           Buffer.Add(ToByte(KeyCode))
+                        Else
+                           TeleType(&H7%)
+                        End If
+                     End If
+                  Else
+                     TeleType(&H7%)
+                  End If
+            End Select
+         Loop
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
    'This procedure attempts to close the specified file handle and returns whether or not it succeeded.
    Private Function CloseFileHandle(ByRef Flags As Integer) As Boolean
       Try
@@ -420,12 +466,9 @@ Public Module MSDOSModule
    Public Function HandleMSDOSInterrupt(Number As Integer, AH As Integer, ByRef Flags As Integer) As Boolean
       Try
          Dim Address As New Integer
-         Dim Count As New Integer
-         Dim KeyCode As New Integer
          Dim Position As New Integer
          Dim Result As New Integer?
          Dim Success As Boolean = False
-         Static ExtendedKeyCode As New Integer
 
          Select Case Number
             Case &H20%, &H22%
@@ -443,22 +486,7 @@ Public Module MSDOSModule
                      TeleType(CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.DL)))
                      Success = True
                   Case &H8%
-                     If ExtendedKeyCode = Nothing Then
-                        Do
-                           Application.DoEvents()
-                           KeyCode = LastBIOSKeyCode()
-                           If (KeyCode And &HFF%) = &H0% Then ExtendedKeyCode = (KeyCode >> &H8%)
-                           KeyCode = (KeyCode And &HFF%)
-                        Loop While (KeyCode = Nothing) AndAlso (ExtendedKeyCode = Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
-
-                        LastBIOSKeyCode(, Clear:=True)
-
-                        CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=KeyCode)
-                     Else
-                        CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=ExtendedKeyCode)
-                        ExtendedKeyCode = New Integer
-                     End If
-
+                     CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=ReadCharacter())
                      Success = True
                   Case &H9%
                      Position = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
@@ -467,6 +495,9 @@ Public Module MSDOSModule
                         Position += &H1%
                      Loop
 
+                     Success = True
+                  Case &HA%
+                     BufferedKeyboardInput()
                      Success = True
                   Case &H1A%
                      DTA = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H10%) Or CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
@@ -844,6 +875,34 @@ Public Module MSDOSModule
          DisplayException(ExceptionO.Message)
       End Try
    End Sub
+
+   'This procedure returns a character from the STDIN.
+   Private Function ReadCharacter() As Integer
+      Try
+         Dim KeyCode As New Integer
+         Static ExtendedKeyCode As New Integer
+
+         If ExtendedKeyCode = Nothing Then
+            Do
+               Application.DoEvents()
+               KeyCode = LastBIOSKeyCode()
+               If (KeyCode And &HFF%) = &H0% Then ExtendedKeyCode = (KeyCode >> &H8%)
+               KeyCode = (KeyCode And &HFF%)
+            Loop While (KeyCode = Nothing) AndAlso (ExtendedKeyCode = Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
+
+            LastBIOSKeyCode(, Clear:=True)
+         Else
+            KeyCode = ExtendedKeyCode
+            ExtendedKeyCode = New Integer
+         End If
+
+         Return KeyCode
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return Nothing
+   End Function
 
    'This procedure reads a file.
    Private Sub ReadFile(ByRef Flags As Integer)

@@ -1,0 +1,10 @@
+8086 Emulator to do list.
+
+To do:
+1. Check whether simulated functions using a wait loop block the clock.
+2. Further testing for int 21h, Ah required.
+===
+Ideas:
+1. Add CGA character drawing. XOR on bit 7?
+2. Add VGA character drawing?
+
