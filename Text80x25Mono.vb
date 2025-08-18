@@ -40,7 +40,7 @@ Public Class Text80x25MonoClass
       Dim CharacterColor As Brush = Nothing
       Dim CharacterFont As Font = Nothing
       Dim Target As New Point(0, 0)
-      Dim VideoPageAddress As Integer = If(CPU.Memory(AddressesE.VideoPage) = 0, AddressesE.Text80x25MonoPage0, AddressesE.Text80x25MonoPage1)
+      Dim VideoPageAddress As Integer = AddressesE.Text80x25MonoPage0
 
       With Graphics.FromImage(Screen)
          .Clear(Color.Black)
@@ -98,7 +98,7 @@ Public Class Text80x25MonoClass
    Public Sub ClearBuffer() Implements VideoAdapterClass.ClearBuffer
       Dim Count As Integer = TEXT_80_X_25_MONO_BUFFER_SIZE \ &H2%
       Dim Position As Integer = &H0%
-      Dim VideoPageAddress As Integer = If(CPU.Memory(AddressesE.VideoPage) = 0, AddressesE.Text80x25MonoPage0, AddressesE.Text80x25MonoPage1)
+      Dim VideoPageAddress As Integer = AddressesE.Text80x25MonoPage0
 
       Do While Count > &H0%
          CPU.PutWord(VideoPageAddress + Position, &H200%)
@@ -127,7 +127,7 @@ Public Class Text80x25MonoClass
       Dim Attribute As Integer = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH))
       Dim CharacterCell As New Integer
       Dim Position As New Integer
-      Dim VideoPageAddress As Integer = If(CPU.Memory(AddressesE.VideoPage) = 0, AddressesE.Text80x25MonoPage0, AddressesE.Text80x25MonoPage1)
+      Dim VideoPageAddress As Integer = AddressesE.Text80x25MonoPage0
 
       If Count = &H0% OrElse Count > TEXT_80_X_25_LINE_COUNT Then
          For Row As Integer = ScrollArea.ULCRow To ScrollArea.LRCRow

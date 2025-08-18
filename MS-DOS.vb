@@ -145,7 +145,7 @@ Public Module MSDOSModule
    'This procedure performs buffered keyboard input.
    Private Sub BufferedKeyboardInput()
       Try
-         Dim Address As Integer = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) Or CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
+         Dim Address As Integer = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
          Dim Buffer As New List(Of Byte)
          Dim Maximum As Integer = CPU.Memory(Address)
          Dim KeyCode As New Integer
@@ -161,7 +161,6 @@ Public Module MSDOSModule
                      Buffer.RemoveAt(Buffer.Count - &H1%)
                   End If
                Case &HD%
-                  Buffer.Add(&HD%)
                   CPU.Memory(Address + &H1%) = ToByte(Buffer.Count)
                   WriteBytesToMemory(Buffer.ToArray(), Address + &H2%)
                   Exit Do
@@ -500,7 +499,7 @@ Public Module MSDOSModule
                      BufferedKeyboardInput()
                      Success = True
                   Case &H1A%
-                     DTA = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H10%) Or CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
+                     DTA = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H10%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
                      Success = True
                   Case &H25%
                      Address = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)) * &H4%
@@ -765,31 +764,28 @@ Public Module MSDOSModule
             CPU.Registers(CPU8086Class.SegmentRegistersE.SS, NewValue:=(If(InitialSS = Nothing, RelocatedCS, RelocatedCS + InitialSS)))
             CPU.Registers(CPU8086Class.Registers16BitE.SP, NewValue:=If(InitialSP = Nothing, &HFFFF%, InitialSP))
 
+            CreatePSP(LoadAddress - PSP_SIZE)
+            Executable = Executable.GetRange(HeaderSize, Executable.Count - HeaderSize)
+            Executable.CopyTo(CPU.Memory, LoadAddress)
+
             If RelocationTableSize > &H0% Then
                Position = RelocationTable - &H1%
+
                Do
                   RelocationItemOffset = BitConverter.ToUInt16({Executable(Position + &H1%), Executable(Position)}, &H0%)
                   RelocationItemSegment = BitConverter.ToUInt16({Executable(Position + &H3%), Executable(Position + &H2%)}, &H0%)
 
-                  RelocationItemFlatAddress = HeaderSize + ((RelocationItemSegment << &H4%) + RelocationItemOffset)
+                  RelocationItemFlatAddress = (LoadAddress + ((RelocationItemSegment << &H4%) + RelocationItemOffset)) And CPU8086Class.ADDRESS_MASK
 
-                  If RelocationItemFlatAddress < Executable.Count Then
-                     RelocationItem = BitConverter.ToUInt16(Executable.ToArray(), RelocationItemFlatAddress)
-                     RelocationItem = (BitConverter.ToUInt16(Executable.ToArray(), RelocationItemFlatAddress) + (LoadAddress >> &H4%)) And &HFFFF%
+                  RelocationItem = BitConverter.ToUInt16(CPU.Memory, RelocationItemFlatAddress)
+                  RelocationItem = (BitConverter.ToUInt16(CPU.Memory, RelocationItemFlatAddress) + (LoadAddress >> &H4%)) And &HFFFF%
 
-                     Executable(RelocationItemFlatAddress) = ToByte(RelocationItem And &HFF%)
-                     Executable(RelocationItemFlatAddress + &H1%) = ToByte(RelocationItem >> &H8%)
-                  End If
+                  CPU.Memory(RelocationItemFlatAddress) = ToByte(RelocationItem And &HFF%)
+                  CPU.Memory(RelocationItemFlatAddress + &H1%) = ToByte(RelocationItem >> &H8%)
 
                   Position += &H4%
                Loop Until Position >= (RelocationTable + RelocationTableSize) - &H1%
             End If
-
-            CreatePSP(LoadAddress - PSP_SIZE)
-
-            Executable = Executable.GetRange(HeaderSize, Executable.Count - HeaderSize)
-
-            Executable.CopyTo(CPU.Memory, LoadAddress)
          Else
             Output.AppendText($"""{FileName}"" does not fit inside the emulated memory.{NewLine}")
          End If
@@ -928,7 +924,7 @@ Public Module MSDOSModule
                   Count = OpenFileToBeRead.Item1.Read(Bytes, offset:=&H0%, Count)
                   CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=Count)
                   ReDim Preserve Bytes(&H0% To Count - &H1%)
-                  WriteBytesToMemory(Bytes, (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) Or CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+                  WriteBytesToMemory(Bytes, (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
                   Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
                Catch MSDOSException As Exception
                   CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
@@ -1043,7 +1039,7 @@ Public Module MSDOSModule
                      PrinterBuffer.Clear()
 
                      For Character As Integer = &H0% To Count - &H1%
-                        PrinterBuffer.Append(ESCAPE_BYTE(CPU.Memory(Position And CPU8086Class.ADDRESS_MASK)))
+                        PrinterBuffer.Append(ToChar(CPU.Memory(Position And CPU8086Class.ADDRESS_MASK)))
                         Position += &H1%
                      Next Character
 
@@ -1058,7 +1054,7 @@ Public Module MSDOSModule
                CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=Count)
             Case Else
                OpenFileToBeWritten = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)))
-               Bytes = CPU.Memory.ToList.GetRange((CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) Or CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)), Count).ToArray()
+               Bytes = CPU.Memory.ToList.GetRange((CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)), Count).ToArray()
 
                Try
                   OpenFileToBeWritten.Item1.Write(Bytes, offset:=&H0%, Count)

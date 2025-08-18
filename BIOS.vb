@@ -47,7 +47,6 @@ Public Module BIOSModule
       EquipmentFlags = &H410%           'Equipment flags.
       MemorySize = &H413%               'Memory size.
       Text80x25MonoPage0 = &HB0000%     '80x25 monochrome text video buffer.
-      Text80x25MonoPage1 = &HB8000%     '80x25 monochrome text video buffer.
       VGA320x200 = &HA0000%             '320x200 VGA video buffer.
       VideoMode = &H449%                'Current video mode.
       VideoModeOptions = &H487%         'Video mode options.
@@ -120,15 +119,16 @@ Public Module BIOSModule
       Try
          Dim ScrollArea As New VideoAdapterClass.ScreenAreaStr With {.ULCColumn = &H0%, .ULCRow = &H0%, .LRCColumn = TEXT_80_X_25_COLUMN_COUNT - &H1%, .LRCRow = TEXT_80_X_25_LINE_COUNT}
          Dim VideoPage As Integer = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH))
-         Dim VideoPageAddress As Integer = If(VideoPage = &H0%, AddressesE.Text80x25MonoPage0, AddressesE.Text80x25MonoPage1)
+         Dim VideoPageAddress As New Integer
          Dim Attribute As New Integer
 
          CursorPositionUpdate()
-         Attribute = CPU.Memory(VideoPageAddress + ((Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%)) + &H1%)
-         CPU.Registers(CPU8086Class.SubRegisters8BitE.BH, NewValue:=Attribute)
 
          Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
             Case VideoModesE.Text80x25Mono
+               VideoPageAddress = AddressesE.Text80x25MonoPage0
+               Attribute = CPU.Memory(VideoPageAddress + ((Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%)) + &H1%)
+               CPU.Registers(CPU8086Class.SubRegisters8BitE.BH, NewValue:=Attribute)
                CursorBlink.Enabled = False
 
                Select Case DirectCast(Character, TeletypeE)

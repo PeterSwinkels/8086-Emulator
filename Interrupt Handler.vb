@@ -48,8 +48,9 @@ Public Module InterruptHandlerModule
                         CPU.Memory(AddressesE.VideoModeOptions) = CByte(SET_BIT(CPU.Memory(AddressesE.VideoModeOptions), VideoModeBit7, &H7%))
 
                         CurrentVideoMode = DirectCast(VideoMode, VideoModesE)
-                        SwitchVideoAdapter()
                      End If
+
+                     SwitchVideoAdapter()
                      Success = True
                   Case &H1%
                      If CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX)) = CURSOR_DISABLED Then
@@ -88,13 +89,13 @@ Public Module InterruptHandlerModule
                      Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
                         Case VideoModesE.Text80x25Mono
                            CursorPositionUpdate()
-                           CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CPU.GET_WORD(If(CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH)) = &H0%, AddressesE.Text80x25MonoPage0, AddressesE.Text80x25MonoPage1) + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)))
+                           CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CPU.GET_WORD(AddressesE.Text80x25MonoPage0 + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)))
                            Success = True
                      End Select
                   Case &H9%, &HA%
                      Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
                         Case VideoModesE.Text80x25Mono
-                           VideoPageAddress = If(CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH)) = &H0%, AddressesE.Text80x25MonoPage0, AddressesE.Text80x25MonoPage1)
+                           VideoPageAddress = AddressesE.Text80x25MonoPage0
                            Character = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
                            Attribute = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL))
                            Count = CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX))
