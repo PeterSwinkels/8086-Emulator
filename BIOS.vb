@@ -93,7 +93,7 @@ Public Module BIOSModule
          Dim Address As New Integer
          Dim Offset As Integer = AddressesE.BIOS
 
-         For Interrupt As Integer = &H0% To &H28%
+         For Interrupt As Integer = &H0% To &HFF%
             Address = Interrupt * &H4%
             CPU.PutWord(Address + &H2%, AddressesE.BIOS >> &H4%)
             CPU.PutWord(Address, Offset)

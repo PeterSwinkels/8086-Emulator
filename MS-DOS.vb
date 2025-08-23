@@ -20,6 +20,21 @@ Imports System.Windows.Forms
 
 'This module handles MS-DOS related functions.
 Public Module MSDOSModule
+   'This enumeration lists the country information item offsets.
+   Private Enum CountryCodesE As Integer
+      DateTimeFormat = &H0%         'Date and time format.
+      CurrencySymbol = &H2%         'Currency symbol.
+      ThousandsSeparator = &H7%     'Thousands separator.
+      DecimalSeparator = &H9%       'Decimal separator.
+      DateSeparator = &HB%          'Date separator.
+      TimeSeparator = &HB%          'Time separator.
+      CurrencySymbolFormat = &H2%   'Currency symbol format.
+      DigitsAfterDecimal = &H10%    'Number of digits after decimal.
+      TimeFormat = &H11%            'Time format.
+      CaseMapCallAddress = &H12%    'Case map call address.
+      DataListSeparator = &H16%     'Data list separator.
+   End Enum
+
    'This enumeration lists addresses used inside a DTA block.
    Private Enum DTAE As Integer
       Attribute = &H15%   'File attribute.
@@ -40,6 +55,7 @@ Public Module MSDOSModule
 
    Public Const COMMAND_TAIL_MAXIMUM_LENGTH As Integer = &H7E%          'Defines the maximum length of a command tail in a PSP.
    Private Const CARRY_FLAG_INDEX As Integer = &H0%                     'Defines the carry flag's bit index.
+   Private Const COUNTRY_INFORMATION_BUFFER_SIZE As Integer = &H28%     'Defines the country information buffer size.
    Private Const ERROR_ACCESS_DENIED As Integer = &H5%                  'Defines the access denied error code.
    Private Const ERROR_CRC As Integer = &H17%                           'Defines the CRC error code.
    Private Const ERROR_DISK_FULL As Integer = &H70%                     'Defines the disk full error code.
@@ -544,6 +560,12 @@ Public Module MSDOSModule
                            CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&HFF%)
                      End Select
                      Success = True
+                  Case &H38%
+                     Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
+                        Case &H0%
+                           WriteCountryInformation()
+                           Success = True
+                     End Select
                   Case &H3C%
                      CreateFile(Flags)
                      Success = True
@@ -628,6 +650,8 @@ Public Module MSDOSModule
                Success = True
             Case &H27%
                TerminateProgram($"Terminate and stay resident.{NewLine}")
+               Success = True
+            Case &H2A%
                Success = True
          End Select
 
@@ -765,26 +789,25 @@ Public Module MSDOSModule
             CPU.Registers(CPU8086Class.Registers16BitE.SP, NewValue:=If(InitialSP = Nothing, &HFFFF%, InitialSP))
 
             CreatePSP(LoadAddress - PSP_SIZE)
-            Executable = Executable.GetRange(HeaderSize, Executable.Count - HeaderSize)
-            Executable.CopyTo(CPU.Memory, LoadAddress)
+
+            Executable.GetRange(HeaderSize, Executable.Count - HeaderSize).CopyTo(CPU.Memory, LoadAddress)
 
             If RelocationTableSize > &H0% Then
-               Position = RelocationTable - &H1%
+               Position = RelocationTable
 
                Do
-                  RelocationItemOffset = BitConverter.ToUInt16({Executable(Position + &H1%), Executable(Position)}, &H0%)
-                  RelocationItemSegment = BitConverter.ToUInt16({Executable(Position + &H3%), Executable(Position + &H2%)}, &H0%)
+                  RelocationItemOffset = BitConverter.ToUInt16(Executable.ToArray(), Position)
+                  RelocationItemSegment = BitConverter.ToUInt16(Executable.ToArray(), Position + &H2%)
 
-                  RelocationItemFlatAddress = (LoadAddress + ((RelocationItemSegment << &H4%) + RelocationItemOffset)) And CPU8086Class.ADDRESS_MASK
+                  RelocationItemFlatAddress = LoadAddress + ((RelocationItemSegment << &H4%) + RelocationItemOffset)
 
                   RelocationItem = BitConverter.ToUInt16(CPU.Memory, RelocationItemFlatAddress)
-                  RelocationItem = (BitConverter.ToUInt16(CPU.Memory, RelocationItemFlatAddress) + (LoadAddress >> &H4%)) And &HFFFF%
+                  RelocationItem += (LoadAddress >> &H4%)
 
-                  CPU.Memory(RelocationItemFlatAddress) = ToByte(RelocationItem And &HFF%)
-                  CPU.Memory(RelocationItemFlatAddress + &H1%) = ToByte(RelocationItem >> &H8%)
+                  CPU.PutWord(RelocationItemFlatAddress, RelocationItem)
 
                   Position += &H4%
-               Loop Until Position >= (RelocationTable + RelocationTableSize) - &H1%
+               Loop Until Position >= (RelocationTable + RelocationTableSize)
             End If
          Else
             Output.AppendText($"""{FileName}"" does not fit inside the emulated memory.{NewLine}")
@@ -988,6 +1011,30 @@ Public Module MSDOSModule
          SyncLock Synchronizer
             CPUEvent.Append(Message)
          End SyncLock
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure writes country information to [DS:DX] in memory.
+   Private Sub WriteCountryInformation()
+      Try
+         Dim Address As Integer = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
+
+         For Offset As Integer = Address To Address + COUNTRY_INFORMATION_BUFFER_SIZE
+            CPU.Memory(Address) = &H0%
+         Next Offset
+
+         CPU.PutWord(CountryCodesE.DateTimeFormat, &H0%)
+         CPU.Memory(CountryCodesE.CurrencySymbol) = ToByte("$"c)
+         CPU.Memory(CountryCodesE.ThousandsSeparator) = ToByte(","c)
+         CPU.Memory(CountryCodesE.DecimalSeparator) = ToByte(","c)
+         CPU.Memory(CountryCodesE.DateSeparator) = ToByte("-"c)
+         CPU.Memory(CountryCodesE.TimeSeparator) = ToByte(":"c)
+         CPU.Memory(CountryCodesE.CurrencySymbolFormat) = &H0%
+         CPU.Memory(CountryCodesE.DigitsAfterDecimal) = &H2%
+         CPU.Memory(CountryCodesE.TimeFormat) = &H0%
+         CPU.Memory(CountryCodesE.DataListSeparator) = ToByte(","c)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

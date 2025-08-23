@@ -520,7 +520,8 @@ Public Class CPU8086Class
             If DisplacementIs8Bit Then
                Displacement = ConvertWidening(Displacement.Value, Is8Bit:=True)
             End If
-            Addresses.Address += Displacement.Value
+
+            Addresses.Address = (Addresses.Address + Displacement.Value) And &HFFFF%
          End If
 
          Addresses.FlatAddress = ((CInt(If(Override Is Nothing, Registers(Segment), Registers(Override))) << &H4%) + Addresses.Address) And ADDRESS_MASK
@@ -1496,7 +1497,7 @@ Public Class CPU8086Class
 
       With OperandPair
          Select Case OperandPairType
-            Case OperandPairsE.MemReg_Reg_8 To OperandPairsE.Reg_MemReg_16, OperandPairsE.MemReg_Byte To OperandPairsE.MemReg_Word
+            Case OperandPairsE.MemReg_Reg_8 To OperandPairsE.Reg_MemReg_16, OperandPairsE.MemReg_16_Byte, OperandPairsE.MemReg_Byte To OperandPairsE.MemReg_Word
                If MemoryOperand >= MemoryOperandsE.BX_SI_BYTE Then .Displacement = GetOperandDisplacement(MemoryOperand, .DisplacementIs8Bit)
          End Select
 

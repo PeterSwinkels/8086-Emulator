@@ -60,6 +60,7 @@ Public Module CoreModule
    Private ReadOnly GET_OPERAND As Func(Of String, String) = Function(Input As String) (Input.Substring(Input.IndexOf(ASSIGNMENT_OPERATOR) + 1))                                                                                                                                         'Returns the specified input's operand.
    Private ReadOnly IS_CHARACTER_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(CHARACTER_OPERAND_DELIMITER) AndAlso Operand.Trim().EndsWith(CHARACTER_OPERAND_DELIMITER) AndAlso Operand.Trim().Length = 3)                               'Indicates whether the specified operand is a character.
    Private ReadOnly IS_MEMORY_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(MEMORY_OPERAND_START) AndAlso Operand.Trim().EndsWith(MEMORY_OPERAND_END))                                                                                    'Indicates whether the specified operand is a memory location.
+   Private ReadOnly IS_SEGMENT_PREFIX As Func(Of CPU8086Class.OpcodesE, Boolean) = Function(Opcode As CPU8086Class.OpcodesE) {CPU8086Class.OpcodesE.CS, CPU8086Class.OpcodesE.DS, CPU8086Class.OpcodesE.ES, CPU8086Class.OpcodesE.SS}.Contains(Opcode)                                   'Indicates whether the specified opcode is a segment prefix.
    Private ReadOnly IS_STRING_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(STRING_OPERAND_DELIMITER) AndAlso Operand.Trim().EndsWith(STRING_OPERAND_DELIMITER))                                                                          'Indicates whether the specified operand is a string.
    Private ReadOnly IS_VALUES_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(VALUES_OPERAND_START) AndAlso Operand.Trim().EndsWith(VALUES_OPERAND_END))                                                                                    'Indicates whether the specified operand is an array of values.
    Private ReadOnly REMOVE_DELIMITERS As Func(Of String, String) = Function(Operand As String) (Operand.Substring(1, Operand.Length - 2))                                                                                                                                                'Returns the specified operand with its first and last character removed.
@@ -188,6 +189,7 @@ Public Module CoreModule
    Private Sub CPU_Trace(FlatCSIP As Integer) Handles CPU.Trace
       Try
          Dim Address As New Integer?
+         Dim Opcode As New CPU8086Class.OpcodesE
          Dim Override As New CPU8086Class.SegmentRegistersE?
          Dim ParsedAddress As New Integer
          Static Code As String = Nothing
@@ -208,10 +210,10 @@ Public Module CoreModule
                ElseIf Code IsNot Nothing AndAlso (Code.Contains("LODSB") OrElse Code.Contains("LODSW")) Then
                   Address = AddressFromOperand("[DS:SI]") + (If(CBool(CPU.Registers(CPU8086Class.FlagRegistersE.DF)), 1, -1))
                   GenerateAddressContent(Address)
-               ElseIf Code IsNot Nothing AndAlso {"SCASB", "SCASW", "STOSB", "STOSW"}.Any(Function(Opcode) Code.Contains(Opcode)) Then
+               ElseIf Code IsNot Nothing AndAlso {"SCASB", "SCASW", "STOSB", "STOSW"}.Any(Function(OpcodeText As String) Code.Contains(OpcodeText)) Then
                   Address = AddressFromOperand("[ES:DI]") + (If(CBool(CPU.Registers(CPU8086Class.FlagRegistersE.DF)), 1, -1))
                   GenerateAddressContent(Address)
-               ElseIf Code IsNot Nothing AndAlso {"CMPSB", "CMPSW", "MOVSB", "MOVSW"}.Any(Function(Opcode) Code.Contains(Opcode)) Then
+               ElseIf Code IsNot Nothing AndAlso {"CMPSB", "CMPSW", "MOVSB", "MOVSW"}.Any(Function(OpcodeText As String) Code.Contains(OpcodeText)) Then
                   Address = AddressFromOperand("[DS:SI]") + (If(CBool(CPU.Registers(CPU8086Class.FlagRegistersE.DF)), 1, -1))
                   GenerateAddressContent(Address, AddNewLine:=False)
 
@@ -221,9 +223,9 @@ Public Module CoreModule
                   CPUEvent.Append($"{NewLine}")
                End If
             Else
-               Select Case DirectCast(CPU.Memory(FlatCSIP), CPU8086Class.OpcodesE)
-                  Case CPU8086Class.OpcodesE.CS, CPU8086Class.OpcodesE.DS, CPU8086Class.OpcodesE.ES, CPU8086Class.OpcodesE.SS
-                     SegmentPrefix = Disassemble(CPU.Memory.ToList(), FlatCSIP, Count:=&H1%)
+               Opcode = DirectCast(CPU.Memory(FlatCSIP), CPU8086Class.OpcodesE)
+
+               Select Case Opcode
                   Case CPU8086Class.OpcodesE.REPNE, CPU8086Class.OpcodesE.REPZ
                      Code = Disassemble(CPU.Memory.ToList(), FlatCSIP, Count:=&H2%)
                   Case Else
@@ -235,7 +237,15 @@ Public Module CoreModule
                      Code = $"{SegmentPrefix}{Code}"
                      SegmentPrefix = Nothing
                   End If
-                  CPUEvent.Append($"{Code}{GetRegisterValues()}{NewLine}")
+                  If IS_SEGMENT_PREFIX(Opcode) Then
+                     CPUEvent.Append($"(segment prefix){NewLine}")
+                  Else
+                     CPUEvent.Append($"{Code}{GetRegisterValues()}{NewLine}")
+                  End If
+               End If
+
+               If IS_SEGMENT_PREFIX(Opcode) Then
+                  SegmentPrefix = Disassemble(CPU.Memory.ToList(), FlatCSIP, Count:=&H1%)
                End If
             End If
 
@@ -457,7 +467,7 @@ Public Module CoreModule
    'This procedure reads a null terminated string from the specified position in memory and returns it.
    Public Function GetStringZ(Segment As Integer, Offset As Integer) As String
       Try
-         Dim Position As Integer = (Segment << &H4%) Or Offset
+         Dim Position As Integer = (Segment << &H4%) + Offset
          Dim StringZ As New StringBuilder
 
          Do Until CPU.Memory(Position And CPU8086Class.ADDRESS_MASK) = &H0%
@@ -745,7 +755,7 @@ Public Module CoreModule
    'This procedure extracts an element from the specified text and returns the result.
    Private Function ParseElement(Text As String, Start As String, Ending As String) As ParsedStr
       Try
-         Dim Position As Integer = If(Start = Nothing, 0, Text.IndexOf(Start) + 1)
+         Dim Position As Integer = If(Start = Nothing, 0, Text.IndexOf(Start) + Start.Length)
          Dim NextPosition As Integer = If(Ending = Nothing, Text.Length, Text.IndexOf(Ending, Position + 1))
 
          If Position < 0 Then Position = 0

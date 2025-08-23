@@ -132,6 +132,11 @@ Public Module InterruptHandlerModule
                      CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=VideoMode)
                      CPU.Registers(CPU8086Class.SubRegisters8BitE.BH, NewValue:=CPU.Memory(AddressesE.VideoPage))
                      Success = True
+                  Case &H10%
+                     Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
+                        Case VideoModesE.Text80x25Mono
+                           Success = True
+                     End Select
                   Case &H11%
                      Select Case CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
                         Case &H30%
