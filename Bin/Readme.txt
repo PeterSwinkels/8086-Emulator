@@ -1,1 +1,0 @@
-Modify the paths in hw.txt and io.txt to suit your needs.
