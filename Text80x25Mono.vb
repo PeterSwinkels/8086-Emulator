@@ -23,10 +23,9 @@ Public Class Text80x25MonoClass
    Private Const UNDERLINE_BITMASK As Integer = &H7%       'Defines the character underline attribute bits.
 
    Private ReadOnly BLACK_ATTRIBUTES() As Integer = {&H0%, &H8%, &H80%, &H88%}                                        'Defines the black character attributes.
-   Private ReadOnly CHARACTER_SIZE As Size = New Size(11, 16)                                                         'Defines the character size.
+   Private ReadOnly CHARACTER_SIZE As Size = New Size(12, 16)                                                         'Defines the character size.
    Private ReadOnly FONT_NORMAL As New Font("Px437 IBM MDA", emSize:=14)                                              'Defines the normal font.
    Private ReadOnly FONT_UNDERLINE As New Font("Px437 IBM MDA", emSize:=14, FontStyle.Underline)                      'Defines the underlined font.
-   Private ReadOnly HORIZONTAL_MARGIN As Integer = CInt(Ceiling(CHARACTER_SIZE.Width / 2))                            'Defines the horizontal screen size margin.
    Private ReadOnly TEXT_SCREEN_SIZE As Size = New Size(&H50% * CHARACTER_SIZE.Width, &H19% * CHARACTER_SIZE.Height)  'Defines the screen size measured in characters.
 
    Private BlinkCharactersVisible As Boolean = True  'Indicates whether or not the blinking characters are visible.
@@ -119,7 +118,7 @@ Public Class Text80x25MonoClass
 
    'This procedure returns the screen size used by a video adapter.
    Public Function Resolution() As Size Implements VideoAdapterClass.Resolution
-      Return New Size(TEXT_SCREEN_SIZE.Width + HORIZONTAL_MARGIN, TEXT_SCREEN_SIZE.Height)
+      Return New Size(TEXT_SCREEN_SIZE.Width, TEXT_SCREEN_SIZE.Height)
    End Function
 
    'This procedure scrolls the video adapter's buffer.

@@ -539,7 +539,7 @@ Public Class CPU8086Class
       Registers(FlagRegistersE.AF, NewValue:=Not (OldValue And AFSignMask) = (NewValue And AFSignMask))
       Registers(FlagRegistersE.PF, NewValue:=(BitCount(NewValue And &HFF%) Mod &H2%) = &H0%)
       Registers(FlagRegistersE.SF, NewValue:=(NewValue And SignMask) = SignMask)
-      Registers(FlagRegistersE.ZF, NewValue:=NewValue = &H0%)
+      Registers(FlagRegistersE.ZF, NewValue:=(NewValue And If(Is8Bit, &HFF%, &HFFFF%)) = &H0%)
 
       If NewOverflowFlag Is Nothing Then
          If Subtraction Then
@@ -1674,7 +1674,7 @@ Public Class CPU8086Class
    End Sub
 
    'This procedure manages the stack and returns any value popped.
-   Private Function Stack(Optional Push As Integer? = Nothing) As Integer
+   Public Function Stack(Optional Push As Integer? = Nothing) As Integer
       Dim SP As Integer = CInt(Registers(Registers16BitE.SP))
       Dim Word As New Integer
 

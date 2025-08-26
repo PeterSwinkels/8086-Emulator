@@ -12,11 +12,30 @@ Public Module IOHandlerModule
 
    'This enumeration lists the I/O ports recognized by the CPU.
    Public Enum IOPortsE As Integer
+      Reserved1 = &H10%                 'Reserved.
+      Reserved2 = &H1F%                 'Reserved.
       PITCounter0 = &H40%               'Time of day clock.
       PITCounter1 = &H41%               'RAM refresh counter.
       PITCounter2 = &H42%               'Cassette and speaker.
-      PPIPortB = &H61%                  'Port B output.
       PITModeControl = &H43%            'Mode control register.
+      PPIPortB = &H61%                  'Port B output.
+      Reserved3 = &HE0%                 'Reserved.
+      Reserved4 = &HEF%                 'Reserved.
+      Reserved5 = &HF8%                 'Reserved.
+      Reserved6 = &HFF%                 'Reserved.
+      Reserved7 = &H21F%                'Reserved.
+      Reserved8 = &H220%                'Reserved.
+      Reserved9 = &H26F%                'Reserved.
+      Reserved10 = &H280%               'Reserved.
+      Reserved11 = &H2AF%               'Reserved.
+      Reserved12 = &H2E8%               'Reserved.
+      Reserved13 = &H2EF%               'Reserved.
+      Reserved14 = &H2F0%               'Reserved.
+      Reserved15 = &H2F7%               'Reserved.
+      Reserved16 = &H330%               'Reserved.
+      Reserved17 = &H33F%               'Reserved.
+      Reserved18 = &H340%               'Reserved.
+      Reserved19 = &H35F%               'Reserved.
       MDA3B0 = &H3B0%                   '6845 MDA.
       MDA3B1 = &H3B1%                   '6845 MDA.
       MDA3B2 = &H3B2%                   '6845 MDA.
@@ -63,6 +82,8 @@ Public Module IOHandlerModule
                Value = &H0%
             Case IOPortsE.PPIPortB
                Value = PPI.PortB()
+            Case IOPortsE.Reserved1 To IOPortsE.Reserved2, IOPortsE.Reserved3 To IOPortsE.Reserved4, IOPortsE.Reserved5 To IOPortsE.Reserved6, IOPortsE.Reserved7, IOPortsE.Reserved8 To IOPortsE.Reserved9, IOPortsE.Reserved10 To IOPortsE.Reserved11, IOPortsE.Reserved12 To IOPortsE.Reserved13, IOPortsE.Reserved14 To IOPortsE.Reserved15, IOPortsE.Reserved16 To IOPortsE.Reserved17, IOPortsE.Reserved18 To IOPortsE.Reserved19
+               Value = &HFF%
          End Select
 
          Return Value
@@ -89,6 +110,8 @@ Public Module IOHandlerModule
                PIT.WriteCounter(DirectCast(Port And PIT_IO_PORT_MASK, PITClass.CountersE), NewValue:=CByte(Value))
             Case IOPortsE.PITModeControl
                PIT.ModeControl(NewValue:=Value)
+            Case IOPortsE.Reserved1 To IOPortsE.Reserved2, IOPortsE.Reserved3 To IOPortsE.Reserved4, IOPortsE.Reserved5 To IOPortsE.Reserved6, IOPortsE.Reserved7, IOPortsE.Reserved8 To IOPortsE.Reserved9, IOPortsE.Reserved10 To IOPortsE.Reserved11, IOPortsE.Reserved12 To IOPortsE.Reserved13, IOPortsE.Reserved14 To IOPortsE.Reserved15, IOPortsE.Reserved16 To IOPortsE.Reserved17, IOPortsE.Reserved18 To IOPortsE.Reserved19
+               Success = True
             Case Else
                Success = False
          End Select

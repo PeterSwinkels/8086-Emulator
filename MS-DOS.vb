@@ -296,6 +296,43 @@ Public Module MSDOSModule
       End Try
    End Sub
 
+   'This procedure loads and executes a program.
+   Private Sub ExecuteProgram(ByRef Flags As Integer)
+      Try
+         Dim FileName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+         Dim Result As New Integer?
+         Dim Size As Integer = &HFFFF%
+
+         Try
+            Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
+               Case &H0%
+                  Result = AllocateMemory(Size)
+                  Size = LargestFreeMemoryBlock() >> &H4%
+                  Result = AllocateMemory(Size)
+                  Flags = SET_BIT(Flags, (Result Is Nothing), CARRY_FLAG_INDEX)
+
+                  If Result Is Nothing Then
+                     CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=ERROR_INSUFFICIENT_MEMORY)
+                  Else
+                     CPU.Registers(CPU8086Class.SegmentRegistersE.CS, NewValue:=CInt(Result) >> &H4%)
+                     LoadMSDOSProgram(FileName)
+
+                     CPU.Stack(Push:=CInt(CPU.Registers(CPU8086Class.FlagRegistersE.All)))
+                     CPU.Stack(Push:=CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)))
+                     CPU.Stack(Push:=CInt(CPU.Registers(CPU8086Class.Registers16BitE.IP)))
+
+                     Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+                  End If
+            End Select
+         Catch MSDOSException As Exception
+            CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
+            Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+         End Try
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
    'This procedure attempts to find files matching a given pattern.
    Private Sub FindFile(ByRef Flags As Integer, Optional IsFirst As Boolean = False)
       Try
@@ -309,6 +346,7 @@ Public Module MSDOSModule
                Attributes = DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.CX), FileAttributes)
                Files = New Stack(Of String)(From Item In Directory.GetFiles(CurrentDirectory(), FileName) Where (File.GetAttributes(Item) And Attributes) = Attributes Select Path.GetFileName(Item))
                WriteDTA(Files.Pop)
+               Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
             Else
                If Files.Count = 0 Then
                   CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=ERROR_FILE_NOT_FOUND)
@@ -587,6 +625,9 @@ Public Module MSDOSModule
                   Case &H42%
                      SeekFile(Flags)
                      Success = True
+                  Case &H43%
+                     manageFileAttributes(Flags)
+                     Success = True
                   Case &H44%
                      Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
                         Case &H0%
@@ -619,12 +660,14 @@ Public Module MSDOSModule
                      Success = True
                   Case &H4A%
                      Result = ModifyAllocatedMemory(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.ES)) << &H4%, CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)) << &H4%)
-                     CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=(LargestFreeMemoryBlock() >> &H4%))
                      Flags = SET_BIT(Flags, (Result IsNot Nothing), CARRY_FLAG_INDEX)
 
                      If Result IsNot Nothing Then
                         CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CInt(Result))
                      End If
+                     Success = True
+                  Case &H4B%
+                     ExecuteProgram(Flags)
                      Success = True
                   Case &H4C%
                      TerminateProgram($"Program terminated with return code: {CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)):X2}.{NewLine}")
@@ -720,7 +763,9 @@ Public Module MSDOSModule
             Executable = LoadMZEXE(Executable, FileName, LoadAddress)
             Success = Executable.Any
          Else
-            Output.AppendText($"Loading the compact binary executable ""{FileName}"" at address {LoadAddress:X8}.{NewLine}")
+            SyncLock Synchronizer
+               CPUEvent.Append($"Loading the compact binary executable ""{FileName}"" at address {LoadAddress:X8}.{NewLine}")
+            End SyncLock
 
             CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=&HFFFF%)
             CPU.Registers(CPU8086Class.Registers16BitE.CX, NewValue:=Executable.Count)
@@ -775,7 +820,9 @@ Public Module MSDOSModule
          Dim RelocationTableSize As Integer = BitConverter.ToUInt16(Executable.ToArray(), EXE_RELOCATION_ITEM_COUNT) * &H4%
 
          If LoadAddress + Executable.Count <= CPU.Memory.Length Then
-            Output.AppendText($"Loading the MZ-executable ""{FileName}"" at address {LoadAddress:X8}.{NewLine}")
+            SyncLock Synchronizer
+               CPUEvent.Append($"Loading the MZ-executable ""{FileName}"" at address {LoadAddress:X8}.{NewLine}")
+            End SyncLock
 
             CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=&H0%)
             CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=(Executable.Count - HeaderSize) >> &H10%)
@@ -810,7 +857,9 @@ Public Module MSDOSModule
                Loop Until Position >= (RelocationTable + RelocationTableSize)
             End If
          Else
-            Output.AppendText($"""{FileName}"" does not fit inside the emulated memory.{NewLine}")
+            SyncLock Synchronizer
+               CPUEvent.Append($"""{FileName}"" does not fit inside the emulated memory.{NewLine}")
+            End SyncLock
          End If
 
          Return Executable
@@ -820,6 +869,29 @@ Public Module MSDOSModule
 
       Return New List(Of Byte)
    End Function
+
+   'This procedure gets/sets a file's attributes.
+   Private Sub ManageFileAttributes(ByRef Flags As Integer)
+      Try
+         Dim FileName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+
+         Try
+            Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
+               Case &H0%
+                  CPU.Registers(CPU8086Class.Registers16BitE.CX, File.GetAttributes(FileName))
+                  Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+               Case &H1%
+                  File.SetAttributes(FileName, DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.CX), FileAttributes))
+                  Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+            End Select
+         Catch MSDOSException As Exception
+            CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
+            Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+         End Try
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
 
    'This procedure attempts to modify the specified allocated memory address and returns whether or not it succeeded.
    Private Function ModifyAllocatedMemory(StartAddress As Integer, NewSize As Integer) As Integer?
@@ -1047,10 +1119,10 @@ Public Module MSDOSModule
          Dim Offset As Integer = ((DTA And &HFFFF0000%) >> &HC%) + (DTA And &HFFFF%)
 
          CPU.Memory(Offset + DTAE.Attribute) = ToByte(File.GetAttributes(FilePath))
-         CPU.PutWord(Offset + DTAE.FileDate, DATE_TO_MSDOS_DATE(File.GetLastWriteTime(FilePath)))
          CPU.PutWord(Offset + DTAE.FileTime, TIME_TO_MSDOS_TIME(File.GetLastWriteTime(FilePath)))
-         CPU.PutWord(Offset + DTAE.FileSize, CInt(FileSize And &HFF%))
-         CPU.PutWord(Offset + DTAE.FileSize + &H2%, CInt(FileSize And &HFF00%) >> &H10%)
+         CPU.PutWord(Offset + DTAE.FileDate, DATE_TO_MSDOS_DATE(File.GetLastWriteTime(FilePath)))
+         CPU.PutWord(Offset + DTAE.FileSize, CInt(FileSize And &HFFFF%))
+         CPU.PutWord(Offset + DTAE.FileSize + &H2%, CInt(FileSize) >> &H10%)
          WriteStringToMemory($"{Path.GetFileName(FilePath)}{ToChar(&H0%)}", Offset + DTAE.FileName)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
