@@ -6,11 +6,32 @@ Option Strict On
 
 Imports System
 Imports System.Convert
+Imports System.Runtime.InteropServices
 Imports System.Linq
 Imports System.Windows.Forms
 
 'This module contains the keyboard related procedures.
 Public Module KeyboardModule
+   'The Microsoft Windows API constants and functions used by this module.
+   Private Const VK_LSHIFT As Integer = &HA0%
+   Private Const VK_RSHIFT As Integer = &HA1%
+
+   <DllImport("User32.dll", CharSet:=CharSet.Unicode, SetLastError:=True)>
+   Private Function GetKeyState(ByVal nVirtKey As Integer) As Short
+   End Function
+
+   'This enumeration defines the keyboard flags.
+   Private Enum KeyboardFlagsE As Integer
+      RightShift = &H1%    'Indicates whether or not the right shift key is pressed.
+      LeftShift = &H2%     'Indicates whether or not the left shift key is pressed.
+      CTRL = &H4%          'Indicates whether or not the CTRL key is pressed.
+      ALT = &H8%           'Indicates whether or not the ALT key is pressed.
+      ScrollLock = &H10%   'Indicates whether or not scroll-lock is active.
+      NumLock = &H20%      'Indicates whether or not num-lock is active.
+      CapsLock = &H40%     'Indicates whether or not caps-lock is active.
+      Insert = &H80%       'Indicates whether or not insert is active.
+   End Enum
+
    Private Const ASCII_0 As Integer = 48                                        'Defines the ASCII code for the zero ("0") character.
    Private Const ASCII_1 As Integer = 49                                        'Defines the ASCII code for the one ("1") character.
    Private Const ASCII_2 As Integer = 50                                        'Defines the ASCII code for the two ("2") character.
@@ -44,6 +65,8 @@ Public Module KeyboardModule
    Private ReadOnly BIOS_KEY_CODES_PUNCTUATION() As Integer = {&HC%, &HD%, &H1A%, &H1B%, &H27%, &H28%, &H29%, &H2B%, &H33%, &H34%, &H35%}                                                                                                                       'Contains the BIOS key codes for the punctuation characters.
    Private ReadOnly BIOS_KEY_CODES_PUNCTUATION_ALT() As Integer = {&H82%, &H83%, &H1A%, &H1B%, &H27%, Nothing, Nothing, &H26%, Nothing, Nothing, Nothing}                                                                                                       'Contains the BIOS key codes for the punctuation characters combined with the Alt key.
    Private ReadOnly COMMAND_KEYS() As Integer = {Keys.Back, Keys.Delete, Keys.Down, Keys.End, Keys.Enter, Keys.Escape, Keys.Home, Keys.Insert, Keys.NumPad5, Keys.Multiply, Keys.Subtract, Keys.Add, Keys.Divide, Keys.Left, Keys.PageDown, Keys.PageUp, Keys.PrintScreen, Keys.Right, Keys.Space, Keys.Tab, Keys.Up}  'Contains the command keys.
+
+   Private InsertActive As Boolean = False   'Indicates whether or not insert is active.
 
    'This procedure converts the specified ASCII code combined with the specified modifier keys to a BIOS scan and character code and returns the result.
    Private Function GetBIOSCharacterKeyCode(KeyASCII As Integer, Alt As Boolean, Control As Boolean, Shift As Boolean) As Integer?
@@ -187,6 +210,7 @@ Public Module KeyboardModule
             Case Else
                If COMMAND_KEYS.Contains(Key.KeyCode) Then
                   BIOSKeyCode = GetBIOSCommandKeyCode(Key.KeyCode, Key.Alt, Key.Control, Key.Shift)
+                  If Key.KeyCode = Keys.Insert Then InsertActive = Not InsertActive
                Else
                   KeyASCII = PunctuationKeyToASCII(Key.KeyCode)
                   If KeyASCII Is Nothing Then KeyASCII = Key.KeyValue
@@ -194,7 +218,34 @@ Public Module KeyboardModule
                End If
          End Select
 
+         CPU.HardwareInterrupts.Add(CPU8086Class.KEYBOARD)
+
          Return BIOSKeyCode
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return Nothing
+   End Function
+
+   'This procedure returns the keyboard flags.
+   Public Function GetKeyboardFlags() As Integer
+      Try
+         Dim Flags As Integer = Nothing
+
+         With My.Computer.Keyboard
+            If .CapsLock Then Flags = Flags Or KeyboardFlagsE.CapsLock
+            If .NumLock Then Flags = Flags Or KeyboardFlagsE.NumLock
+            If .ScrollLock Then Flags = Flags Or KeyboardFlagsE.ScrollLock
+            If VirtualKeyIsDown(VK_RSHIFT) Then Flags = Flags Or KeyboardFlagsE.RightShift
+            If VirtualKeyIsDown(VK_LSHIFT) Then Flags = Flags Or KeyboardFlagsE.LeftShift
+            If .CtrlKeyDown Then Flags = Flags Or KeyboardFlagsE.CTRL
+            If .AltKeyDown Then Flags = Flags Or KeyboardFlagsE.ALT
+         End With
+
+         If InsertActive Then Flags = Flags Or KeyboardFlagsE.Insert
+
+         Return Flags
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -210,7 +261,7 @@ Public Module KeyboardModule
          If Clear Then
             CurrentLastBIOSKeyCode = Nothing
          ElseIf Not NewLastBIOSKeyCode = Nothing Then
-            CurrentLastBIOSKeyCode = CInt(NewLastBIOSKeyCode)
+            CurrentLastBIOSKeyCode = NewLastBIOSKeyCode
          End If
 
          Return CurrentLastBIOSKeyCode
@@ -252,6 +303,17 @@ Public Module KeyboardModule
          End Select
 
          Return KeyASCII
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return Nothing
+   End Function
+
+   'This procedure indicates whether or not the specified virtual key is down.
+   Private Function VirtualKeyIsDown(VirtualKey As Integer) As Boolean
+      Try
+         Return CBool(GetKeyState(VirtualKey) And &H80%)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

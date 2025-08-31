@@ -306,7 +306,9 @@ Public Module CoreModule
          If Output Is Nothing Then
             MessageBox.Show(Message, My.Application.Info.Title, MessageBoxButtons.OK, MessageBoxIcon.Error)
          Else
-            Output.AppendText($"{Message}{NewLine}")
+            SyncLock Synchronizer
+               CPUEvent.Append($"{Message}{NewLine}")
+            End SyncLock
          End If
       Catch
          Application.Exit()
@@ -565,7 +567,10 @@ Public Module CoreModule
                      Case "?"
                         Output.AppendText($"{My.Resources.Help}{NewLine}")
                      Case "ARG"
-                        CommandTail = $" {If(Operands.Length > COMMAND_TAIL_MAXIMUM_LENGTH, Operands.Substring(1, COMMAND_TAIL_MAXIMUM_LENGTH), Operands)}"
+                        If Not Operands = Nothing Then
+                           CommandTail = $" {If(Operands.Length > COMMAND_TAIL_MAXIMUM_LENGTH, Operands.Substring(1, COMMAND_TAIL_MAXIMUM_LENGTH), Operands)}"
+                        End If
+
                         Output.AppendText($"Command tail set to: ""{CommandTail}""{NewLine}")
                      Case "C"
                         Output.Clear()
@@ -772,8 +777,8 @@ Public Module CoreModule
    'This procedure handles PIT events.
    Private Sub PIT_PITEvent(Counter As PITClass.CountersE, Mode As PITClass.ModesE) Handles PIT.PITEvent
       Try
-         If Not CPU.UpdateClock Then
-            CPU.UpdateClock = ((Counter = PITClass.CountersE.TimeOfDay) AndAlso (CPU.Clock.Status = TaskStatus.Running))
+         If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
+            CPU.HardwareInterrupts.Add(CPU8086Class.SYSTEM_TIMER)
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -840,6 +845,8 @@ Public Module CoreModule
    'This procedure switches to a video adapter based on the current screen mode.
    Public Sub SwitchVideoAdapter()
       Try
+         Dim PreviousAdapter As VideoAdapterClass = VideoAdapter
+
          Select Case CurrentVideoMode
             Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B
                VideoAdapter = New CGA320x200Class
@@ -848,7 +855,7 @@ Public Module CoreModule
             Case VideoModesE.VGA320x200
                VideoAdapter = New VGA320x200Class
             Case Else
-               VideoAdapter = Nothing
+               VideoAdapter = PreviousAdapter
          End Select
 
          If VideoAdapter IsNot Nothing Then VideoAdapter.Initialize()

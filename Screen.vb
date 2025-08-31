@@ -43,6 +43,15 @@ Public Class ScreenWindow
       End Try
    End Sub
 
+   'This procedure handles any keystrokes made by the user when a key is released.
+   Private Sub ScreenWindow_KeyUp(sender As Object, e As KeyEventArgs) Handles MyBase.KeyUp
+      Try
+         GetBIOSKeyCode(e)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
    'This procedure gives the video adapter the command to update the screen's content.
    Private Sub ScreenWindow_Paint(sender As Object, e As PaintEventArgs) Handles MyBase.Paint
       Try

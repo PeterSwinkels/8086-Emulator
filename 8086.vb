@@ -6,6 +6,7 @@ Option Strict On
 
 Imports System
 Imports System.BitConverter
+Imports System.Collections.Generic
 Imports System.Linq
 Imports System.Math
 Imports System.Threading
@@ -419,7 +420,9 @@ Public Class CPU8086Class
       Public Value2 As Integer               'Defines the value referred to be the second operand.
    End Structure
 
+   Public Const KEYBOARD As Integer = &H9%               'Defines the keyboard hardware interrupt number.
    Public Const SYSTEM_TIMER As Integer = &H8%           'Defines the system timer's interrupt number.
+
    Private Const BREAK_POINT As Integer = &H3%           'Defines the break point interrupt number.
    Private Const DIVIDE_BY_ZERO As Integer = &H0%        'Defines the divide by zero interrupt number.
    Private Const LOW_FLAG_BITS As Integer = &HD7%        'Defines the bits used in the flag register's lower byte.
@@ -431,9 +434,9 @@ Public Class CPU8086Class
 
    Public Clock As New Task(AddressOf Execute)                                     'Contains the CPU clock.
    Public ClockToken As New CancellationTokenSource                                'Indicates whether or not to stop the CPU.
+   Public HardwareInterrupts As New List(Of Integer)                               'Contains a list of pending interrupts triggered by emulated hardware.
    Public Memory() As Byte = Enumerable.Repeat(CByte(&H0%), &H100000%).ToArray()   'Contains the memory used by the emulated 8086 CPU.
    Public Tracing As Boolean = False                                               'Indicates whether or not tracing is enabled.
-   Public UpdateClock As Boolean = False                                           'Indicates whether or not the system clock is updated.
 
    Public Event Halt()                                                                   'Defines the halt event.
    Public Event Interrupt(Number As Integer, AH As Integer)                              'Defines the interrupt event.
@@ -533,10 +536,8 @@ Public Class CPU8086Class
 
    'This procedure adjusts the flags register based on the specified values.
    Private Sub AdjustFlags(OldValue As Integer, NewValue As Integer, Optional Is8Bit As Boolean = True, Optional NewCarryFlag As Integer? = Nothing, Optional PreserveCarryFlag As Boolean = False, Optional NewOverflowFlag As Integer? = Nothing, Optional Subtraction As Boolean = True)
-      Dim AFSignMask As Integer = If(Is8Bit, &H10%, &H100%)
       Dim SignMask As Integer = If(Is8Bit, &H80%, &H8000%)
 
-      Registers(FlagRegistersE.AF, NewValue:=Not (OldValue And AFSignMask) = (NewValue And AFSignMask))
       Registers(FlagRegistersE.PF, NewValue:=(BitCount(NewValue And &HFF%) Mod &H2%) = &H0%)
       Registers(FlagRegistersE.SF, NewValue:=(NewValue And SignMask) = SignMask)
       Registers(FlagRegistersE.ZF, NewValue:=(NewValue And If(Is8Bit, &HFF%, &HFFFF%)) = &H0%)
@@ -607,11 +608,13 @@ Public Class CPU8086Class
          Do Until ClockToken.Token.IsCancellationRequested
             If Tracing Then RaiseEvent Trace(GET_FLAT_CS_IP())
 
-            If UpdateClock Then
-               ExecuteInterrupt(OpcodesE.INT, Number:=&H8%)
-               ExecuteInterrupt(OpcodesE.INT, Number:=&H1C%)
-               UpdateClock = False
-            End If
+            Try
+               Do While HardwareInterrupts.Any
+                  ExecuteInterrupt(OpcodesE.INT, Number:=HardwareInterrupts.First)
+                  HardwareInterrupts.RemoveAt(0)
+               Loop
+            Catch
+            End Try
 
             If Not ExecuteOpcode() Then
                ExecuteInterrupt(OpcodesE.INT, Number:=INVALID_OPCODE)
@@ -1038,8 +1041,6 @@ Public Class CPU8086Class
                Registers(FlagRegistersE.AF, NewValue:=False)
                Registers(FlagRegistersE.CF, NewValue:=False)
             End If
-
-            Registers(SubRegisters8BitE.AL, NewValue:=CInt(Registers(SubRegisters8BitE.AL)) And &HF%)
          Case OpcodesE.AAD
             Operand = GetByteCSIP()
             If Operand = &HA% Then
@@ -1047,6 +1048,7 @@ Public Class CPU8086Class
                AdjustFlags(CInt(Registers(Registers16BitE.AX)), NewValue)
                Registers(SubRegisters8BitE.AL, NewValue:=NewValue)
                Registers(SubRegisters8BitE.AH, NewValue:=&H0%)
+               Registers(FlagRegistersE.AF, NewValue:=False)
             Else
                Return False
             End If
@@ -1055,8 +1057,9 @@ Public Class CPU8086Class
             NewValue = CInt(Registers(SubRegisters8BitE.AL))
             Operand = GetByteCSIP()
             If Operand = &HA% Then
-               Registers(SubRegisters8BitE.AH, NewValue:=CInt(Math.Floor(NewValue / Operand)))
+               Registers(SubRegisters8BitE.AH, NewValue:=CInt(Floor(NewValue / Operand)))
                Registers(SubRegisters8BitE.AL, NewValue:=NewValue Mod Operand)
+               Registers(FlagRegistersE.AF, NewValue:=False)
                AdjustFlags(Value, CInt(Registers(Registers16BitE.AX)), Is8Bit:=False)
             Else
                Return False
@@ -1137,7 +1140,10 @@ Public Class CPU8086Class
          Case OpcodesE.DAA
             NewValue = CInt(Registers(SubRegisters8BitE.AL))
             LowOctet = NewValue And &HF%
-            If LowOctet > &H9% AndAlso LowOctet < &H10% Then NewValue += &H6%
+            If (LowOctet > &H9% AndAlso LowOctet < &H10%) OrElse CBool(Registers(FlagRegistersE.AF)) Then
+               NewValue += &H6%
+               Registers(FlagRegistersE.AF, NewValue:=False)
+            End If
             If NewValue > &H99% Then NewValue -= &HA0%
             AdjustFlags(CInt(Registers(SubRegisters8BitE.AL)), NewValue, Is8Bit:=True)
             Registers(SubRegisters8BitE.AL, NewValue:=NewValue)
@@ -1145,7 +1151,10 @@ Public Class CPU8086Class
             NewValue = CInt(Registers(SubRegisters8BitE.AL))
             If NewValue > &H99% Then NewValue -= &H60%
             LowOctet = NewValue And &HF%
-            If LowOctet > &H9% AndAlso LowOctet < &H10% Then NewValue -= &H6%
+            If (LowOctet > &H9% AndAlso LowOctet < &H10%) OrElse CBool(Registers(FlagRegistersE.AF)) Then
+               NewValue -= &H6%
+               Registers(FlagRegistersE.AF, NewValue:=False)
+            End If
             AdjustFlags(CInt(Registers(SubRegisters8BitE.AL)), NewValue, Is8Bit:=True)
             Registers(SubRegisters8BitE.AL, NewValue:=NewValue)
          Case OpcodesE.DEC_AX To OpcodesE.DEC_DI, OpcodesE.INC_AX To OpcodesE.INC_DI

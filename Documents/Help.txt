@@ -8,6 +8,7 @@ $ Path                        Executes the commands in the specified file
 Register                      Displays the specified register's value.
 Register = Value              Sets the specified register to the specified byte/word.
 ARG Value                     Sets the command line argument to the specified value.
+                              If no value is specified it displays the current command line argument.
 C                             Clears the output window.
 CD [Path]                     Displays or sets the current directory.
 E                             Causes the emulated CPU to start executing code.

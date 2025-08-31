@@ -45,6 +45,7 @@ Public Module BIOSModule
       CursorPositions = &H450%          'Cursor positions.
       CursorScanLines = &H460%          'Cursor scan line start/end.
       EquipmentFlags = &H410%           'Equipment flags.
+      KeyboardFlags = &H417%            'Keyboar flags.
       MemorySize = &H413%               'Memory size.
       Text80x25MonoPage0 = &HB0000%     '80x25 monochrome text video buffer.
       VGA320x200 = &HA0000%             '320x200 VGA video buffer.
@@ -78,6 +79,8 @@ Public Module BIOSModule
    Public Const VGA_320_X_200_BYTES_PER_ROW As Integer = &H140%              'Defines the number of bytes per row used by 320x200 VGA mode 
    Public Const VGA_320_X_200_LINE_COUNT As Integer = &H19%                  'Defines the number of lines used by 320x200 VGA mode 
    Public Const VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE As Integer = &H8%    'Defines the number of per character side used by 320x200 VGA mode 
+
+   Private Const SYSTEM_TIMER_TICK As Integer = &H1C%                         'Defines system clock tick interrupt number.
 
    Public ReadOnly BACKGROUND_COLORS() As Color = {Color.Black, Color.DarkBlue, Color.DarkGreen, Color.DarkCyan, Color.DarkRed, Color.Purple, Color.Brown, Color.White, Color.Gray, Color.Blue, Color.Green, Color.Cyan, Color.Red, Color.Pink, Color.Yellow, Color.White}   'Contains the background colors.
    Public ReadOnly PALETTE0() As Color = {Nothing, Color.DarkGreen, Color.DarkRed, Color.Brown}                                                                                                                                                                              'Contains palette #0 colors.
@@ -193,6 +196,8 @@ Public Module BIOSModule
 
          CPU.PutWord(AddressesE.Clock, ClockCounter And &HFFFF%)
          CPU.PutWord(AddressesE.Clock + &H2%, ClockCounter >> &H10%)
+
+         CPU.HardwareInterrupts.Add(SYSTEM_TIMER_TICK)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

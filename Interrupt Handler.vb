@@ -5,6 +5,9 @@ Option Infer Off
 Option Strict On
 
 Imports System
+Imports System.Convert
+Imports System.Linq
+Imports System.Threading.Tasks
 Imports System.Windows.Forms
 
 'This module contains the default interrupt handler.
@@ -15,7 +18,7 @@ Public Module InterruptHandlerModule
    Private Const ZERO_FLAG_INDEX As Integer = &H6%   'Defines the zero flag's bit index.
 
    'This procedure handles the specified interrupt and returns whether or not is succeeded.
-   Public Function HandleInterrupt(Number As Integer, AH As Integer) As Boolean
+   Public Function HandleInterrupt(Number As Integer, Optional AH As Integer = Nothing) As Boolean
       Try
          Dim Address As New Integer
          Dim Attribute As New Byte
@@ -35,6 +38,9 @@ Public Module InterruptHandlerModule
          Select Case Number
             Case &H8%
                UpdateClockCounter()
+               Success = True
+            Case &H9%
+               CPU.Memory(AddressesE.KeyboardFlags) = ToByte(GetKeyboardFlags())
                Success = True
             Case &H10%
                Select Case AH
@@ -150,6 +156,8 @@ Public Module InterruptHandlerModule
                      End Select
                   Case &H12%
                      Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
+                        Case VideoModesE.Text80x25Color
+                           Success = True
                         Case VideoModesE.Text80x25Mono
                            Success = True
                      End Select
@@ -166,6 +174,9 @@ Public Module InterruptHandlerModule
                Select Case AH
                   Case &H0%
                      Do
+                        If CPU.Clock.Status = TaskStatus.Running Then
+                           ExecuteHardwareInterrupts()
+                        End If
                         Application.DoEvents()
                         CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=LastBIOSKeyCode())
                      Loop While (CInt(CPU.Registers(CPU8086Class.Registers16BitE.AX)) = &H0%) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
@@ -175,6 +186,9 @@ Public Module InterruptHandlerModule
                   Case &H1%
                      CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=LastBIOSKeyCode())
                      Flags = SET_BIT(Flags, (CInt(CPU.Registers(CPU8086Class.Registers16BitE.AX)) = &H0%), ZERO_FLAG_INDEX)
+                     Success = True
+                  Case &H2%
+                     CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=CPU.Memory(AddressesE.KeyboardFlags))
                      Success = True
                End Select
             Case &H1A%
@@ -186,6 +200,12 @@ Public Module InterruptHandlerModule
                End Select
             Case &H1C%
                Success = True
+            Case &H33%
+               Select Case AH
+                  Case &H0%
+                     CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=&H0%)
+                     Success = True
+               End Select
             Case Else
                Success = HandleMSDOSInterrupt(Number, AH, Flags)
          End Select
@@ -203,4 +223,16 @@ Public Module InterruptHandlerModule
 
       Return False
    End Function
+
+   'This procedure handles any pending hardware interrupts.
+   Public Sub ExecuteHardwareInterrupts()
+      Try
+         Do While CPU.HardwareInterrupts.Any
+            HandleInterrupt(Number:=CPU.HardwareInterrupts.First)
+            CPU.HardwareInterrupts.RemoveAt(0)
+         Loop
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
 End Module

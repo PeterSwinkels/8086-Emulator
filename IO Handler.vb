@@ -5,6 +5,7 @@ Option Infer Off
 Option Strict On
 
 Imports System
+Imports System.Convert
 Imports System.Environment
 
 'This module contains the default I/O handler.
@@ -74,14 +75,20 @@ Public Module IOHandlerModule
          Dim Value As Integer? = Nothing
 
          Select Case Port
-            Case IOPortsE.MDAStatus
-               Value = MCC.Status()
             Case IOPortsE.PITCounter0 To IOPortsE.PITCounter2
                Value = PIT.ReadCounter(DirectCast(Port And PIT_IO_PORT_MASK, PITClass.CountersE))
             Case IOPortsE.PITModeControl
                Value = &H0%
             Case IOPortsE.PPIPortB
                Value = PPI.PortB()
+            Case IOPortsE.MDA3B0
+               Value = If(MCCClass.IS_MDA, MCC.GET_SELECTED_REGISTER(), &HFF%)
+            Case IOPortsE.MDA3B1
+               Value = If(MCCClass.IS_MDA, MCC.Register(), &HFF%)
+            Case IOPortsE.MDAStatus
+               Value = If(MCCClass.IS_MDA, MCC.MDAStatus(), &HFF%)
+            Case IOPortsE.CGA3D0 To IOPortsE.CGAPresetLightPenLatch
+               Value = &HFF%
             Case IOPortsE.Reserved1 To IOPortsE.Reserved2, IOPortsE.Reserved3 To IOPortsE.Reserved4, IOPortsE.Reserved5 To IOPortsE.Reserved6, IOPortsE.Reserved7, IOPortsE.Reserved8 To IOPortsE.Reserved9, IOPortsE.Reserved10 To IOPortsE.Reserved11, IOPortsE.Reserved12 To IOPortsE.Reserved13, IOPortsE.Reserved14 To IOPortsE.Reserved15, IOPortsE.Reserved16 To IOPortsE.Reserved17, IOPortsE.Reserved18 To IOPortsE.Reserved19
                Value = &HFF%
          End Select
@@ -102,14 +109,36 @@ Public Module IOHandlerModule
          Dim Success As Boolean = True
 
          Select Case Port
-            Case IOPortsE.CGAColor
-               MCC.ColorSelect(Value)
             Case IOPortsE.PPIPortB
                PPI.PortB(Value)
             Case IOPortsE.PITCounter0 To IOPortsE.PITCounter2
                PIT.WriteCounter(DirectCast(Port And PIT_IO_PORT_MASK, PITClass.CountersE), NewValue:=CByte(Value))
             Case IOPortsE.PITModeControl
                PIT.ModeControl(NewValue:=Value)
+            Case IOPortsE.MDA3B0
+               If MCCClass.IS_MDA Then
+                  MCC.SelectRegister(DirectCast(Value, MCCClass.RegistersE))
+               Else
+                  Success = False
+               End If
+            Case IOPortsE.MDA3B1
+               If MCCClass.IS_MDA Then
+                  MCC.Register(NewValue:=ToByte(Value))
+               Else
+                  Success = False
+               End If
+            Case IOPortsE.MDAColor
+               If MCCClass.IS_MDA Then
+                  MCC.ColorSelect(Value)
+               Else
+                  Success = False
+               End If
+            Case IOPortsE.CGAColor
+               If MCCClass.IS_MDA Then
+                  Success = False
+               Else
+                  MCC.ColorSelect(Value)
+               End If
             Case IOPortsE.Reserved1 To IOPortsE.Reserved2, IOPortsE.Reserved3 To IOPortsE.Reserved4, IOPortsE.Reserved5 To IOPortsE.Reserved6, IOPortsE.Reserved7, IOPortsE.Reserved8 To IOPortsE.Reserved9, IOPortsE.Reserved10 To IOPortsE.Reserved11, IOPortsE.Reserved12 To IOPortsE.Reserved13, IOPortsE.Reserved14 To IOPortsE.Reserved15, IOPortsE.Reserved16 To IOPortsE.Reserved17, IOPortsE.Reserved18 To IOPortsE.Reserved19
                Success = True
             Case Else

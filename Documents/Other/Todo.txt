@@ -1,7 +1,8 @@
 8086 Emulator to do list.
 
 To do:
-1. Check whether simulated functions using a wait loop block the clock.
+1. Does the tracing fail when a simulated function uses a wait loop?
+
 ===
 Ideas:
 1. Add CGA character drawing. XOR on bit 7?
