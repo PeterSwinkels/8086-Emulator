@@ -1,8 +1,8 @@
 8086 Emulator to do list.
 
 To do:
-1. Does the tracing fail when a simulated function uses a wait loop?
-
+1. Fix the confusion between the terms:
+   File, Directory and FileSystemItem
 ===
 Ideas:
 1. Add CGA character drawing. XOR on bit 7?

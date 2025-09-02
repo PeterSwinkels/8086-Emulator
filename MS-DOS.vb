@@ -38,11 +38,11 @@ Public Module MSDOSModule
 
    'This enumeration lists addresses used inside a DTA block.
    Private Enum DTAE As Integer
-      Attribute = &H15%   'File attribute.
-      FileTime = &H16%    'File time.
-      FileDate = &H18%    'File date.
-      FileSize = &H1A%    'File size.
-      FileName = &H1E%    'Null terminated file name.
+      Attribute = &H15%             'File system item attribute.
+      FileSystemItemTime = &H16%    'File system item time.
+      FileSystemItemDate = &H18%    'File system item date.
+      FileSystemItemSize = &H1A%    'File system item size.
+      FileSystemItemName = &H1E%    'Null terminated file system item name.
    End Enum
 
    'This enumeration lists addresses used inside a FCB block.
@@ -57,7 +57,7 @@ Public Module MSDOSModule
       FileTime = &H14%      'File time.
    End Enum
 
-   'This enumeration lists the parsing control bits for int 21h, 29h.
+   'This enumeration lists the parsing control bits for file system item references.
    Private Enum ParsingControlBitsE As Integer
       IgnoreLeadingSeparators = &H1%   'Ignored leading separators.
       ModifyDrive = &H2%               'Modify drive.
@@ -73,6 +73,12 @@ Public Module MSDOSModule
       STDAUX   'Auxiliary.
       STDPRN   'Printer.
    End Enum
+
+   'This structure defines a file system item.
+   Private Structure FileSystemItemStr
+      Public Name As String      'Defines the file system item's name.
+      Public IsFile As Boolean   'Indicates whether or not the item is a file.
+   End Structure
 
    Public Const COMMAND_TAIL_MAXIMUM_LENGTH As Integer = &H7E%          'Defines the maximum length of a command tail in a PSP.
    Private Const BOOT_DRIVE As Integer = &H0%                           'Defines the boot drive.
@@ -107,7 +113,7 @@ Public Module MSDOSModule
    Private Const INT_20H As Integer = &H20CD%                           'Defines the INT 20h instruction.
    Private Const INVALID_CHARACTERS As String = "*/<>?[\]|. """         'Defines the characters that are invalid in an MS-DOS filename.
    Private Const LOWEST_ADDRESS As Integer = &H600%                     'Defines the lowest address that can be allocated.
-   Private Const MAXIMUM_FILE_NAME_LENGTH As Integer = 12               'Defines the maximum length allowed for a file name in MS-DOS
+   Private Const MAXIMUM_FILE_SYSTEM_ITEM_LENGTH As Integer = 12        'Defines the maximum length allowed for a file name in MS-DOS
    Private Const MAXIMUM_PATH_LENGTH As Integer = 64                    'Defines the maximum length allowed for a path in MS-DOS.
    Private Const MS_DOS As Integer = &HFF00%                            'Defines a value indicating that the operating system is MS-DOS.
    Private Const PSP_BYTES_AVAILABLE As Integer = &H6%                  'Defines the number of bytes available in a block of memory less the space used by the PSP.
@@ -123,14 +129,15 @@ Public Module MSDOSModule
    Private Const PSP_SIZE As Integer = &H100%                           'Defines a PSP's size.
    Private Const PSP_SSSP As Integer = &H2E%                            'Defines the SS:SP values in a PSP.
    Private Const VERSION As Integer = &H1606%                           'Defines the emulated MS-DOS version as 6.22.
+   Private Const VOLUME_ATTRIBUTE As Integer = &H8%                     'Defines the volume label attribute.
 
    Private ReadOnly DATE_TO_MSDOS_DATE As Func(Of Date, Integer) = Function([Date] As Date) [Date].Day Or ([Date].Month << &H5%) Or (([Date].Year - 1980) << &H9%)   'Converts the specified date to a value suitable for MS-DOS and returns the result.
-   Private ReadOnly ENVIRONMENT_SEGMENT As Integer = LOWEST_ADDRESS                                           'Defines the MS-DOS environment's segment.
-   Private ReadOnly ENVIRONMENT_TEXT As String = $"COMSPEC=C:\COMMAND.COM{ToChar(&H0%)}PATH={ToChar(&H0%)}"   'Defines the MS-DOS environment.
-   Private ReadOnly EXE_MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}                                               'Defines the signature of an MZ executable.
-   Private ReadOnly INT_21H_RETF() As Byte = {&HCD%, &H21%, &HCB%}                                            'Defines the INT 21h and RETF instructions.
-   Private ReadOnly LOWEST_FILE_HANDLE As Integer = STDFileHandlesE.STDPRN + &H1%                             'Defines the lowest possible file handle.
-   Private ReadOnly TIME_TO_MSDOS_TIME As Func(Of Date, Integer) = Function([Time] As Date) Time.Second Or (Time.Minute << &H5%) Or (Time.Hour << &HB%)   'Converts the specified time to a value suitable for MS-DOS and returns the result.
+   Private ReadOnly ENVIRONMENT_SEGMENT As Integer = LOWEST_ADDRESS                                                                                                  'Defines the MS-DOS environment's segment.
+   Private ReadOnly ENVIRONMENT_TEXT As String = $"COMSPEC=C:\COMMAND.COM{ToChar(&H0%)}PATH={ToChar(&H0%)}"                                                          'Defines the MS-DOS environment.
+   Private ReadOnly EXE_MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}                                                                                                      'Defines the signature of an MZ executable.
+   Private ReadOnly INT_21H_RETF() As Byte = {&HCD%, &H21%, &HCB%}                                                                                                   'Defines the INT 21h and RETF instructions.
+   Private ReadOnly LOWEST_FILE_HANDLE As Integer = STDFileHandlesE.STDPRN + &H1%                                                                                    'Defines the lowest possible file handle.
+   Private ReadOnly TIME_TO_MSDOS_TIME As Func(Of Date, Integer) = Function([Time] As Date) Time.Second Or (Time.Minute << &H5%) Or (Time.Hour << &HB%)              'Converts the specified time to a value suitable for MS-DOS and returns the result.
 
    Public CommandTail As String = ""                                   'Contains the command tail used in a new PSP.
    Private Allocations As New List(Of Tuple(Of Integer, Integer))      'Contains the memory allocations.
@@ -180,6 +187,32 @@ Public Module MSDOSModule
          End If
 
          Return AllocatedAddress
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return Nothing
+   End Function
+
+   'This procedure returns whether the specified attributes meet the specified selection criteria.
+   Private Function AttributesMatch(Attributes As Integer, Selection As Integer) As Boolean
+      Try
+         Dim IsDirectory As Boolean = ((Attributes And FileAttributes.Directory) > 0)
+         Dim IsHidden As Boolean = ((Attributes And FileAttributes.Hidden) > 0)
+         Dim IsReadOnly As Boolean = ((Attributes And FileAttributes.ReadOnly) > 0)
+         Dim IsSystem As Boolean = ((Attributes And FileAttributes.System) > 0)
+         Dim Match As Boolean = True
+         Dim SelectionHasDirectory As Boolean = ((Selection And FileAttributes.Directory) > 0)
+         Dim SelectionHasHidden As Boolean = ((Selection And FileAttributes.Hidden) > 0)
+         Dim SelectionHasReadOnly As Boolean = ((Selection And FileAttributes.ReadOnly) > 0)
+         Dim SelectionHasSystem As Boolean = ((Selection And FileAttributes.System) > 0)
+
+         If IsDirectory AndAlso Not SelectionHasDirectory Then Match = False
+         If IsHidden AndAlso Not SelectionHasHidden Then Match = False
+         If IsReadOnly AndAlso Not SelectionHasReadOnly Then Match = False
+         If IsSystem AndAlso Not SelectionHasSystem Then Match = False
+
+         Return Match
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -239,10 +272,10 @@ Public Module MSDOSModule
    'This procedure changes the current directory.
    Private Sub ChangeDirectory(Flags As Integer)
       Try
-         Dim FilePath As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+         Dim NewDirectory As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
 
          Try
-            Directory.SetCurrentDirectory(FilePath)
+            Directory.SetCurrentDirectory(NewDirectory)
             Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
          Catch MSDOSException As Exception
             CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
@@ -386,26 +419,37 @@ Public Module MSDOSModule
    'This procedure attempts to find files matching a given pattern.
    Private Sub FindFile(ByRef Flags As Integer, Optional IsFirst As Boolean = False)
       Try
-         Dim Attributes As New FileAttributes
-         Dim FileName As String = Nothing
-         Dim FilePattern As String = Nothing
-         Static Files As New Stack(Of String)
+         Dim Attributes As New Integer
+         Dim FileSystemItem As New FileSystemItemStr
+         Dim SearchPattern As String = Nothing
+         Static FileSystemItems As New Stack(Of FileSystemItemStr)
 
          Try
             If IsFirst Then
-               FilePattern = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
-               Attributes = DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.CX), FileAttributes)
-               Files = New Stack(Of String)(From Item In Directory.GetFiles(CurrentDirectory(), FilePattern) Where (File.GetAttributes(Item) And Attributes) = Attributes Select Path.GetFileName(Item))
-               WriteDTA(Files.Pop)
+               SearchPattern = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+               Attributes = CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX))
+               If Attributes = VOLUME_ATTRIBUTE Then
+                  FileSystemItems = New Stack(Of FileSystemItemStr)({New FileSystemItemStr With {.Name = New DriveInfo(CurrentDirectory).VolumeLabel, .IsFile = False}})
+               Else
+                  FileSystemItems = New Stack(Of FileSystemItemStr)(From Item In Directory.GetFiles(CurrentDirectory(), Path.GetFileName(SearchPattern)) Select New FileSystemItemStr With {.Name = Item, .IsFile = True})
+                  For Each Item As String In Directory.GetDirectories(CurrentDirectory(), Path.GetFileName(SearchPattern))
+                     FileSystemItems.Push(New FileSystemItemStr With {.Name = Item, .IsFile = False})
+                  Next Item
+
+                  FileSystemItems = New Stack(Of FileSystemItemStr)(From Item In FileSystemItems Where AttributesMatch(File.GetAttributes(Item.Name), Attributes))
+               End If
+
+               FileSystemItem = FileSystemItems.Pop()
+               WriteDTA(FileSystemItem.Name, Not FileSystemItem.IsFile)
+
                Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
             Else
-               If Files.Count = 0 Then
+               If FileSystemItems.Count = 0 Then
                   CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=ERROR_FILE_NOT_FOUND)
                   Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
                Else
-                  FileName = Files.Pop()
-                  If FileName.Length > MAXIMUM_FILE_NAME_LENGTH Then FileName = FileName.Substring(0, MAXIMUM_FILE_NAME_LENGTH - 1)
-                  WriteDTA(FileName)
+                  FileSystemItem = FileSystemItems.Pop()
+                  WriteDTA(FileSystemItem.Name, Not FileSystemItem.IsFile)
                End If
             End If
          Catch MSDOSException As Exception
@@ -808,7 +852,7 @@ Public Module MSDOSModule
                      SeekFile(Flags)
                      Success = True
                   Case &H43%
-                     ManageFileAttributes(Flags)
+                     ManageFileSystemItemAttributes(Flags)
                      Success = True
                   Case &H44%
                      Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
@@ -1063,18 +1107,18 @@ Public Module MSDOSModule
       Return New List(Of Byte)
    End Function
 
-   'This procedure gets/sets a file's attributes.
-   Private Sub ManageFileAttributes(ByRef Flags As Integer)
+   'This procedure gets/sets a file system item's attributes.
+   Private Sub ManageFileSystemItemAttributes(ByRef Flags As Integer)
       Try
-         Dim FileName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+         Dim FileSystemItemName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
 
          Try
             Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
                Case &H0%
-                  CPU.Registers(CPU8086Class.Registers16BitE.CX, File.GetAttributes(FileName))
+                  CPU.Registers(CPU8086Class.Registers16BitE.CX, File.GetAttributes(FileSystemItemName))
                   Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
                Case &H1%
-                  File.SetAttributes(FileName, DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.CX), FileAttributes))
+                  File.SetAttributes(FileSystemItemName, DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.CX), FileAttributes))
                   Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
             End Select
          Catch MSDOSException As Exception
@@ -1310,18 +1354,21 @@ Public Module MSDOSModule
       End Try
    End Sub
 
-   'This procedure writes information for the specified file to the DTA.
-   Private Sub WriteDTA(FilePath As String)
+   'This procedure writes information for the specified file/directory to the DTA.
+   Private Sub WriteDTA(FilePath As String, IsDirectory As Boolean)
       Try
-         Dim FileSize As Long = New FileInfo(FilePath).Length
+         Dim FileSize As Long = If(IsDirectory, Nothing, New FileInfo(FilePath).Length)
+         Dim ItemName As String = Path.GetFileName(FilePath)
          Dim Offset As Integer = ((DTA And &HFFFF0000%) >> &HC%) + (DTA And &HFFFF%)
 
+         If ItemName.Length > MAXIMUM_FILE_SYSTEM_ITEM_LENGTH Then ItemName = ItemName.Substring(0, MAXIMUM_FILE_SYSTEM_ITEM_LENGTH - 1)
+
          CPU.Memory(Offset + DTAE.Attribute) = ToByte(File.GetAttributes(FilePath))
-         CPU.PutWord(Offset + DTAE.FileTime, TIME_TO_MSDOS_TIME(File.GetLastWriteTime(FilePath)))
-         CPU.PutWord(Offset + DTAE.FileDate, DATE_TO_MSDOS_DATE(File.GetLastWriteTime(FilePath)))
-         CPU.PutWord(Offset + DTAE.FileSize, CInt(FileSize And &HFFFF%))
-         CPU.PutWord(Offset + DTAE.FileSize + &H2%, CInt(FileSize) >> &H10%)
-         WriteStringToMemory($"{Path.GetFileName(FilePath)}{ToChar(&H0%)}", Offset + DTAE.FileName)
+         CPU.PutWord(Offset + DTAE.FileSystemItemTime, TIME_TO_MSDOS_TIME(File.GetLastWriteTime(FilePath)))
+         CPU.PutWord(Offset + DTAE.FileSystemItemDate, DATE_TO_MSDOS_DATE(File.GetLastWriteTime(FilePath)))
+         CPU.PutWord(Offset + DTAE.FileSystemItemSize, CInt(FileSize And &HFFFF%))
+         CPU.PutWord(Offset + DTAE.FileSystemItemSize + &H2%, CInt(FileSize) >> &H10%)
+         WriteStringToMemory($"{Path.GetFileName(ItemName)}{ToChar(&H0%)}", Offset + DTAE.FileSystemItemName)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

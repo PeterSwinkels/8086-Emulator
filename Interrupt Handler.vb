@@ -17,8 +17,20 @@ Public Module InterruptHandlerModule
    Private Const VIDEO_MODE_MASK As Byte = &H7F%     'Defines the bits indicating a video mode.
    Private Const ZERO_FLAG_INDEX As Integer = &H6%   'Defines the zero flag's bit index.
 
+   'This procedure handles any pending hardware interrupts.
+   Public Sub ExecuteHardwareInterrupts()
+      Try
+         Do While CPU.HardwareInterrupts.Any
+            HandleInterrupt(Number:=CPU.HardwareInterrupts.First,, IRET:=False)
+            CPU.HardwareInterrupts.RemoveAt(0)
+         Loop
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
    'This procedure handles the specified interrupt and returns whether or not is succeeded.
-   Public Function HandleInterrupt(Number As Integer, Optional AH As Integer = Nothing) As Boolean
+   Public Function HandleInterrupt(Number As Integer, Optional AH As Integer = Nothing, Optional IRET As Boolean = True) As Boolean
       Try
          Dim Address As New Integer
          Dim Attribute As New Byte
@@ -210,9 +222,10 @@ Public Module InterruptHandlerModule
                Success = HandleMSDOSInterrupt(Number, AH, Flags)
          End Select
 
-         CPU.PutWord((CInt(CPU.Registers((CPU8086Class.SegmentRegistersE.SS))) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)) + &H4%, Flags)
-
-         If Success Then CPU.ExecuteOpcode(CPU8086Class.OpcodesE.IRET)
+         If IRET Then
+            CPU.PutWord((CInt(CPU.Registers((CPU8086Class.SegmentRegistersE.SS))) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)) + &H4%, Flags)
+            If Success Then CPU.ExecuteOpcode(CPU8086Class.OpcodesE.IRET)
+         End If
 
          CPU.Tracing = Tracing
 
@@ -223,16 +236,4 @@ Public Module InterruptHandlerModule
 
       Return False
    End Function
-
-   'This procedure handles any pending hardware interrupts.
-   Public Sub ExecuteHardwareInterrupts()
-      Try
-         Do While CPU.HardwareInterrupts.Any
-            HandleInterrupt(Number:=CPU.HardwareInterrupts.First)
-            CPU.HardwareInterrupts.RemoveAt(0)
-         Loop
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
-   End Sub
 End Module
