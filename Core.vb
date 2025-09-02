@@ -666,7 +666,6 @@ Public Module CoreModule
                         Output.AppendText($"{GetRegisterValues()}{NewLine}")
                      Case "RESET"
                         LastBIOSKeyCode(, Clear:=True)
-                        ResetMSDOS()
 
                         CPU.ClockToken.Cancel()
                         CPU = New CPU8086Class
