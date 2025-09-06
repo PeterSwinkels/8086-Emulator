@@ -1570,6 +1570,26 @@ Public Class CPU8086Class
 
       If Operand < &HC0% Then OperandPair.Operand2 = MemoryOperand Else OperandPair.Operand2 = DirectCast(Register2, Registers16BitE)
 
+      Select Case DirectCast(OperandPair.Operand2, MemoryOperandsE)
+         Case MemoryOperandsE.BX_SI_BYTE,
+              MemoryOperandsE.BX_DI_BYTE,
+              MemoryOperandsE.BP_SI_BYTE,
+              MemoryOperandsE.BP_DI_BYTE,
+              MemoryOperandsE.SI_BYTE,
+              MemoryOperandsE.DI_BYTE,
+              MemoryOperandsE.BP_BYTE,
+              MemoryOperandsE.BX_BYTE,
+              MemoryOperandsE.BX_SI_WORD,
+              MemoryOperandsE.BX_DI_WORD,
+              MemoryOperandsE.BP_SI_WORD,
+              MemoryOperandsE.BP_DI_WORD,
+              MemoryOperandsE.SI_WORD,
+              MemoryOperandsE.DI_WORD,
+              MemoryOperandsE.BP_WORD,
+              MemoryOperandsE.BX_WORD
+            OperandPair.Displacement = GetOperandDisplacement(MemoryOperand, OperandPair.DisplacementIs8Bit)
+      End Select
+
       Return OperandPair
    End Function
 
