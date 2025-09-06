@@ -83,7 +83,7 @@ Public Module IOHandlerModule
                Value = PPI.PortB()
             Case IOPortsE.MDA3B0
                Value = If(MCCClass.IS_MDA, MCC.GET_SELECTED_REGISTER(), &HFF%)
-            Case IOPortsE.MDA3B1
+            Case IOPortsE.MDA3B1, IOPortsE.MDAData
                Value = If(MCCClass.IS_MDA, MCC.Register(), &HFF%)
             Case IOPortsE.MDAStatus
                Value = If(MCCClass.IS_MDA, MCC.MDAStatus(), &HFF%)
@@ -115,13 +115,13 @@ Public Module IOHandlerModule
                PIT.WriteCounter(DirectCast(Port And PIT_IO_PORT_MASK, PITClass.CountersE), NewValue:=CByte(Value))
             Case IOPortsE.PITModeControl
                PIT.ModeControl(NewValue:=Value)
-            Case IOPortsE.MDA3B0
+            Case IOPortsE.MDA3B0, IOPortsE.MDAIndex
                If MCCClass.IS_MDA Then
                   MCC.SelectRegister(DirectCast(Value, MCCClass.RegistersE))
                Else
                   Success = False
                End If
-            Case IOPortsE.MDA3B1
+            Case IOPortsE.MDA3B1, IOPortsE.MDAData
                If MCCClass.IS_MDA Then
                   MCC.Register(NewValue:=ToByte(Value))
                Else
@@ -131,6 +131,14 @@ Public Module IOHandlerModule
                If MCCClass.IS_MDA Then
                   MCC.ColorSelect(Value)
                Else
+                  Success = False
+               End If
+            Case IOPortsE.CGAIndex
+               If Not MCCClass.IS_MDA Then
+                  Success = False
+               End If
+            Case IOPortsE.CGAData
+               If Not MCCClass.IS_MDA Then
                   Success = False
                End If
             Case IOPortsE.CGAColor

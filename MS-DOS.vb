@@ -145,7 +145,7 @@ Public Module MSDOSModule
    Private CTRLBreakCheck As Boolean = False                           'Contains the control-break checking status.
    Private DTA As New Integer                                          'Contains the Disk Transfer Address.
    Private ExtendedCTRLBreakCheck As Boolean = False                   'Contains the extended control-break checking status.
-   Private MSDOSCurrentDirectory As Queue(Of String)                   'Contains a list made up of the current directory and its parent directories.
+   Private MSDOSCurrentDirectory As List(Of String)                    'Contains a list made up of the current directory and its parent directories.
    Private OpenFiles As New List(Of Tuple(Of FileStream, Integer))     'Contains the open file streams and their handles.
    Private PrinterBuffer As New StringBuilder                          'Contains the printer buffer.
    Private ProcessID As New Integer                                    'Contains a process's id.
@@ -275,20 +275,25 @@ Public Module MSDOSModule
    'This procedure changes the current directory.
    Private Sub ChangeDirectory(Flags As Integer)
       Try
-         Dim NewDirectory As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+         Dim Items As New List(Of FileSystemItemStr)(If(FileSystemItems.Any, FileSystemItems, GetFileSystemItems(CurrentDirectory(), "*.*")))
+         Dim NewDirectory As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))).Trim({ToChar(&H0%)})
+
+         If NewDirectory.StartsWith(".\") Then NewDirectory = NewDirectory.Substring(2)
 
          If Not NewDirectory = "." Then
             If Not (NewDirectory = "." OrElse NewDirectory = "..") Then
-               NewDirectory = Path.GetFileName(GetLongName(FileSystemItems, GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))))
+               NewDirectory = Path.GetFileName(GetLongName(Items, NewDirectory))
             End If
 
             Try
                Directory.SetCurrentDirectory(NewDirectory)
+
                If NewDirectory = ".." Then
-                  MSDOSCurrentDirectory.Dequeue()
+                  MSDOSCurrentDirectory.RemoveAt(MSDOSCurrentDirectory.Count - 1)
                Else
-                  MSDOSCurrentDirectory.Enqueue(NewDirectory)
+                  MSDOSCurrentDirectory.Add(NewDirectory.ToUpper())
                End If
+
                Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
             Catch MSDOSException As Exception
                CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
@@ -330,7 +335,7 @@ Public Module MSDOSModule
    'This procedure creates a file.
    Private Sub CreateFile(ByRef Flags As Integer)
       Try
-         Dim FileName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+         Dim FileName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))).Trim({ToChar(&H0%)})
          Dim FileStreamO As FileStream = Nothing
          Dim NextHandle As New Integer?
 
@@ -382,7 +387,7 @@ Public Module MSDOSModule
    Private Sub DeleteFile(ByRef Flags As Integer)
       Try
          Try
-            File.Delete(GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))))
+            File.Delete(GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))).Trim({ToChar(&H0%)}))
             Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
          Catch MSDOSException As Exception
             CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
@@ -396,7 +401,7 @@ Public Module MSDOSModule
    'This procedure loads and executes a program.
    Private Sub ExecuteProgram(ByRef Flags As Integer)
       Try
-         Dim FileName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+         Dim FileName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))).Trim({ToChar(&H0%)})
          Dim Result As New Integer?
          Dim Size As Integer = &HFFFF%
 
@@ -435,7 +440,7 @@ Public Module MSDOSModule
       Try
          Dim Character As New Char
          Dim SI As Integer = CInt(CPU.Registers(CPU8086Class.Registers16BitE.SI))
-         Dim FilePattern As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), SI).Trim()
+         Dim FilePattern As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), SI).Trim({ToChar(&H0%)}).Trim()
          Dim FCBAddress As Integer = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.ES)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.DI))
          Dim FCBDrive As String = Nothing
          Dim FCBDriveValid As Boolean = True
@@ -514,20 +519,10 @@ Public Module MSDOSModule
 
          Try
             If IsFirst Then
-               SearchPattern = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+               SearchPattern = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))).Trim({ToChar(&H0%)})
                Attributes = CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX))
-               If Attributes = VOLUME_ATTRIBUTE Then
-                  FileSystemItems = New List(Of FileSystemItemStr)({New FileSystemItemStr With {.Name = New DriveInfo(CurrentDirectory).VolumeLabel, .ShortName = "", .IsFile = False}})
-               Else
-                  FileSystemItems = New List(Of FileSystemItemStr)(From Item In Directory.GetFiles(CurrentDirectory(), Path.GetFileName(SearchPattern)) Select New FileSystemItemStr With {.Name = Item, .IsFile = True})
-                  For Each Item As String In Directory.GetDirectories(CurrentDirectory(), Path.GetFileName(SearchPattern))
-                     FileSystemItems.Add(New FileSystemItemStr With {.Name = Item, .ShortName = "", .IsFile = False})
-                  Next Item
 
-                  FileSystemItems = New List(Of FileSystemItemStr)(From Item In FileSystemItems Where AttributesMatch(File.GetAttributes(Item.Name), Attributes))
-                  FileSystemItems = GetShortNames(FileSystemItems)
-                  FileSystemItems.Reverse()
-               End If
+               FileSystemItems = GetFileSystemItems(CurrentDirectory(), SearchPattern, Attributes)
 
                Index = 0
                FileSystemItem = FileSystemItems(Index)
@@ -578,7 +573,7 @@ Public Module MSDOSModule
 
          Try
             Directory.SetCurrentDirectory($"{Drive}:")
-            WriteStringToMemory($"{String.Join("\"c, MSDOSCurrentDirectory)}{ToChar(&H0%)}", (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.SI)))
+            WriteStringToMemory($"{String.Join("\"c, MSDOSCurrentDirectory)}{ToChar(&H0%)}".ToUpper(), (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.SI)))
             Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
          Catch MSDOSException As Exception
             CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
@@ -642,6 +637,36 @@ Public Module MSDOSModule
          DisplayException(ExceptionO.Message)
       End Try
    End Sub
+
+   'This procedure returns a list of file system items in the specified directory that match the specified search pattern and attributes.
+   Private Function GetFileSystemItems(SearchPath As String, SearchPattern As String, Optional Attributes As Integer? = Nothing) As List(Of FileSystemItemStr)
+      Try
+         Dim NewFileSystemItems As List(Of FileSystemItemStr) = Nothing
+
+         If Attributes IsNot Nothing AndAlso Attributes.Value = VOLUME_ATTRIBUTE Then
+            FileSystemItems = New List(Of FileSystemItemStr)({New FileSystemItemStr With {.Name = New DriveInfo(CurrentDirectory).VolumeLabel, .ShortName = "", .IsFile = False}})
+         Else
+            NewFileSystemItems = New List(Of FileSystemItemStr)(From Item In Directory.GetFiles(SearchPath, Path.GetFileName(SearchPattern)) Select New FileSystemItemStr With {.Name = Item, .IsFile = True})
+
+            For Each Item As String In Directory.GetDirectories(SearchPath, Path.GetFileName(SearchPattern))
+               NewFileSystemItems.Add(New FileSystemItemStr With {.Name = Item, .ShortName = "", .IsFile = False})
+            Next Item
+
+            If Attributes IsNot Nothing Then
+               NewFileSystemItems = New List(Of FileSystemItemStr)(From Item In NewFileSystemItems Where AttributesMatch(File.GetAttributes(Item.Name), Attributes.Value))
+            End If
+
+            NewFileSystemItems = GetShortNames(NewFileSystemItems)
+            NewFileSystemItems.Reverse()
+         End If
+
+         Return NewFileSystemItems
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return New List(Of FileSystemItemStr)
+   End Function
 
    'This procedure returns the MS-DOS error code for the specified exception.
    Private Function GetMSDOSErrorCode(MSDOSException As Exception) As Integer
@@ -1082,7 +1107,7 @@ Public Module MSDOSModule
          SwitchCharacter = "-"c
          WriteStringToMemory(ENVIRONMENT_TEXT, ENVIRONMENT_SEGMENT << &H4%)
 
-         MSDOSCurrentDirectory = New Queue(Of String)
+         MSDOSCurrentDirectory = New List(Of String)
 
          If CurrentPath.Contains(":"c) Then CurrentPath = CurrentPath.Substring(CurrentPath.IndexOf("\"c))
          If Not CurrentPath.EndsWith("\"c) Then CurrentPath = $"{CurrentPath}\"
@@ -1091,17 +1116,9 @@ Public Module MSDOSModule
 
          For Each Parent As String In CurrentPath.Split("\"c)
             If Not Parent = Nothing Then
-               Items = New List(Of FileSystemItemStr)(From Item In Directory.GetFiles(CurrentDirectory(), Path.GetFileName("*.*")) Select New FileSystemItemStr With {.Name = Item, .IsFile = True})
-               For Each Item As String In Directory.GetDirectories(CurrentDirectory(), Path.GetFileName("*.*"))
-                  Items.Add(New FileSystemItemStr With {.Name = Item, .ShortName = "", .IsFile = False})
-               Next Item
-
-               Items = GetShortNames(Items)
-               Items.Reverse()
-
+               Items = GetFileSystemItems(CurrentDirectory(), "*.*")
                Directory.SetCurrentDirectory($".\{Parent}")
-
-               MSDOSCurrentDirectory.Enqueue(GetShortName(Items, CurrentDirectory()))
+               MSDOSCurrentDirectory.Add(GetShortName(Items, CurrentDirectory()))
             End If
          Next Parent
       Catch ExceptionO As Exception
@@ -1230,7 +1247,7 @@ Public Module MSDOSModule
    'This procedure gets/sets a file system item's attributes.
    Private Sub ManageFileSystemItemAttributes(ByRef Flags As Integer)
       Try
-         Dim FileSystemItemName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+         Dim FileSystemItemName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))).Trim({ToChar(&H0%)})
 
          Try
             Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
@@ -1283,7 +1300,7 @@ Public Module MSDOSModule
    Private Sub OpenFile(ByRef Flags As Integer)
       Try
          Dim FileAccessO As New FileAccess
-         Dim FileName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+         Dim FileName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))).Trim({ToChar(&H0%)})
          Dim FileStreamO As FileStream = Nothing
          Dim NextHandle As New Integer?
 

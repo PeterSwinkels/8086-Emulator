@@ -24,8 +24,7 @@ Public Module InterruptHandlerModule
             HandleInterrupt(Number:=CPU.HardwareInterrupts.First,, IRET:=False)
             CPU.HardwareInterrupts.RemoveAt(0)
          Loop
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
+      Catch
       End Try
    End Sub
 
@@ -150,6 +149,11 @@ Public Module InterruptHandlerModule
                      CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=VideoMode)
                      CPU.Registers(CPU8086Class.SubRegisters8BitE.BH, NewValue:=CPU.Memory(AddressesE.VideoPage))
                      Success = True
+                  Case &H1A%
+                     Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
+                        Case VideoModesE.Text80x25Mono
+                           Success = True
+                     End Select
                   Case &H10%
                      Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
                         Case VideoModesE.Text80x25Mono
