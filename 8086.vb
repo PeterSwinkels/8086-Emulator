@@ -875,7 +875,6 @@ Public Class CPU8086Class
                            LargeValue = (CLng(Registers(Registers16BitE.DX)) << &H10%) Or CLng(Registers(Registers16BitE.AX))
                            If .Value1 > &H7FFF% Then .Value1 -= &H10000%
                            .NewValue = CInt(Truncate(LargeValue / .Value1))
-
                            If .NewValue < Short.MinValue OrElse .NewValue > Short.MaxValue Then
                               ExecuteInterrupt(OpcodesE.INT, DIVIDE_BY_ZERO)
                            Else
@@ -952,6 +951,7 @@ Public Class CPU8086Class
             Operand = GetByteCSIP()
             Operation = (Operand And &H3F%) >> &H3%
             OperandPair = GetValues(GetOperandPair(CByte(Opcode Xor &H6%), CByte(Operand)))
+
             With OperandPair
                If Operand < &HC0% Then
                   Select Case DirectCast(CByte(Operation), OperationsFEFF00_FEFFBFE)
@@ -1122,7 +1122,7 @@ Public Class CPU8086Class
                End Select
             End With
          Case OpcodesE.CBW
-            Registers(Registers16BitE.AX, ConvertWidening(CInt(Registers(SubRegisters8BitE.AL)), Is8Bit:=True))
+            Registers(SubRegisters8BitE.AH, NewValue:=If(CInt(Registers(SubRegisters8BitE.AL)) >= &H80%, &HFF%, &H0%))
          Case OpcodesE.CLC, OpcodesE.STC
             Registers(FlagRegistersE.CF, NewValue:=CBool(Opcode And &H1%))
          Case OpcodesE.CLD, OpcodesE.STD
@@ -1134,9 +1134,7 @@ Public Class CPU8086Class
          Case OpcodesE.CS, OpcodesE.DS, OpcodesE.ES, OpcodesE.SS
             SegmentOverride(NewOverride:=DirectCast((CInt(Opcode) >> &H3%) And &H3%, SegmentRegistersE))
          Case OpcodesE.CWD
-            NewValue = ConvertWidening(CInt(Registers(Registers16BitE.AX)), Is8Bit:=False)
-            Registers(Registers16BitE.AX, NewValue:=NewValue)
-            Registers(Registers16BitE.DX, NewValue:=NewValue >> &H8%)
+            Registers(Registers16BitE.DX, NewValue:=If(CInt(Registers(Registers16BitE.AX)) >= &H8000%, &HFFFF%, &H0%))
          Case OpcodesE.DAA
             NewValue = CInt(Registers(SubRegisters8BitE.AL))
             LowOctet = NewValue And &HF%

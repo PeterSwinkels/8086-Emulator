@@ -79,16 +79,16 @@ Public Module BIOSModule
    Public Const VGA_320_X_200_BYTES_PER_ROW As Integer = &H140%              'Defines the number of bytes per row used by 320x200 VGA mode 
    Public Const VGA_320_X_200_LINE_COUNT As Integer = &H19%                  'Defines the number of lines used by 320x200 VGA mode 
    Public Const VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE As Integer = &H8%    'Defines the number of per character side used by 320x200 VGA mode 
-
-   Private Const SYSTEM_TIMER_TICK As Integer = &H1C%                         'Defines system clock tick interrupt number.
+   Private Const SYSTEM_TIMER_TICK As Integer = &H1C%                         'Defines the system clock tick interrupt number.
+   Private Const TICKS_PER_SECOND As Double = 18.2064814814815                'Defines the number of clock ticks per second.
 
    Public ReadOnly BACKGROUND_COLORS() As Color = {Color.Black, Color.DarkBlue, Color.DarkGreen, Color.DarkCyan, Color.DarkRed, Color.Purple, Color.Brown, Color.White, Color.Gray, Color.Blue, Color.Green, Color.Cyan, Color.Red, Color.Pink, Color.Yellow, Color.White}   'Contains the background colors.
    Public ReadOnly PALETTE0() As Color = {Nothing, Color.DarkGreen, Color.DarkRed, Color.Brown}                                                                                                                                                                              'Contains palette #0 colors.
    Public ReadOnly PALETTE1() As Color = {Nothing, Color.DarkCyan, Color.Purple, Color.White}                                                                                                                                                                                'Contains palette #1 colors.
 
-   Public BackgroundColor As Color = Color.Black   'Contains the current background color.
-   Public ClockCounter As Integer = &H0%           'Contains the system clock counter.
-   Public Palette() As Color = Nothing             'Contains the current palette.
+   Public BackgroundColor As Color = Color.Black                                                   'Contains the current background color.
+   Public ClockCounter As Integer = CInt(DateTime.Now.TimeOfDay.TotalSeconds * TICKS_PER_SECOND)   'Contains the system clock counter.
+   Public Palette() As Color = Nothing                                                             'Contains the current palette.
 
    'This procedure loads the BIOS into memory.
    Public Sub LoadBIOS()
@@ -188,7 +188,7 @@ Public Module BIOSModule
       Try
          If ClockCounter = MAXIMUM_CLOCK_VALUE Then
             ClockCounter = &H0%
-            CPU.Memory(AddressesE.ClockRollover) = &H0%
+            CPU.Memory(AddressesE.ClockRollover) = &H1%
          Else
             ClockCounter += &H1%
             If ClockCounter = MAXIMUM_CLOCK_VALUE Then CPU.Memory(AddressesE.ClockRollover) = &HFF%

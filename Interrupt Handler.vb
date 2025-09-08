@@ -210,6 +210,7 @@ Public Module InterruptHandlerModule
             Case &H1A%
                Select Case AH
                   Case &H0%
+                     CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=CPU.Memory(AddressesE.ClockRollover))
                      CPU.Registers(CPU8086Class.Registers16BitE.CX, NewValue:=CPU.GET_WORD(AddressesE.Clock + &H2%))
                      CPU.Registers(CPU8086Class.Registers16BitE.DX, NewValue:=CPU.GET_WORD(AddressesE.Clock))
                      Success = True

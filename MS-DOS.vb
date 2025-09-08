@@ -108,17 +108,15 @@ Public Module MSDOSModule
    Private Const EXE_INITIAL_SS As Integer = &HE%                       'Defines where an executable's initial stack segment is stored.
    Private Const EXE_RELOCATION_ITEM_COUNT As Integer = &H6%            'Defines where an executable's number of relocation items is stored.
    Private Const EXE_RELOCATION_ITEM_TABLE As Integer = &H18%           'Defines where an executable's number of relocation item table offset is stored.
-   Private Const FCB_DEFAULT_RECORD_SIZE As Integer = &H80%             'Defines the default record size in an FCB.
    Private Const FILE_ACCESS_RW_MASK As Integer = &H3%                  'Defines the read/write bits for file access.
    Private Const HIGHEST_ADDRESS As Integer = &HA0000%                  'Defines the highest address that can be allocated.
    Private Const INT_20H As Integer = &H20CD%                           'Defines the INT 20h instruction.
    Private Const INVALID_CHARACTERS As String = "*/<>?[\]|. """         'Defines the characters that are invalid in an MS-DOS filename.
    Private Const LOWEST_ADDRESS As Integer = &H600%                     'Defines the lowest address that can be allocated.
-   Private Const MAXIMUM_PATH_LENGTH As Integer = 64                    'Defines the maximum length allowed for a path in MS-DOS.
    Private Const MS_DOS As Integer = &HFF00%                            'Defines a value indicating that the operating system is MS-DOS.
    Private Const PSP_BYTES_AVAILABLE As Integer = &H6%                  'Defines the number of bytes available in a block of memory less the space used by the PSP.
    Private Const PSP_COMMAND_TAIL As Integer = &H80%                    'Defines the offset of the command tail in a PSP.
-   Private Const PSP_ENVIRONMENT_SEGMENT As Integer = &H2C%             'Defines the segment of the MS-DOS environment in a PSP.
+   Private Const PSP_COMMAND_TAIL_SEGMENT As Integer = &H2C%            'Defines the segment of the MS-DOS environment in a PSP.
    Private Const PSP_INT_20H As Integer = &H0%                          'Defines a call to the INT 20h handler in a PSP.
    Private Const PSP_INT_21H As Integer = &H50%                         'Defines a call to the INT 21h handler in a PSP.
    Private Const PSP_INT_22H As Integer = &HA%                          'Defines the offset of the INT 22h handler in a PSP.
@@ -148,7 +146,7 @@ Public Module MSDOSModule
    Private MSDOSCurrentDirectory As List(Of String)                    'Contains a list made up of the current directory and its parent directories.
    Private OpenFiles As New List(Of Tuple(Of FileStream, Integer))     'Contains the open file streams and their handles.
    Private PrinterBuffer As New StringBuilder                          'Contains the printer buffer.
-   Private ProcessID As New Integer                                    'Contains a process's id.
+   Private ProcessIDs As New List(Of Integer)                          'Contains the list process's ids.
    Private ProcessSegments As New Stack(Of Integer)                    'Contains the segments allocated to processes.
    Private SwitchCharacter As Char = "-"c                              'Contains the switch character.
 
@@ -372,7 +370,7 @@ Public Module MSDOSModule
          CPU.PutWord(Address + PSP_INT_24H + &H2%, CPU.GET_WORD(&H90%))
          CPU.PutWord(Address + PSP_SSSP, CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)))
          CPU.PutWord(Address + PSP_SSSP + &H2%, CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.SS)))
-         CPU.PutWord(Address + PSP_ENVIRONMENT_SEGMENT, ENVIRONMENT_SEGMENT)
+         CPU.PutWord(Address + PSP_COMMAND_TAIL_SEGMENT, (Address >> &H4%))
          CPU.PutWord(Address + PSP_PREVIOUS_PSP, &HFFFF%)
          CPU.PutWord(Address + PSP_PREVIOUS_PSP + &H2%, &HFFFF%)
          WriteBytesToMemory(INT_21H_RETF, Address + PSP_INT_21H)
@@ -1018,10 +1016,10 @@ Public Module MSDOSModule
                      FindFile(Flags)
                      Success = True
                   Case &H50%
-                     ProcessID = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX))
+                     ProcessIDs(ProcessIDs.Count - 1) = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX))
                      Success = True
-                  Case &H51%
-                     CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=ProcessID)
+                  Case &H51%, &H62%
+                     CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=ProcessIDs.Last)
                      Success = True
                   Case &H57%
                      Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
@@ -1102,7 +1100,7 @@ Public Module MSDOSModule
          DTA = New Integer
          OpenFiles.Clear()
          PrinterBuffer.Clear()
-         ProcessID = Nothing
+         ProcessIDs = New List(Of Integer)
          ProcessSegments.Clear()
          SwitchCharacter = "-"c
          WriteStringToMemory(ENVIRONMENT_TEXT, ENVIRONMENT_SEGMENT << &H4%)
@@ -1136,6 +1134,9 @@ Public Module MSDOSModule
          If Executable.Count >= &H2% AndAlso Executable.GetRange(&H0%, EXE_MZ_SIGNATURE.Length).SequenceEqual(EXE_MZ_SIGNATURE) Then
             Executable = LoadMZEXE(Executable, FileName, LoadAddress)
             Success = Executable.Any
+            If Success Then
+               ProcessIDs.Add(LoadAddress >> &H4%)
+            End If
          Else
             SyncLock Synchronizer
                CPUEvent.Append($"Loading the compact binary executable ""{FileName}"" at address {LoadAddress:X8}.{NewLine}")
@@ -1168,6 +1169,10 @@ Public Module MSDOSModule
             End SyncLock
 
             Success = False
+         End If
+
+         If Success Then
+            ProcessIDs.Add(LoadAddress >> &H4%)
          End If
 
          Return Success
@@ -1438,9 +1443,17 @@ Public Module MSDOSModule
    'This procedure terminates the currently running MS-DOS program.
    Private Sub TerminateProgram(Message As String, Optional IsResident As Boolean = False)
       Try
-         CPU.ClockToken.Cancel()
+         If ProcessIDs.Count > 0 Then
+            ProcessIDs.RemoveAt(ProcessIDs.Count - 1)
+         End If
 
-         If Not IsResident Then FreeAllocatedMemory(ProcessSegments.Pop())
+         If ProcessIDs.Count = 0 Then
+            CPU.ClockToken.Cancel()
+         End If
+
+         If Not IsResident Then
+            FreeAllocatedMemory(ProcessSegments.Pop())
+         End If
 
          SyncLock Synchronizer
             CPUEvent.Append(Message)
