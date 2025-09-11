@@ -45,7 +45,7 @@ Public Module BIOSModule
       CursorPositions = &H450%          'Cursor positions.
       CursorScanLines = &H460%          'Cursor scan line start/end.
       EquipmentFlags = &H410%           'Equipment flags.
-      KeyboardFlags = &H417%            'Keyboar flags.
+      KeyboardFlags = &H417%            'Keyboard flags.
       MemorySize = &H413%               'Memory size.
       Text80x25MonoPage0 = &HB0000%     '80x25 monochrome text video buffer.
       VGA320x200 = &HA0000%             '320x200 VGA video buffer.
@@ -86,9 +86,9 @@ Public Module BIOSModule
    Public ReadOnly PALETTE0() As Color = {Nothing, Color.DarkGreen, Color.DarkRed, Color.Brown}                                                                                                                                                                              'Contains palette #0 colors.
    Public ReadOnly PALETTE1() As Color = {Nothing, Color.DarkCyan, Color.Purple, Color.White}                                                                                                                                                                                'Contains palette #1 colors.
 
-   Public BackgroundColor As Color = Color.Black                                                   'Contains the current background color.
-   Public ClockCounter As Integer = CInt(DateTime.Now.TimeOfDay.TotalSeconds * TICKS_PER_SECOND)   'Contains the system clock counter.
-   Public Palette() As Color = Nothing                                                             'Contains the current palette.
+   Public BackgroundColor As Color = Color.Black   'Contains the current background color.
+   Public ClockCounter As Integer = &H0%           'Contains the system clock counter.
+   Public Palette() As Color = Nothing             'Contains the current palette.
 
    'This procedure loads the BIOS into memory.
    Public Sub LoadBIOS()
@@ -102,6 +102,9 @@ Public Module BIOSModule
             CPU.PutWord(Address, Offset)
             Offset = WriteBytesToMemory({CPU8086Class.OpcodesE.EXT_INT, CByte(Interrupt), CPU8086Class.OpcodesE.IRET}, Offset)
          Next Interrupt
+
+         ClockCounter = CInt(DateTime.Now.TimeOfDay.TotalSeconds * TICKS_PER_SECOND)
+         UpdateClockCounter()
 
          CPU.PutWord(AddressesE.EquipmentFlags, EQUIPMENT_FLAGS)
          CPU.PutWord(AddressesE.MemorySize, (CPU.Memory.Length \ &H400%))

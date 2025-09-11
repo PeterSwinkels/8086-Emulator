@@ -82,7 +82,6 @@ Public Module MSDOSModule
    End Structure
 
    Public Const COMMAND_TAIL_MAXIMUM_LENGTH As Integer = &H7E%          'Defines the maximum length of a command tail in a PSP.
-   Private Const BOOT_DRIVE As Integer = &H0%                           'Defines the boot drive.
    Private Const CARRY_FLAG_INDEX As Integer = &H0%                     'Defines the carry flag's bit index.
    Private Const COUNTRY_INFORMATION_BUFFER_SIZE As Integer = &H28%     'Defines the country information buffer size.
    Private Const ERROR_ACCESS_DENIED As Integer = &H5%                  'Defines the access denied error code.
@@ -131,24 +130,26 @@ Public Module MSDOSModule
 
    Private ReadOnly DATE_TO_MSDOS_DATE As Func(Of Date, Integer) = Function([Date] As Date) [Date].Day Or ([Date].Month << &H5%) Or (([Date].Year - 1980) << &H9%)   'Converts the specified date to a value suitable for MS-DOS and returns the result.
    Private ReadOnly ENVIRONMENT_SEGMENT As Integer = LOWEST_ADDRESS                                                                                                  'Defines the MS-DOS environment's segment.
-   Private ReadOnly ENVIRONMENT_TEXT As String = $"COMSPEC=C:\COMMAND.COM{ToChar(&H0%)}PATH={ToChar(&H0%)}"                                                          'Defines the MS-DOS environment.
    Private ReadOnly EXE_MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}                                                                                                      'Defines the signature of an MZ executable.
    Private ReadOnly INT_21H_RETF() As Byte = {&HCD%, &H21%, &HCB%}                                                                                                   'Defines the INT 21h and RETF instructions.
    Private ReadOnly LOWEST_FILE_HANDLE As Integer = STDFileHandlesE.STDPRN + &H1%                                                                                    'Defines the lowest possible file handle.
    Private ReadOnly TIME_TO_MSDOS_TIME As Func(Of Date, Integer) = Function([Time] As Date) Time.Second Or (Time.Minute << &H5%) Or (Time.Hour << &HB%)              'Converts the specified time to a value suitable for MS-DOS and returns the result.
 
-   Public CommandTail As String = ""                                   'Contains the command tail used in a new PSP.
-   Private Allocations As New List(Of Tuple(Of Integer, Integer))      'Contains the memory allocations.
-   Private AvailableDevices As Boolean = True                          'Contains the AVAILDEV flag.
-   Private CTRLBreakCheck As Boolean = False                           'Contains the control-break checking status.
-   Private DTA As New Integer                                          'Contains the Disk Transfer Address.
-   Private ExtendedCTRLBreakCheck As Boolean = False                   'Contains the extended control-break checking status.
-   Private MSDOSCurrentDirectory As List(Of String)                    'Contains a list made up of the current directory and its parent directories.
-   Private OpenFiles As New List(Of Tuple(Of FileStream, Integer))     'Contains the open file streams and their handles.
-   Private PrinterBuffer As New StringBuilder                          'Contains the printer buffer.
-   Private ProcessIDs As New List(Of Integer)                          'Contains the list process's ids.
-   Private ProcessSegments As New Stack(Of Integer)                    'Contains the segments allocated to processes.
-   Private SwitchCharacter As Char = "-"c                              'Contains the switch character.
+   Public CommandTail As String = ""                                'Contains the command tail used in a new PSP.
+   Private Allocations As New List(Of Tuple(Of Integer, Integer))    'Contains the memory allocations.
+   Private AvailableDevices As Boolean = True                        'Contains the AVAILDEV flag.
+   Private BootDrive As Integer = &H0%                               'Contains the boot drive.
+   Private CTRLBreakCheck As Boolean = False                         'Contains the control-break checking status.
+   Private DTA As New Integer                                        'Contains the Disk Transfer Address.
+   Private EnvironmentText As String = ""                            'Contains the MS-DOS environment text.
+   Private ExtendedCTRLBreakCheck As Boolean = False                 'Contains the extended control-break checking status.
+   Private FCBOpenFilePath As String = ""                            'Contains the path of a file opened using an FCB block.
+   Private MSDOSCurrentDirectory As List(Of String)                  'Contains a list made up of the current directory and its parent directories.
+   Private OpenFiles As New List(Of Tuple(Of FileStream, Integer))   'Contains the open file streams and their handles.
+   Private PrinterBuffer As New StringBuilder                        'Contains the printer buffer.
+   Private ProcessIDs As New List(Of Integer)                        'Contains the list process's ids.
+   Private ProcessSegments As New Stack(Of Integer)                  'Contains the segments allocated to processes.
+   Private SwitchCharacter As Char = "-"c                            'Contains the switch character.
 
    Private WithEvents PrinterDocumentO As New PrintDocument   'Contains the document with output to STDPRN to be printed.
 
@@ -303,6 +304,14 @@ Public Module MSDOSModule
       End Try
    End Sub
 
+   'This procedure changes the current drive.
+   Private Sub ChangeDrive()
+      Try
+         Directory.SetCurrentDirectory($"{ToChar(CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.DL)) + ToByte("A"c))}:")
+      Catch
+      End Try
+   End Sub
+
    'This procedure attempts to close the specified file handle and returns whether or not it succeeded.
    Private Function CloseFileHandle(ByRef Flags As Integer) As Boolean
       Try
@@ -433,6 +442,55 @@ Public Module MSDOSModule
       End Try
    End Sub
 
+   'This procedure closes a file using an FCB.
+   Private Sub FCBCloseFile()
+      Try
+         If FCBOpenFilePath.Trim() = "" Then
+            CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&HFF%)
+         Else
+            FCBOpenFilePath = ""
+            CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&H0%)
+         End If
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure opens a file using an FCB.
+   Private Sub FCBOpenFile()
+      Try
+         Dim Offset As Integer = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
+         Dim Drive As Char = If(CPU.Memory(Offset + FCBE.Drive) = &H0%, CurrentDirectory.ToCharArray().First(), ToChar(CPU.Memory(Offset + FCBE.Drive) + ToInt32("@"c)))
+         Dim Extension As String = GetString(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) + FCBE.Extension, Length:=3).Trim()
+         Dim FileName As String = GetString(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) + FCBE.Filename, Length:=8).Trim()
+         Dim FilePath As String = Nothing
+         Dim FileSize As New Long
+
+         FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
+         FilePath = GetLongName(FileSystemItems, $"{FileName}.{Extension}")
+
+         Try
+            FileSize = New FileInfo(FilePath).Length
+
+            CPU.PutWord(Offset + FCBE.CurrentBlock, &H0%)
+            CPU.PutWord(Offset + FCBE.FileDate, DATE_TO_MSDOS_DATE(File.GetLastWriteTime(FilePath)))
+            CPU.PutWord(Offset + FCBE.FileSize, CInt(FileSize And &HFFFF%))
+            CPU.PutWord(Offset + FCBE.FileSize + &H2%, CInt(FileSize) >> &H10%)
+            CPU.PutWord(Offset + FCBE.FileTime, TIME_TO_MSDOS_TIME(File.GetLastWriteTime(FilePath)))
+            CPU.PutWord(Offset + FCBE.RecordSize, &H80%)
+
+            FCBOpenFilePath = FilePath
+
+            CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&H0%)
+         Catch
+            FCBOpenFilePath = ""
+            CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&HFF%)
+         End Try
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
    'This procedure parses a filename for an FCB.
    Private Sub FCBParseFilename()
       Try
@@ -502,6 +560,37 @@ Public Module MSDOSModule
          End If
 
          CPU.Registers(CPU8086Class.Registers16BitE.SI, NewValue:=SI)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure reads a file using an FCB block.
+   Private Sub FCBReadFile()
+      Try
+         Dim Buffer() As Byte = {}
+         Dim Offset As Integer = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
+         Dim CurrentBlock As Integer = CPU.GET_WORD(Offset + FCBE.CurrentBlock)
+         Dim DTAOffset As Integer = ((DTA And &HFFFF0000%) >> &HC%) + (DTA And &HFFFF%)
+         Dim RecordSize As Integer = CPU.GET_WORD(Offset + FCBE.RecordSize)
+
+         Using FileO As New FileStream(FCBOpenFilePath, FileMode.Open, FileAccess.Read)
+            If CurrentBlock * RecordSize >= FileO.Length Then
+               CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&H1%)
+            ElseIf (CurrentBlock * RecordSize) + RecordSize >= FileO.Length Then
+               FileO.Seek(CurrentBlock * RecordSize, SeekOrigin.Begin)
+               ReDim Buffer(0 To CInt(FileO.Length - (CurrentBlock * RecordSize)) - 1)
+               FileO.Read(Buffer, 0, Buffer.Count)
+               CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&H3%)
+            Else
+               FileO.Seek(CurrentBlock * RecordSize, SeekOrigin.Begin)
+               ReDim Buffer(0 To RecordSize - 1)
+               FileO.Read(Buffer, 0, Buffer.Count)
+               CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&H0%)
+            End If
+         End Using
+
+         WriteBytesToMemory(Buffer, DTAOffset)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -665,6 +754,33 @@ Public Module MSDOSModule
 
       Return New List(Of FileSystemItemStr)
    End Function
+
+   'This procedure returns the amount of free disk space.
+   Private Sub GetFreeDiskSpace(ByRef Flags As Integer)
+      Try
+         Dim BytesPerSector As New Integer
+         Dim Drive As Integer = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.DL))
+         Dim DriveLetter As Char = If(Drive = &H0%, CurrentDirectory.ToCharArray.First, ToChar(Drive + ToInt32("@"c)))
+         Dim DriveInformation As New DriveInfo(DriveLetter)
+         Dim FreeClusterCount As New Integer
+         Dim SectorsPerCluster As New Integer
+         Dim TotalClusterCount As New Integer
+
+         If DriveInformation.IsReady Then
+            SizeToBCS(DriveInformation.TotalSize, BytesPerSector, TotalClusterCount, SectorsPerCluster)
+            SizeToBCS(DriveInformation.TotalFreeSpace, BytesPerSector, FreeClusterCount, SectorsPerCluster)
+
+            CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=SectorsPerCluster)
+            CPU.Registers(CPU8086Class.Registers16BitE.CX, NewValue:=BytesPerSector)
+            CPU.Registers(CPU8086Class.Registers16BitE.DX, NewValue:=TotalClusterCount)
+            CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=FreeClusterCount)
+         Else
+            CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=&HFFFF%)
+         End If
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
 
    'This procedure returns the MS-DOS error code for the specified exception.
    Private Function GetMSDOSErrorCode(MSDOSException As Exception) As Integer
@@ -833,14 +949,8 @@ Public Module MSDOSModule
          Dim Success As Boolean = False
 
          Select Case Number
-            Case &H20%, &H22%
-               TerminateProgram($"Program terminated.{NewLine}")
-               Success = True
             Case &H21%
                Select Case AH
-                  Case &H0%
-                     TerminateProgram($"Program terminated.{NewLine}")
-                     Success = True
                   Case &H1%
                      CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=GetKeyWithEcho())
                      Success = True
@@ -862,7 +972,16 @@ Public Module MSDOSModule
                      BufferedKeyboardInput()
                      Success = True
                   Case &HE%
-                     Directory.SetCurrentDirectory($"{ToChar(CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.DL)) + ToByte("A"c))}:")
+                     ChangeDrive()
+                     Success = True
+                  Case &HF%
+                     FCBOpenFile()
+                     Success = True
+                  Case &H10%
+                     FCBCloseFile()
+                     Success = True
+                  Case &H14%
+                     FCBReadFile()
                      Success = True
                   Case &H19%
                      CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=ToByte(Path.GetPathRoot(Directory.GetCurrentDirectory()).ToUpper().ToCharArray.First()) - ToByte("A"c))
@@ -906,7 +1025,7 @@ Public Module MSDOSModule
                         Case &H2%
                            ExtendedCTRLBreakCheck = CBool(CPU.Registers(CPU8086Class.SubRegisters8BitE.DL))
                         Case &H5%
-                           CPU.Registers(CPU8086Class.SubRegisters8BitE.DL, NewValue:=BOOT_DRIVE)
+                           CPU.Registers(CPU8086Class.SubRegisters8BitE.DL, NewValue:=BootDrive)
                      End Select
 
                      Success = True
@@ -914,6 +1033,9 @@ Public Module MSDOSModule
                      Address = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)) * &H4%
                      CPU.Registers(CPU8086Class.SegmentRegistersE.ES, NewValue:=CPU.GET_WORD(Address + &H2%))
                      CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=CPU.GET_WORD(Address))
+                     Success = True
+                  Case &H36%
+                     GetFreeDiskSpace(Flags)
                      Success = True
                   Case &H37%
                      Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
@@ -1006,9 +1128,6 @@ Public Module MSDOSModule
                   Case &H4B%
                      ExecuteProgram(Flags)
                      Success = True
-                  Case &H4C%
-                     TerminateProgram($"Program terminated with return code: {CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)):X2}.{NewLine}")
-                     Success = True
                   Case &H4E%
                      FindFile(Flags, IsFirst:=True)
                      Success = True
@@ -1028,15 +1147,6 @@ Public Module MSDOSModule
                            Success = True
                      End Select
                End Select
-            Case &H23%
-               TerminateProgram($"CTRL+Break.{NewLine}")
-               Success = True
-            Case &H24%
-               TerminateProgram($"INT 24h - Critical error.{NewLine}")
-               Success = True
-            Case &H27%
-               TerminateProgram($"Terminate and stay resident.{NewLine}")
-               Success = True
             Case &H28%
                Success = True
             Case &H2A%
@@ -1080,7 +1190,7 @@ Public Module MSDOSModule
             End If
          End If
 
-         Return LargestBlock
+         Return LargestBlock 
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -1096,14 +1206,17 @@ Public Module MSDOSModule
 
          Allocations.Clear()
          AvailableDevices = True
+         BootDrive = ToInt32(CurrentDirectory.ToCharArray.First()) - ToInt32("A"c)
          CommandTail = ""
          DTA = New Integer
+         EnvironmentText = $"COMSPEC={ToChar(BootDrive + ToInt32("A"c))}:\COMMAND.COM{ToChar(&H0%)}PATH={ToChar(&H0%)}"
+         FCBOpenFilePath = ""
          OpenFiles.Clear()
          PrinterBuffer.Clear()
          ProcessIDs = New List(Of Integer)
          ProcessSegments.Clear()
          SwitchCharacter = "-"c
-         WriteStringToMemory(ENVIRONMENT_TEXT, ENVIRONMENT_SEGMENT << &H4%)
+         WriteStringToMemory(EnvironmentText, ENVIRONMENT_SEGMENT << &H4%)
 
          MSDOSCurrentDirectory = New List(Of String)
 
@@ -1190,7 +1303,7 @@ Public Module MSDOSModule
          Dim InitialSP As Integer = BitConverter.ToUInt16(Executable.ToArray(), EXE_INITIAL_SP)
          Dim InitialSS As Integer = BitConverter.ToUInt16(Executable.ToArray(), EXE_INITIAL_SS)
          Dim Position As New Integer
-         Dim RelocatedCS As Integer = (LoadAddress >> &H4%) + BitConverter.ToUInt16(Executable.ToArray(), EXE_INITIAL_CS)
+         Dim RelocatedCS As Integer = ((LoadAddress + PSP_SIZE) >> &H4%) + BitConverter.ToUInt16(Executable.ToArray(), EXE_INITIAL_CS)
          Dim RelocationItem As New Integer
          Dim RelocationItemFlatAddress As New Integer
          Dim RelocationItemOffset As New Integer
@@ -1209,14 +1322,14 @@ Public Module MSDOSModule
             CPU.Registers(CPU8086Class.Registers16BitE.DX, NewValue:=&H0%)
             CPU.Registers(CPU8086Class.SegmentRegistersE.CS, NewValue:=RelocatedCS)
             CPU.Registers(CPU8086Class.Registers16BitE.IP, NewValue:=BitConverter.ToUInt16(Executable.ToArray(), EXE_INITIAL_IP))
-            CPU.Registers(CPU8086Class.SegmentRegistersE.DS, NewValue:=((LoadAddress - PSP_SIZE) >> &H4%))
-            CPU.Registers(CPU8086Class.SegmentRegistersE.ES, NewValue:=CPU.Registers(CPU8086Class.SegmentRegistersE.DS))
+            CPU.Registers(CPU8086Class.SegmentRegistersE.DS, NewValue:=((LoadAddress + PSP_SIZE) >> &H4%))
+            CPU.Registers(CPU8086Class.SegmentRegistersE.ES, NewValue:=(LoadAddress >> &H4%))
             CPU.Registers(CPU8086Class.SegmentRegistersE.SS, NewValue:=(If(InitialSS = Nothing, RelocatedCS, RelocatedCS + InitialSS)))
             CPU.Registers(CPU8086Class.Registers16BitE.SP, NewValue:=If(InitialSP = Nothing, &HFFFF%, InitialSP))
 
-            CreatePSP(LoadAddress - PSP_SIZE)
+            CreatePSP(LoadAddress)
 
-            Executable.GetRange(HeaderSize, Executable.Count - HeaderSize).CopyTo(CPU.Memory, LoadAddress)
+            Executable.GetRange(HeaderSize, Executable.Count - HeaderSize).CopyTo(CPU.Memory, LoadAddress + PSP_SIZE)
 
             If RelocationTableSize > &H0% Then
                Position = RelocationTable
@@ -1225,10 +1338,10 @@ Public Module MSDOSModule
                   RelocationItemOffset = BitConverter.ToUInt16(Executable.ToArray(), Position)
                   RelocationItemSegment = BitConverter.ToUInt16(Executable.ToArray(), Position + &H2%)
 
-                  RelocationItemFlatAddress = LoadAddress + ((RelocationItemSegment << &H4%) + RelocationItemOffset)
+                  RelocationItemFlatAddress = (LoadAddress + PSP_SIZE) + ((RelocationItemSegment << &H4%) + RelocationItemOffset)
 
                   RelocationItem = BitConverter.ToUInt16(CPU.Memory, RelocationItemFlatAddress)
-                  RelocationItem += (LoadAddress >> &H4%)
+                  RelocationItem += ((LoadAddress + PSP_SIZE) >> &H4%)
 
                   CPU.PutWord(RelocationItemFlatAddress, RelocationItem)
 
@@ -1440,15 +1553,27 @@ Public Module MSDOSModule
       End Try
    End Sub
 
-   'This procedure terminates the currently running MS-DOS program.
-   Private Sub TerminateProgram(Message As String, Optional IsResident As Boolean = False)
+   'This procedure converts the specified size to the number of bytes/sector, sectors/cluster and clusters/drive.
+   Private Sub SizeToBCS(Size As Long, ByRef BytesPerSector As Integer, ByRef ClusterCount As Integer, ByRef SectorsPerCluster As Integer)
       Try
-         If ProcessIDs.Count > 0 Then
-            ProcessIDs.RemoveAt(ProcessIDs.Count - 1)
-         End If
+         BytesPerSector = CInt(Size / &HFFFFFFFF&)
+         If BytesPerSector < &H200% Then BytesPerSector = &H200%
 
-         If ProcessIDs.Count = 0 Then
-            CPU.ClockToken.Cancel()
+         SectorsPerCluster = CInt((Size / &HFFFF%) / BytesPerSector)
+         If SectorsPerCluster < &H1% Then SectorsPerCluster = &H1%
+
+         If SectorsPerCluster = &HFFFF% Then SectorsPerCluster = &HFFFE%
+         ClusterCount = CInt(Size / CLng(CLng(SectorsPerCluster) * CLng(BytesPerSector)))
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure terminates the currently running MS-DOS program.
+   Public Sub TerminateProgram(Message As String, Optional IsResident As Boolean = False)
+      Try
+         If ProcessIDs.Any Then
+            ProcessIDs.RemoveAt(ProcessIDs.Count - 1)
          End If
 
          If Not IsResident Then

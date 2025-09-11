@@ -186,9 +186,10 @@ Public Module CoreModule
    End Sub
 
    'This procedure handles CPU tracing events.
-   Private Sub CPU_Trace(FlatCSIP As Integer) Handles CPU.Trace
+   Private Sub CPU_Trace() Handles CPU.Trace
       Try
          Dim Address As New Integer?
+         Dim FlatCSIP As Integer = CPU.GET_FLAT_CS_IP()
          Dim Opcode As New CPU8086Class.OpcodesE
          Dim Override As New CPU8086Class.SegmentRegistersE?
          Dim ParsedAddress As New Integer
@@ -466,7 +467,24 @@ Public Module CoreModule
       Return Nothing
    End Function
 
-   'This procedure reads a null terminated string from the specified position in memory and returns it.
+   'This procedure returns a string of the specified length from the specified position in memory.
+   Public Function GetString(Segment As Integer, Offset As Integer, Length As Integer) As String
+      Try
+         Dim StringV As New StringBuilder
+
+         For Position As Integer = &H0% To Length - &H1%
+            StringV.Append(ToChar(CPU.Memory((((Segment << &H4%) + Offset) + Position) And CPU8086Class.ADDRESS_MASK)))
+         Next Position
+
+         Return StringV.ToString()
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return Nothing
+   End Function
+
+   'This procedure returns a null terminated string from the specified position in memory.
    Public Function GetStringZ(Segment As Integer, Offset As Integer) As String
       Try
          Dim Position As Integer = (Segment << &H4%) + Offset
@@ -682,13 +700,13 @@ Public Module CoreModule
                      Case "ST"
                         Output.AppendText(GetStack())
                      Case "T"
-                        CPU_Trace(CPU.GET_FLAT_CS_IP())
+                        CPU_Trace()
 
                         If Not CPU.ExecuteOpcode() Then
                            CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Number:=CPU8086Class.INVALID_OPCODE)
                         End If
 
-                        CPU_Trace(Nothing)
+                        CPU_Trace()
                      Case "TE"
                         If Not CPU.Clock.Status = TaskStatus.Running Then
                            CPU.Tracing = True

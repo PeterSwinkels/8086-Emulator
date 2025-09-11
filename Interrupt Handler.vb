@@ -6,6 +6,7 @@ Option Strict On
 
 Imports System
 Imports System.Convert
+Imports System.Environment
 Imports System.Linq
 Imports System.Threading.Tasks
 Imports System.Windows.Forms
@@ -167,9 +168,9 @@ Public Module InterruptHandlerModule
                                  Address = &H1F% * &H4%
                                  CPU.Registers(CPU8086Class.SegmentRegistersE.ES, NewValue:=CPU.GET_WORD(Address + &H2%))
                                  CPU.Registers(CPU8086Class.Registers16BitE.BP, NewValue:=CPU.GET_WORD(Address))
-                                 Success = True
                            End Select
                      End Select
+                     Success = True
                   Case &H12%
                      Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
                         Case VideoModesE.Text80x25Color
@@ -216,6 +217,35 @@ Public Module InterruptHandlerModule
                      Success = True
                End Select
             Case &H1C%
+               Success = True
+            Case &H20%, &H22%
+               CPU.ClockToken.Cancel()
+               TerminateProgram($"Program terminated.{NewLine}")
+               Success = True
+            Case &H21%
+               Select Case AH
+                  Case &H0%
+                     CPU.ClockToken.Cancel()
+                     TerminateProgram($"Program terminated.{NewLine}")
+                     Success = True
+                  Case &H4C%
+                     CPU.ClockToken.Cancel()
+                     TerminateProgram($"Program terminated with return code: {CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)):X2}.{NewLine}")
+                     Success = True
+                  Case Else
+                     Success = HandleMSDOSInterrupt(Number, AH, Flags)
+               End Select
+            Case &H23%
+               CPU.ClockToken.Cancel()
+               TerminateProgram($"CTRL+Break.{NewLine}")
+               Success = True
+            Case &H24%
+               CPU.ClockToken.Cancel()
+               TerminateProgram($"INT 24h - Critical error.{NewLine}")
+               Success = True
+            Case &H27%
+               CPU.ClockToken.Cancel()
+               TerminateProgram($"Terminate and stay resident.{NewLine}")
                Success = True
             Case &H33%
                Select Case AH

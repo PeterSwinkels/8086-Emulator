@@ -441,11 +441,11 @@ Public Class CPU8086Class
    Public Event Halt()                                                                   'Defines the halt event.
    Public Event Interrupt(Number As Integer, AH As Integer)                              'Defines the interrupt event.
    Public Event ReadIOPort(Port As Integer, ByRef Value As Integer, Is8Bit As Boolean)   'Defines the IO port read event.
-   Public Event Trace(FlatCSIP As Integer)                                               'Defines the trace event.
+   Public Event Trace()                                                                  'Defines the trace event.
    Public Event WriteIOPort(Port As Integer, Value As Integer, Is8Bit As Boolean)        'Defines the IO port write event.
 
-   Public ReadOnly GET_FLAT_CS_IP As Func(Of Integer) = Function() (CInt(Registers(CPU8086Class.SegmentRegistersE.CS)) << &H4%) + CInt(Registers(Registers16BitE.IP)) And ADDRESS_MASK  'Returns the flat memory address for the emulated CPU's CS:IP registers.
-   Public ReadOnly GET_WORD As Func(Of Integer, Integer) = Function(Address As Integer) (ToUInt16(Memory, Address And ADDRESS_MASK))                                                    'Returns the word at the specified address.
+   Public ReadOnly GET_FLAT_CS_IP As Func(Of Integer) = Function() (CInt(Registers(SegmentRegistersE.CS)) << &H4%) + CInt(Registers(Registers16BitE.IP)) And ADDRESS_MASK  'Returns the flat memory address for the emulated CPU's CS:IP registers.
+   Public ReadOnly GET_WORD As Func(Of Integer, Integer) = Function(Address As Integer) (ToUInt16(Memory, Address And ADDRESS_MASK))                                       'Returns the word at the specified address.
 
    'This procedure initializes the CPU.
    Public Sub New()
@@ -606,7 +606,7 @@ Public Class CPU8086Class
    Public Function Execute() As Task(Of Integer)
       Try
          Do Until ClockToken.Token.IsCancellationRequested
-            If Tracing Then RaiseEvent Trace(GET_FLAT_CS_IP())
+            If Tracing Then RaiseEvent Trace()
 
             Try
                Do While HardwareInterrupts.Any
@@ -620,7 +620,7 @@ Public Class CPU8086Class
                ExecuteInterrupt(OpcodesE.INT, Number:=INVALID_OPCODE)
             End If
 
-            If Tracing Then RaiseEvent Trace(Nothing)
+            If Tracing Then RaiseEvent Trace()
          Loop
 
          Return Task.FromResult(GET_FLAT_CS_IP())
@@ -649,6 +649,7 @@ Public Class CPU8086Class
             Registers(Registers16BitE.IP, NewValue:=Offset)
          Case OpcodesE.CALL_NEAR
             Operand = GetWordCSIP()
+            If Operand > &H7FFF% Then Operand -= &H10000%
             Stack(Push:=CInt(Registers(Registers16BitE.IP)))
             Registers(Registers16BitE.IP, NewValue:=CInt(Registers(Registers16BitE.IP)) + Operand)
          Case OpcodesE.JMP_FAR
