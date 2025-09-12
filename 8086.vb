@@ -117,6 +117,8 @@ Public Class CPU8086Class
       DEC_SI = &H4E%                  'Decrement SI.
       DEC_SP = &H4C%                  'Decrement SP.
       DS = &H3E%                      'DS segment override.
+      ESC_D8 = &HD8%                  'Escape (FPU).
+      ESC_DF = &HDF%                  'Escape (FPU).
       EXT_INT = &H60%                 'Externally handled interrupt.
       ES = &H26%                      'ES segment override.
       HLT = &HF4%                     'Halt.
@@ -275,7 +277,7 @@ Public Class CPU8086Class
       TEST_AX_WORD = &HA9%            'Test AX against word.
       TEST_SRC_REG16 = &H85%          'Test 16 bit source against target. 
       TEST_SRC_REG8 = &H84%           'Test 8 bit source against target.
-      WAIT = &H9B%                    'Wait for coprocessor.
+      WAIT = &H9B%                    'Wait for FPU.
       XCHG_AX_BP = &H95%              'Exchange AX and BP.
       XCHG_AX_BX = &H93%              'Exchange AX and BX.
       XCHG_AX_CX = &H91%              'Exchange AX and CX.
@@ -438,6 +440,7 @@ Public Class CPU8086Class
    Public Memory() As Byte = Enumerable.Repeat(CByte(&H0%), &H100000%).ToArray()   'Contains the memory used by the emulated 8086 CPU.
    Public Tracing As Boolean = False                                               'Indicates whether or not tracing is enabled.
 
+   Public Event Escape(Opcode As Integer)                                                'Defines the escape event.
    Public Event Halt()                                                                   'Defines the halt event.
    Public Event Interrupt(Number As Integer, AH As Integer)                              'Defines the interrupt event.
    Public Event ReadIOPort(Port As Integer, ByRef Value As Integer, Is8Bit As Boolean)   'Defines the IO port read event.
@@ -573,20 +576,29 @@ Public Class CPU8086Class
       Return Count
    End Function
 
-   'This procedure shifts/rotates bits once in the specified direction and returns the last/first bit shifted out.
-   Private Function BitRotateOrShift(Bits As Integer, Is8Bit As Boolean, Optional Right As Boolean = True, Optional Rotate As Boolean = True, Optional ReplicateSign As Boolean = False) As Integer
+   'This procedure returns the specified bits shifted/rotated as specified and sets CF to the last bit shifted out.
+   Private Function BitRotateOrShift(Bits As Integer, Is8Bit As Boolean, Optional Right As Boolean = True, Optional Rotate As Boolean = True, Optional ReplicateSign As Boolean = False, Optional UpdateAllFlags As Boolean = False, Optional UpdateOF As Boolean = False) As Integer
       Dim NewBits As Integer = Bits And If(Is8Bit, &HFF%, &HFFFF%)
       Dim SignBit As Integer = NewBits And If(Is8Bit, &H80%, &H8000%)
       Dim NewCarryFlag As Integer = If(Right, NewBits And &H1%, SignBit)
+      Dim SignMask As Integer = If(Is8Bit, &H80%, &H8000%)
 
       If Not Right Then NewCarryFlag >>= If(Is8Bit, &H7%, &HF%)
-      NewBits = If(Right, NewBits >> &H1%, NewBits << &H1%)
+      NewBits = If(Right, NewBits >> &H1%, NewBits << &H1%) And If(Is8Bit, &HFF%, &HFFFF%)
       If Rotate Then NewBits = NewBits Or If(Right, NewCarryFlag << If(Is8Bit, &H7%, &HF%), NewCarryFlag)
       If ReplicateSign Then NewBits = NewBits Or (SignBit >> If(Is8Bit, &H7%, &HF%))
 
-      AdjustFlags(Bits, NewBits, Is8Bit, NewCarryFlag)
+      If UpdateOF Then
+         Registers(FlagRegistersE.OF, NewValue:=((NewBits >= &H0%) AndAlso ((NewBits And If(Is8Bit, &HFF%, &HFFFF%)) >= SignMask)))
+      End If
 
-      Return NewBits And If(Is8Bit, &HFF%, &HFFFF%)
+      If UpdateAllFlags Then
+         AdjustFlags(Bits, NewBits, Is8Bit, NewCarryFlag)
+      Else
+         Registers(FlagRegistersE.CF, NewValue:=NewCarryFlag)
+      End If
+
+      Return NewBits
    End Function
 
    'This procedure converts the specified byte/word to a word/dword and returns the result.
@@ -1167,6 +1179,8 @@ Public Class CPU8086Class
             End Select
             Registers(DirectCast(Operand, Registers16BitE), NewValue:=NewValue)
             AdjustFlags(Value, NewValue, Is8Bit:=False,, PreserveCarryFlag:=True)
+         Case OpcodesE.ESC_D8 To OpcodesE.ESC_DF
+            RaiseEvent Escape(Opcode)
          Case OpcodesE.HLT
             RaiseEvent Halt()
          Case OpcodesE.IN_AL_BYTE
@@ -1298,15 +1312,15 @@ Public Class CPU8086Class
                      Case RotateAndShiftOperationsE.RCR
                         .NewValue = BitRotateOrShift(.NewValue, .Is8Bit)
                      Case RotateAndShiftOperationsE.ROL
-                        .NewValue = BitRotateOrShift(.NewValue, .Is8Bit, Right:=False)
+                        .NewValue = BitRotateOrShift(.NewValue, .Is8Bit, Right:=False,,,, UpdateOF:=True)
                      Case RotateAndShiftOperationsE.ROR
-                        .NewValue = BitRotateOrShift(.NewValue, .Is8Bit,)
+                        .NewValue = BitRotateOrShift(.NewValue, .Is8Bit,,,,, UpdateOF:=True)
                      Case RotateAndShiftOperationsE.SAR
-                        .NewValue = BitRotateOrShift(.NewValue, .Is8Bit,, Rotate:=False, ReplicateSign:=True)
+                        .NewValue = BitRotateOrShift(.NewValue, .Is8Bit,, Rotate:=False, ReplicateSign:=True, UpdateAllFlags:=True)
                      Case RotateAndShiftOperationsE.SHL
-                        .NewValue = BitRotateOrShift(.NewValue, .Is8Bit, Right:=False, Rotate:=False)
+                        .NewValue = BitRotateOrShift(.NewValue, .Is8Bit, Right:=False, Rotate:=False, UpdateAllFlags:=True)
                      Case RotateAndShiftOperationsE.SHR
-                        .NewValue = BitRotateOrShift(.NewValue, .Is8Bit,, Rotate:=False)
+                        .NewValue = BitRotateOrShift(.NewValue, .Is8Bit,, Rotate:=False, UpdateAllFlags:=True)
                   End Select
                Next Shift
 

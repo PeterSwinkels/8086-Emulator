@@ -74,7 +74,7 @@ Public Module IOHandlerModule
       Try
          Dim Value As Integer? = Nothing
 
-         Select Case Port
+         Select Case (Port And &HFFFF%)
             Case IOPortsE.PITCounter0 To IOPortsE.PITCounter2
                Value = PIT.ReadCounter(DirectCast(Port And PIT_IO_PORT_MASK, PITClass.CountersE))
             Case IOPortsE.PITModeControl
@@ -108,7 +108,7 @@ Public Module IOHandlerModule
       Try
          Dim Success As Boolean = True
 
-         Select Case Port
+         Select Case (Port And &HFFFF%)
             Case IOPortsE.PPIPortB
                PPI.PortB(Value)
             Case IOPortsE.PITCounter0 To IOPortsE.PITCounter2

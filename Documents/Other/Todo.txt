@@ -5,21 +5,3 @@ To do:
 Ideas:
 1. Add CGA character drawing. XOR on bit 7?
 2. Add VGA character drawing?
-
-Known issues:
-1. Variables of the "long" and "unsigned long" types declared in a Borland Turbo C 3.0 program cause a "Divide error".
-2. Same issue with (time does display correctly):
-#include <dos.h>
-#include <stdio.h>
-
-main ()
-{
- struct time t;
-
- gettime(&t);
-
- printf(" min: %d\n", t.min);
- printf("hour: %d\n", t.hour);
- printf("hund: %d\n", t.hund);
- printf(" sec: %d\n", t.sec);
-}

@@ -141,6 +141,18 @@ Public Module CoreModule
       End Try
    End Sub
 
+   'This procedure handles the emulated CPU's escape events.
+   Private Sub CPU_Escape(Opcode As Integer) Handles CPU.Escape
+      Try
+         CPU.ClockToken.Cancel()
+         SyncLock Synchronizer
+            CPUEvent.Append($"Escape: {Opcode:X2}.{NewLine}")
+         End SyncLock
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
    'This procedure handles the emulated CPU's halt events.
    Private Sub CPU_Halt() Handles CPU.Halt
       Try
@@ -170,7 +182,7 @@ Public Module CoreModule
    'This procedure handles the emulated CPU's I/O read events.
    Private Sub CPU_ReadIOPort(Port As Integer, ByRef Value As Integer, Is8Bit As Boolean) Handles CPU.ReadIOPort
       Try
-         Dim NewValue As Integer? = ReadIOPort(Port)
+         Dim NewValue As Integer? = If(Is8Bit, ReadIOPort(Port), (ReadIOPort(Port) << &H8%) Or ReadIOPort(Port + &H1%))
 
          If NewValue Is Nothing Then
             CPU.ClockToken.Cancel()
@@ -260,7 +272,7 @@ Public Module CoreModule
    'This procedure handles the emulated CPU's I/O write events.
    Private Sub CPU_WriteIOPort(Port As Integer, Value As Integer, Is8Bit As Boolean) Handles CPU.WriteIOPort
       Try
-         If Not WriteIOPort(Port, Value) Then
+         If Not If(Is8Bit, WriteIOPort(Port, Value), WriteIOPort(Port, Value >> &H8%) AndAlso WriteIOPort(Port + &H1%, Value And &HFF%)) Then
             CPU.ClockToken.Cancel()
             SyncLock Synchronizer
                CPUEvent.Append($"OUT {Port:X}, {If(Is8Bit, $"{Value:X2}", $"{Value:X4}")}{NewLine}")
