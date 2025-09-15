@@ -143,7 +143,6 @@ Public Module MSDOSModule
    Private DTA As New Integer                                        'Contains the Disk Transfer Address.
    Private EnvironmentText As String = ""                            'Contains the MS-DOS environment text.
    Private ExtendedCTRLBreakCheck As Boolean = False                 'Contains the extended control-break checking status.
-   Private FCBOpenFilePath As String = ""                            'Contains the path of a file opened using an FCB block.
    Private MSDOSCurrentDirectory As List(Of String)                  'Contains a list made up of the current directory and its parent directories.
    Private OpenFiles As New List(Of Tuple(Of FileStream, Integer))   'Contains the open file streams and their handles.
    Private PrinterBuffer As New StringBuilder                        'Contains the printer buffer.
@@ -442,14 +441,61 @@ Public Module MSDOSModule
       End Try
    End Sub
 
-   'This procedure closes a file using an FCB.
-   Private Sub FCBCloseFile()
+   'This procedure creates a file using an FCB.
+   Private Sub FCBCreateFile()
       Try
-         If FCBOpenFilePath.Trim() = "" Then
-            CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&HFF%)
-         Else
-            FCBOpenFilePath = ""
+         Dim Offset As Integer = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
+         Dim Extension As String = GetString(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) + FCBE.Extension, Length:=3).Trim()
+         Dim FileName As String = GetString(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) + FCBE.Filename, Length:=8).Trim()
+         Dim FilePath As String = $"{FileName}.{Extension}"
+
+         Try
+            CPU.PutWord(Offset + FCBE.CurrentBlock, &H0%)
+            CPU.PutWord(Offset + FCBE.FileDate, DATE_TO_MSDOS_DATE(DateTime.Today))
+            CPU.PutWord(Offset + FCBE.FileSize, &H0%)
+            CPU.PutWord(Offset + FCBE.FileSize + &H2%, &H0%)
+            CPU.PutWord(Offset + FCBE.FileTime, TIME_TO_MSDOS_TIME(DateTime.Today))
+            CPU.PutWord(Offset + FCBE.RecordSize, &H80%)
+
+            File.Create(FilePath)
             CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&H0%)
+         Catch
+            CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&HFF%)
+         End Try
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure deletes a file using an FCB.
+   Private Sub FCBDeleteFile()
+      Try
+         Dim Offset As Integer = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
+         Dim Extension As String = GetString(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) + FCBE.Extension, Length:=3).Trim()
+         Dim FileName As String = GetString(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) + FCBE.Filename, Length:=8).Trim()
+         Dim FilePath As String = Nothing
+
+         If $"{FileName}.{Extension}".Contains("*"c) OrElse $"{FileName}.{Extension}".Contains("?"c) Then
+            FileSystemItems = GetFileSystemItems(CurrentDirectory, $"{FileName}.{Extension}")
+            Try
+               For Each FileSystemItem As FileSystemItemStr In FileSystemItems
+                  File.Delete(FileSystemItem.Name)
+               Next FileSystemItem
+
+               CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&H0%)
+            Catch
+               CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&HFF%)
+            End Try
+         Else
+            FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
+            FilePath = GetLongName(FileSystemItems, $"{FileName}.{Extension}")
+
+            Try
+               File.Delete(FilePath)
+               CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&H0%)
+            Catch
+               CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&HFF%)
+            End Try
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -460,7 +506,6 @@ Public Module MSDOSModule
    Private Sub FCBOpenFile()
       Try
          Dim Offset As Integer = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
-         Dim Drive As Char = If(CPU.Memory(Offset + FCBE.Drive) = &H0%, CurrentDirectory.ToCharArray().First(), ToChar(CPU.Memory(Offset + FCBE.Drive) + ToInt32("@"c)))
          Dim Extension As String = GetString(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) + FCBE.Extension, Length:=3).Trim()
          Dim FileName As String = GetString(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) + FCBE.Filename, Length:=8).Trim()
          Dim FilePath As String = Nothing
@@ -479,11 +524,8 @@ Public Module MSDOSModule
             CPU.PutWord(Offset + FCBE.FileTime, TIME_TO_MSDOS_TIME(File.GetLastWriteTime(FilePath)))
             CPU.PutWord(Offset + FCBE.RecordSize, &H80%)
 
-            FCBOpenFilePath = FilePath
-
             CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&H0%)
          Catch
-            FCBOpenFilePath = ""
             CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&HFF%)
          End Try
       Catch ExceptionO As Exception
@@ -569,12 +611,16 @@ Public Module MSDOSModule
    Private Sub FCBReadFile()
       Try
          Dim Buffer() As Byte = {}
+         Dim Extension As String = GetString(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) + FCBE.Extension, Length:=3).Trim()
+         Dim FileName As String = GetString(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) + FCBE.Filename, Length:=8).Trim()
          Dim Offset As Integer = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
          Dim CurrentBlock As Integer = CPU.GET_WORD(Offset + FCBE.CurrentBlock)
          Dim DTAOffset As Integer = ((DTA And &HFFFF0000%) >> &HC%) + (DTA And &HFFFF%)
          Dim RecordSize As Integer = CPU.GET_WORD(Offset + FCBE.RecordSize)
 
-         Using FileO As New FileStream(FCBOpenFilePath, FileMode.Open, FileAccess.Read)
+         FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
+
+         Using FileO As New FileStream(GetLongName(FileSystemItems, $"{FileName}.{Extension}"), FileMode.Open, FileAccess.Read)
             If CurrentBlock * RecordSize >= FileO.Length Then
                CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&H1%)
             ElseIf (CurrentBlock * RecordSize) + RecordSize >= FileO.Length Then
@@ -591,6 +637,34 @@ Public Module MSDOSModule
          End Using
 
          WriteBytesToMemory(Buffer, DTAOffset)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure writes to a file using an FCB block.
+   Private Sub FCBWriteFile()
+      Try
+         Dim Extension As String = GetString(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) + FCBE.Extension, Length:=3).Trim()
+         Dim FileName As String = GetString(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) + FCBE.Filename, Length:=8).Trim()
+         Dim Offset As Integer = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
+         Dim CurrentBlock As Integer = CPU.GET_WORD(Offset + FCBE.CurrentBlock)
+         Dim DTAOffset As Integer = ((DTA And &HFFFF0000%) >> &HC%) + (DTA And &HFFFF%)
+         Dim RecordSize As Integer = CPU.GET_WORD(Offset + FCBE.RecordSize)
+         Dim Buffer() As Byte = CPU.Memory.ToList.GetRange(DTAOffset, RecordSize).ToArray()
+
+         FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
+
+         Try
+            Using FileO As New FileStream(GetLongName(FileSystemItems, $"{FileName}.{Extension}"), FileMode.Append, FileAccess.Write)
+               FileO.Seek(CurrentBlock * RecordSize, SeekOrigin.Begin)
+               FileO.Write(Buffer, &H0%, Buffer.Count)
+            End Using
+
+            CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&H0%)
+         Catch
+            CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&H1%)
+         End Try
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -857,7 +931,7 @@ Public Module MSDOSModule
             End If
 
             Application.DoEvents()
-            KeyCode = LastBIOSKeyCode() And &HFF%
+            KeyCode = LastBIOSKeyCode().Value And &HFF%
          Loop While (KeyCode = Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
 
          LastBIOSKeyCode(, Clear:=True)
@@ -944,9 +1018,11 @@ Public Module MSDOSModule
    Public Function HandleMSDOSInterrupt(Number As Integer, AH As Integer, ByRef Flags As Integer) As Boolean
       Try
          Dim Address As New Integer
+         Dim KeyCode As New Integer?
          Dim Position As New Integer
          Dim Result As New Integer?
          Dim Success As Boolean = False
+         Static ExtendedKeyCode As New Integer?
 
          Select Case Number
             Case &H21%
@@ -956,6 +1032,31 @@ Public Module MSDOSModule
                      Success = True
                   Case &H2%
                      TeleType(CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.DL)))
+                     Success = True
+                  Case &H6%
+                     Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.DL))
+                        Case &H0% To &HFE%
+                           TeleType(CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.DL)))
+                        Case &HFF%
+                           If ExtendedKeyCode Is Nothing Then
+                              KeyCode = LastBIOSKeyCode()
+                              If KeyCode IsNot Nothing AndAlso (KeyCode.Value And &HFF%) = Nothing Then
+                                 ExtendedKeyCode = KeyCode >> &H8%
+                              End If
+                              KeyCode = KeyCode And &HFF%
+                              LastBIOSKeyCode(, Clear:=True)
+                           Else
+                              KeyCode = ExtendedKeyCode
+                              ExtendedKeyCode = New Integer?
+                           End If
+
+                           Flags = SET_BIT(Flags, (KeyCode Is Nothing), ZERO_FLAG_INDEX)
+
+                           If KeyCode IsNot Nothing Then
+                              CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=KeyCode)
+                           End If
+                     End Select
+
                      Success = True
                   Case &H8%
                      CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=ReadCharacter())
@@ -978,10 +1079,18 @@ Public Module MSDOSModule
                      FCBOpenFile()
                      Success = True
                   Case &H10%
-                     FCBCloseFile()
+                     Success = True
+                  Case &H13%
+                     FCBDeleteFile()
                      Success = True
                   Case &H14%
                      FCBReadFile()
+                     Success = True
+                  Case &H15%
+                     FCBWriteFile()
+                     Success = True
+                  Case &H16%
+                     FCBCreateFile()
                      Success = True
                   Case &H19%
                      CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=ToByte(Path.GetPathRoot(Directory.GetCurrentDirectory()).ToUpper().ToCharArray.First()) - ToByte("A"c))
@@ -1190,7 +1299,7 @@ Public Module MSDOSModule
             End If
          End If
 
-         Return LargestBlock 
+         Return LargestBlock
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -1210,7 +1319,6 @@ Public Module MSDOSModule
          CommandTail = ""
          DTA = New Integer
          EnvironmentText = $"COMSPEC={ToChar(BootDrive + ToInt32("A"c))}:\COMMAND.COM{ToChar(&H0%)}PATH={ToChar(&H0%)}"
-         FCBOpenFilePath = ""
          OpenFiles.Clear()
          PrinterBuffer.Clear()
          ProcessIDs = New List(Of Integer)
@@ -1472,7 +1580,7 @@ Public Module MSDOSModule
                End If
 
                Application.DoEvents()
-               KeyCode = LastBIOSKeyCode()
+               KeyCode = LastBIOSKeyCode().Value
                If (KeyCode And &HFF%) = &H0% Then ExtendedKeyCode = (KeyCode >> &H8%)
                KeyCode = (KeyCode And &HFF%)
             Loop While (KeyCode = Nothing) AndAlso (ExtendedKeyCode = Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
@@ -1641,7 +1749,7 @@ Public Module MSDOSModule
          Dim STDHandle As STDFileHandlesE = DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.BX), STDFileHandlesE)
 
          Select Case STDHandle
-            Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
+            Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
                Position = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
                Select Case STDHandle
                   Case STDFileHandlesE.STDAUX

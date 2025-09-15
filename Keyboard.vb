@@ -98,9 +98,9 @@ Public Module KeyboardModule
                If Control Then
                   CharacterCode = KeyASCII - &H40%
                ElseIf Shift Then
-                  CharacterCode = KeyASCII
+                  CharacterCode = If(My.Computer.Keyboard.CapsLock, KeyASCII + &H20%, KeyASCII)
                ElseIf Not Alt Then
-                  CharacterCode = KeyASCII + &H20%
+                  CharacterCode = If(My.Computer.Keyboard.CapsLock, KeyASCII, KeyASCII + &H20%)
                End If
                BIOSKeyCode = BIOS_KEY_CODES_A_Z(KeyASCII - ASCII_A)
             Case Else
@@ -254,13 +254,13 @@ Public Module KeyboardModule
    End Function
 
    'This procedure keeps track of the most recently pressed key's BIOS key code.
-   Public Function LastBIOSKeyCode(Optional NewLastBIOSKeyCode As Integer = Nothing, Optional Clear As Boolean = False) As Integer
+   Public Function LastBIOSKeyCode(Optional NewLastBIOSKeyCode As Integer? = Nothing, Optional Clear As Boolean = False) As Integer?
       Try
-         Static CurrentLastBIOSKeyCode As Integer = Nothing
+         Static CurrentLastBIOSKeyCode As New Integer?
 
          If Clear Then
-            CurrentLastBIOSKeyCode = Nothing
-         ElseIf Not NewLastBIOSKeyCode = Nothing Then
+            CurrentLastBIOSKeyCode = New Integer?
+         ElseIf NewLastBIOSKeyCode IsNot Nothing Then
             CurrentLastBIOSKeyCode = NewLastBIOSKeyCode
          End If
 

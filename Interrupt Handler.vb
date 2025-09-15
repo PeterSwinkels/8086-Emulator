@@ -14,9 +14,9 @@ Imports System.Windows.Forms
 'This module contains the default interrupt handler.
 Public Module InterruptHandlerModule
    Public Const CARRY_FLAG_INDEX As Integer = &H0%   'Defines the carry flag's bit index.
+   Public Const ZERO_FLAG_INDEX As Integer = &H6%   'Defines the zero flag's bit index.
    Private Const CURSOR_MASK As Integer = &H1F1F%    'Defines the cursor end/start bits.
    Private Const VIDEO_MODE_MASK As Byte = &H7F%     'Defines the bits indicating a video mode.
-   Private Const ZERO_FLAG_INDEX As Integer = &H6%   'Defines the zero flag's bit index.
 
    'This procedure handles any pending hardware interrupts.
    Public Sub ExecuteHardwareInterrupts()
@@ -40,6 +40,7 @@ Public Module InterruptHandlerModule
          Dim Position As New Integer
          Dim Success As Boolean = False
          Dim Tracing As Boolean = CPU.Tracing
+         Dim Value As New Integer?
          Dim VideoMode As New Byte
          Dim VideoModeBit7 As New Boolean
          Dim VideoPage As New Byte
@@ -190,19 +191,22 @@ Public Module InterruptHandlerModule
             Case &H16%
                Select Case AH
                   Case &H0%
+                     CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=&H0%)
                      Do
                         If CPU.Clock.Status = TaskStatus.Running Then
                            ExecuteHardwareInterrupts()
                         End If
                         Application.DoEvents()
-                        CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=LastBIOSKeyCode())
+                        Value = LastBIOSKeyCode()
+                        If Value IsNot Nothing Then CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=Value)
                      Loop While (CInt(CPU.Registers(CPU8086Class.Registers16BitE.AX)) = &H0%) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
 
                      LastBIOSKeyCode(, Clear:=True)
                      Success = True
                   Case &H1%
-                     CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=LastBIOSKeyCode())
-                     Flags = SET_BIT(Flags, (CInt(CPU.Registers(CPU8086Class.Registers16BitE.AX)) = &H0%), ZERO_FLAG_INDEX)
+                     Value = LastBIOSKeyCode()
+                     If Value IsNot Nothing Then CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=Value)
+                     Flags = SET_BIT(Flags, (Value Is Nothing), ZERO_FLAG_INDEX)
                      Success = True
                   Case &H2%
                      CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=CPU.Memory(AddressesE.KeyboardFlags))

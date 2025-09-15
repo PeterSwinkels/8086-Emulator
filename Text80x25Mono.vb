@@ -8,7 +8,6 @@ Imports System
 Imports System.Convert
 Imports System.Drawing
 Imports System.Linq
-Imports System.Math
 Imports System.Windows.Forms
 
 'This class emulates a text 80x25 monochrome graphics adapter.
@@ -22,11 +21,11 @@ Public Class Text80x25MonoClass
    Private Const NON_BLINK_ATTRIBUTES As Integer = &H7F%   'Defines the attribute bits not related to blinking.
    Private Const UNDERLINE_BITMASK As Integer = &H7%       'Defines the character underline attribute bits.
 
-   Private ReadOnly BLACK_ATTRIBUTES() As Integer = {&H0%, &H8%, &H80%, &H88%}                                        'Defines the black character attributes.
-   Private ReadOnly CHARACTER_SIZE As Size = New Size(12, 16)                                                         'Defines the character size.
-   Private ReadOnly FONT_NORMAL As New Font("Px437 IBM MDA", emSize:=14)                                              'Defines the normal font.
-   Private ReadOnly FONT_UNDERLINE As New Font("Px437 IBM MDA", emSize:=14, FontStyle.Underline)                      'Defines the underlined font.
-   Private ReadOnly TEXT_SCREEN_SIZE As Size = New Size(&H50% * CHARACTER_SIZE.Width, &H19% * CHARACTER_SIZE.Height)  'Defines the screen size measured in characters.
+   Private ReadOnly BLACK_ATTRIBUTES() As Integer = {&H0%, &H8%, &H80%, &H88%}                                         'Defines the black character attributes.
+   Private ReadOnly CHARACTER_SIZE As Size = New Size(12, 16)                                                          'Defines the character size.
+   Private ReadOnly FONT_NORMAL As New Font("Px437 IBM MDA", emSize:=14)                                               'Defines the normal font.
+   Private ReadOnly FONT_UNDERLINE As New Font("Px437 IBM MDA", emSize:=14, FontStyle.Underline)                       'Defines the underlined font.
+   Private ReadOnly TEXT_SCREEN_SIZE As Size = New Size(&H50% * CHARACTER_SIZE.Width, &H19% * CHARACTER_SIZE.Height)   'Defines the screen size measured in characters.
 
    Private BlinkCharactersVisible As Boolean = True  'Indicates whether or not the blinking characters are visible.
 
@@ -35,9 +34,11 @@ Public Class Text80x25MonoClass
    'This procedure draws the specified video buffer's context on the specified image.
    Public Sub Display(Screen As Image, Memory() As Byte, CodePage() As Integer) Implements VideoAdapterClass.Display
       Dim Attribute As New Byte
+      Dim BitmapO As Bitmap = DirectCast(Screen, Bitmap)
       Dim Character As New Char
       Dim CharacterColor As Brush = Nothing
       Dim CharacterFont As Font = Nothing
+      Dim ColorO As New Color
       Dim Target As New Point(0, 0)
       Dim VideoPageAddress As Integer = AddressesE.Text80x25MonoPage0
 
@@ -69,6 +70,17 @@ Public Class Text80x25MonoClass
 
                If ((Attribute And BLINK_BITMASK) = &H0%) OrElse BlinkCharactersVisible Then
                   .DrawString(Character, CharacterFont, CharacterColor, Target)
+
+                  If Memory(Position) >= &HC0% AndAlso Memory(Position) <= &HDF% Then
+                     If Target.X + CHARACTER_SIZE.Width < Screen.Width - 1 Then
+                        For y As Integer = Target.Y To Target.Y + CHARACTER_SIZE.Height - 1
+                           ColorO = BitmapO.GetPixel(Target.X + CHARACTER_SIZE.Width, y)
+                           If Not (ColorO.ToArgb And &HFFFFFF%) = &H0% Then
+                              .DrawLine(New Pen(ColorO), Target.X + CHARACTER_SIZE.Width + 1, y, Target.X + CHARACTER_SIZE.Width + 2, y)
+                           End If
+                        Next y
+                     End If
+                  End If
                End If
             End If
 
