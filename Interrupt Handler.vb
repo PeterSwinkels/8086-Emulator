@@ -14,9 +14,9 @@ Imports System.Windows.Forms
 'This module contains the default interrupt handler.
 Public Module InterruptHandlerModule
    Public Const CARRY_FLAG_INDEX As Integer = &H0%   'Defines the carry flag's bit index.
-   Public Const ZERO_FLAG_INDEX As Integer = &H6%   'Defines the zero flag's bit index.
-   Private Const CURSOR_MASK As Integer = &H1F1F%    'Defines the cursor end/start bits.
-   Private Const VIDEO_MODE_MASK As Byte = &H7F%     'Defines the bits indicating a video mode.
+   Public Const ZERO_FLAG_INDEX As Integer = &H6%    'Defines the zero flag's bit index.
+   Private Const CURSOR_MASK As Integer = &H1F1F%     'Defines the cursor end/start bits.
+   Private Const VIDEO_MODE_MASK As Byte = &H7F%      'Defines the bits indicating a video mode.
 
    'This procedure handles any pending hardware interrupts.
    Public Sub ExecuteHardwareInterrupts()
@@ -179,7 +179,7 @@ Public Module InterruptHandlerModule
                         Case VideoModesE.Text80x25Mono
                            Success = True
                      End Select
-                  Case &H4F%, &HFE%
+                  Case &H4F%, &HFE%, &HFF%
                      Success = True
                End Select
             Case &H11%
@@ -212,12 +212,21 @@ Public Module InterruptHandlerModule
                      CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=CPU.Memory(AddressesE.KeyboardFlags))
                      Success = True
                End Select
+            Case &H17%
+               Select Case AH
+                  Case &H1%
+                     Success = True
+               End Select
             Case &H1A%
                Select Case AH
                   Case &H0%
                      CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=CPU.Memory(AddressesE.ClockRollover))
                      CPU.Registers(CPU8086Class.Registers16BitE.CX, NewValue:=CPU.GET_WORD(AddressesE.Clock + &H2%))
                      CPU.Registers(CPU8086Class.Registers16BitE.DX, NewValue:=CPU.GET_WORD(AddressesE.Clock))
+                     Success = True
+                  Case &H1%
+                     CPU.PutWord(AddressesE.Clock + &H2%, CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX)))
+                     CPU.PutWord(AddressesE.Clock, CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
                      Success = True
                End Select
             Case &H1C%
@@ -231,6 +240,10 @@ Public Module InterruptHandlerModule
                   Case &H0%
                      CPU.ClockToken.Cancel()
                      TerminateProgram($"Program terminated.{NewLine}")
+                     Success = True
+                  Case &H31%
+                     CPU.ClockToken.Cancel()
+                     TerminateProgram($"Terminate and stay resident.{NewLine}")
                      Success = True
                   Case &H4C%
                      CPU.ClockToken.Cancel()

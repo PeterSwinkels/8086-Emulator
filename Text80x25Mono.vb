@@ -14,8 +14,8 @@ Imports System.Windows.Forms
 Public Class Text80x25MonoClass
    Implements VideoAdapterClass
 
-   Private Const BLACK_ON_GREEN As Integer = &H70&         'Defines the black on green attribute bit.
-   Private Const DARK_GREEN_ON_GREEN As Integer = &H78&    'Defines the black on green attribute bit.
+   Private Const BLACK_ON_GREEN As Integer = &H70%         'Defines the black on green attribute bit.
+   Private Const DARK_GREEN_ON_GREEN As Integer = &H78%    'Defines the black on green attribute bit.
    Private Const BLINK_BITMASK As Integer = &H80%          'Defines the character blink attribute bit.
    Private Const BRIGHT_BITMASK As Integer = &H8%          'Defines the bright character attribute bit.
    Private Const NON_BLINK_ATTRIBUTES As Integer = &H7F%   'Defines the attribute bits not related to blinking.
@@ -50,12 +50,31 @@ Public Class Text80x25MonoClass
             Attribute = Memory(Position + &H1%)
 
             If Attribute > &H0% AndAlso Not BLACK_ATTRIBUTES.Contains(Attribute) Then
+               Select Case (Attribute And NON_BLINK_ATTRIBUTES)
+                  Case BLACK_ON_GREEN, DARK_GREEN_ON_GREEN
+                     .FillRectangle(New SolidBrush(Color.Green), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
+               End Select
+            End If
+
+            If Target.X < TEXT_SCREEN_SIZE.Width - CHARACTER_SIZE.Width Then
+               Target.X += CHARACTER_SIZE.Width
+            Else
+               Target.X = 0
+               If Target.Y < TEXT_SCREEN_SIZE.Height Then Target.Y += CHARACTER_SIZE.Height
+            End If
+         Next Position
+
+         Target = New Point(0, 0)
+
+         For Position As Integer = VideoPageAddress To VideoPageAddress + TEXT_80_X_25_MONO_BUFFER_SIZE Step &H2%
+            Character = ToChar(CodePage(Memory(Position)))
+            Attribute = Memory(Position + &H1%)
+
+            If Attribute > &H0% AndAlso Not BLACK_ATTRIBUTES.Contains(Attribute) Then
                If (Attribute And NON_BLINK_ATTRIBUTES) = BLACK_ON_GREEN Then
-                  .FillRectangle(New SolidBrush(Color.Lime), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
-                  CharacterColor = New SolidBrush(Color.Green)
+                  CharacterColor = New SolidBrush(Color.Black)
                ElseIf (Attribute And NON_BLINK_ATTRIBUTES) = DARK_GREEN_ON_GREEN Then
-                  .FillRectangle(New SolidBrush(Color.Lime), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
-                  CharacterColor = New SolidBrush(Color.Green)
+                  CharacterColor = New SolidBrush(Color.DarkGreen)
                ElseIf (Attribute And BRIGHT_BITMASK) = &H0% Then
                   CharacterColor = New SolidBrush(Color.Green)
                Else
@@ -74,10 +93,7 @@ Public Class Text80x25MonoClass
                   If Memory(Position) >= &HC0% AndAlso Memory(Position) <= &HDF% Then
                      If Target.X + CHARACTER_SIZE.Width < Screen.Width - 1 Then
                         For y As Integer = Target.Y To Target.Y + CHARACTER_SIZE.Height - 1
-                           ColorO = BitmapO.GetPixel(Target.X + CHARACTER_SIZE.Width, y)
-                           If Not (ColorO.ToArgb And &HFFFFFF%) = &H0% Then
-                              .DrawLine(New Pen(ColorO), Target.X + CHARACTER_SIZE.Width + 1, y, Target.X + CHARACTER_SIZE.Width + 2, y)
-                           End If
+                           .DrawLine(New Pen(BitmapO.GetPixel(Target.X + CHARACTER_SIZE.Width, y)), Target.X + CHARACTER_SIZE.Width + 1, y, Target.X + CHARACTER_SIZE.Width + 2, y)
                         Next y
                      End If
                   End If

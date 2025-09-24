@@ -1,7 +1,12 @@
 8086 Emulator to do list.
 
 To do:
+1. Should int 21h, 4bh allocate memory?
+2. Functions that create files and directories should check for spaces and other invalid characters in the path.
+	2 = File not found
+	3 = Path not found
 ===
 Ideas:
 1. Add CGA character drawing. XOR on bit 7?
 2. Add VGA character drawing?
+

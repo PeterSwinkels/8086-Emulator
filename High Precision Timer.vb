@@ -10,7 +10,7 @@ Imports System.Threading.Tasks
 
 'This class contains the high precision timer.
 Public Class HighPrecisionTimerClass
-   <DllImport("kernel32.dll")> Private Shared Function QueryPerformanceCounter(ByRef lpPerformanceCount As Long) As Boolean
+   <DllImport("Kernel32.dll")> Private Shared Function QueryPerformanceCounter(ByRef lpPerformanceCount As Long) As Boolean
    End Function
    <DllImport("Kernel32.dll")> Private Shared Function QueryPerformanceFrequency(ByRef lpPerformanceFreq As Long) As Boolean
    End Function

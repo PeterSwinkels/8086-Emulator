@@ -213,7 +213,7 @@ Public Class PITClass
             Case FormatsE.MSB
                .LSB = Nothing
                .MSB = NewValue
-               InitializeCounter(Counter, NewValue:=(CInt(.MSB) << &H8%) Or CInt(.MSB) << &H8%)
+               InitializeCounter(Counter, NewValue:=(CInt(.MSB) << &H8%))
          End Select
       End With
    End Sub
