@@ -448,7 +448,7 @@ Public Class CPU8086Class
    Public Event WriteIOPort(Port As Integer, Value As Integer, Is8Bit As Boolean)        'Defines the IO port write event.
 
    Public ReadOnly GET_FLAT_CS_IP As Func(Of Integer) = Function() (CInt(Registers(SegmentRegistersE.CS)) << &H4%) + CInt(Registers(Registers16BitE.IP)) And ADDRESS_MASK  'Returns the flat memory address for the emulated CPU's CS:IP registers.
-   Public ReadOnly GET_WORD As Func(Of Integer, Integer) = Function(Address As Integer) (ToUInt16(Memory, Address And ADDRESS_MASK))                                       'Returns the word at the specified address.
+   Public ReadOnly GET_WORD As Func(Of Integer, Integer) = Function(Address As Integer) CInt(ToUInt16(Memory, Address And ADDRESS_MASK))                                   'Returns the word at the specified address.
 
    'This procedure initializes the CPU.
    Public Sub New()
