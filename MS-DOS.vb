@@ -110,7 +110,7 @@ Public Module MSDOSModule
    Private Const FILE_ACCESS_RW_MASK As Integer = &H3%                  'Defines the read/write bits for file access.
    Private Const HIGHEST_ADDRESS As Integer = &HA0000%                  'Defines the highest address that can be allocated.
    Private Const INT_20H As Integer = &H20CD%                           'Defines the INT 20h instruction.
-   Private Const INVALID_CHARACTERS As String = "*/<>?[\]| """          'Defines the characters that are invalid in an MS-DOS filename.
+   Private Const INVALID_CHARACTERS As String = "*<>?[]| """            'Defines the characters that are invalid in an MS-DOS file system item name.
    Private Const LOWEST_ADDRESS As Integer = &H600%                     'Defines the lowest address that can be allocated.
    Private Const MS_DOS As Integer = &HFF00%                            'Defines a value indicating that the operating system is MS-DOS.
    Private Const PSP_BYTES_AVAILABLE As Integer = &H6%                  'Defines the number of bytes available in a block of memory less the space used by the PSP.
@@ -345,7 +345,7 @@ Public Module MSDOSModule
    'This procedure creates a directory.
    Private Sub CreateDirectory(ByRef Flags As Integer)
       Try
-         Dim PathName As String = CropFileSystemItemName(GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))).Trim({ToChar(&H0%)}))
+         Dim PathName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))).Trim({ToChar(&H0%)})
 
          Try
             If INVALID_CHARACTERS.Intersect(PathName).Count > 0 OrElse PathName.Count(Function(Character) Character = "."c) > 1 Then
@@ -366,7 +366,7 @@ Public Module MSDOSModule
    'This procedure creates a file.
    Private Sub CreateFile(ByRef Flags As Integer)
       Try
-         Dim FileName As String = CropFileSystemItemName(GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))).Trim({ToChar(&H0%)}))
+         Dim FileName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))).Trim({ToChar(&H0%)})
          Dim FileStreamO As FileStream = Nothing
          Dim NextHandle As New Integer?
 
@@ -418,34 +418,10 @@ Public Module MSDOSModule
       End Try
    End Sub
 
-   'This procedure returns a cropped file system item name if necessary.
-   Private Function CropFileSystemItemName(FileSystemItemName As String) As String
-      Try
-         Dim Name As String = ""
-         Dim Extension As String = ""
-
-         If FileSystemItemName.Contains("."c) Then
-            Name = FileSystemItemName.Substring(0, FileSystemItemName.IndexOf("."c))
-            Extension = FileSystemItemName.Substring(FileSystemItemName.IndexOf("."c) + 1)
-         Else
-            Name = FileSystemItemName
-         End If
-
-         If Name.Length > 8 Then Name = Name.Substring(0, 8)
-         If Extension.Length > 3 Then Extension = Extension.Substring(0, 3)
-
-         Return $"{Name}.{Extension}"
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
-
-      Return Nothing
-   End Function
-
    'This procedure deletes a directory.
    Private Sub DeleteDirectory(ByRef Flags As Integer)
       Try
-         Dim PathName As String = CropFileSystemItemName(GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))).Trim({ToChar(&H0%)}))
+         Dim PathName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))).Trim({ToChar(&H0%)})
 
          Try
             Directory.Delete(PathName)
@@ -522,7 +498,7 @@ Public Module MSDOSModule
          Dim Offset As Integer = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
          Dim Extension As String = GetString(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) + FCBE.Extension, Length:=3).Trim()
          Dim FileName As String = GetString(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) + FCBE.Filename, Length:=8).Trim()
-         Dim FilePath As String = CropFileSystemItemName($"{FileName}.{Extension}")
+         Dim FilePath As String = $"{FileName}.{Extension}"
 
          Try
             If INVALID_CHARACTERS.Intersect(FilePath).Count > 0 OrElse FilePath.Count(Function(Character) Character = "."c) > 1 Then
@@ -638,7 +614,7 @@ Public Module MSDOSModule
          Else
             For Index As Integer = 0 To 7
                Character = FilePattern.ToString().Chars(Index)
-               If $".{INVALID_CHARACTERS}".Contains(Character) Then
+               If $".\/{INVALID_CHARACTERS}".Contains(Character) Then
                   If Character = "."c Then IsPeriod = True
                   Exit For
                End If
@@ -649,7 +625,7 @@ Public Module MSDOSModule
             If IsPeriod Then
                For Index As Integer = 0 To 3
                   Character = FilePattern.ToString().Chars(Index + FCBFileName.Length + 1)
-                  If $".{INVALID_CHARACTERS}".Contains(Character) Then
+                  If $".\/{INVALID_CHARACTERS}".Contains(Character) Then
                      Exit For
                   End If
                   FCBExtension.Append(Character)
@@ -808,11 +784,9 @@ Public Module MSDOSModule
    Private Sub GetCurrentPath(ByRef Flags As Integer)
       Try
          Dim DriveNumber As Integer = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.DL))
-         Dim Drive As Char = If(DriveNumber = &H0%, Directory.GetCurrentDirectory().ToCharArray().First, ToChar(ToByte(DriveNumber - &H1%) + ToByte("A"c)))
          Dim PreviousCurrentDirectory As String = Directory.GetCurrentDirectory()
 
          Try
-            Directory.SetCurrentDirectory($"{Drive}:")
             WriteStringToMemory($"{String.Join("\"c, MSDOSCurrentDirectory)}{ToChar(&H0%)}".ToUpper(), (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.SI)))
             Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
          Catch MSDOSException As Exception
@@ -1345,6 +1319,9 @@ Public Module MSDOSModule
                   Case &H51%, &H62%
                      CPU.Registers(CPU8086Class.Registers16BitE.BX, NewValue:=ProcessIDs.Last)
                      Success = True
+                  Case &H56%
+                     RenameFile(Flags)
+                     Success = True
                   Case &H57%
                      Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
                         Case &H0%
@@ -1728,6 +1705,33 @@ Public Module MSDOSModule
                   Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
                End Try
          End Select
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure renames a file.
+   Private Sub RenameFile(ByRef Flags As Integer)
+      Try
+         Dim NewName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.ES)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DI))).Trim({ToChar(&H0%)})
+         Dim OldName As String = GetStringZ(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))).Trim({ToChar(&H0%)})
+
+         If INVALID_CHARACTERS.Intersect(NewName).Count > 0 OrElse NewName.Count(Function(Character) Character = "."c) > 1 Then
+            Throw New ArgumentException
+         End If
+
+         Try
+            If (File.GetAttributes(OldName) And FileAttributes.Directory) = FileAttributes.Directory Then
+               Directory.Move(OldName, NewName)
+            Else
+               File.Move(OldName, NewName)
+            End If
+
+            Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+         Catch MSDOSException As Exception
+            CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
+            Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+         End Try
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

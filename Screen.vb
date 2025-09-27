@@ -55,11 +55,14 @@ Public Class ScreenWindow
    'This procedure gives the video adapter the command to update the screen's content.
    Private Sub ScreenWindow_Paint(sender As Object, e As PaintEventArgs) Handles MyBase.Paint
       Try
-         Dim VideoMode As VideoModesE = DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
+         Dim VideoMode As VideoModesE = VideoAdapterToVideoMode()
 
          Me.Text = $"Screen {If([Enum].IsDefined(GetType(VideoModesE), VideoMode), $"{VideoMode} (0x{CInt(VideoMode).ToString("X")})", "Unknown mode.")}"
 
-         If VideoAdapter IsNot Nothing Then
+         If VideoAdapter Is Nothing Then
+            Me.ClientSize = New Size(320, 200)
+            Me.BackColor = Color.Black
+         Else
             Me.ClientSize = VideoAdapter.Resolution
 
             If Me.BackgroundImage Is Nothing Then
@@ -68,9 +71,6 @@ Public Class ScreenWindow
             End If
 
             VideoAdapter.Display(Me.BackgroundImage, CPU.Memory, CODE_PAGE_437)
-         Else
-            Me.ClientSize = New Size(320, 200)
-            Me.BackColor = Color.Black
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)

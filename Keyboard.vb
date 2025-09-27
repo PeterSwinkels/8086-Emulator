@@ -105,7 +105,7 @@ Public Module KeyboardModule
                BIOSKeyCode = BIOS_KEY_CODES_A_Z(KeyASCII - ASCII_A)
             Case Else
                PunctuationIndex = PUNCTUATION_CHARACTERS.IndexOf(ToChar(KeyASCII))
-               Shift = (PunctuationIndex >= PUNCTUATION_CHARACTERS_SHIFT_INDEX)
+               Shift = My.Computer.Keyboard.ShiftKeyDown
                If PunctuationIndex >= 0 Then
                   If Alt Then
                      If Not BIOS_KEY_CODES_PUNCTUATION_ALT(PunctuationIndex) = Nothing Then BIOSKeyCode = BIOS_KEY_CODES_PUNCTUATION_ALT(PunctuationIndex)
@@ -113,8 +113,8 @@ Public Module KeyboardModule
                      CharacterCode = CHARACTER_CODES_PUNCTUATION_CONTROL(PunctuationIndex)
                      If Not CharacterCode = Nothing Then BIOSKeyCode = BIOS_KEY_CODES_PUNCTUATION(PunctuationIndex)
                   ElseIf Shift Then
-                     CharacterCode = KeyASCII
-                     BIOSKeyCode = BIOS_KEY_CODES_PUNCTUATION(PunctuationIndex - (PUNCTUATION_CHARACTERS_SHIFT_INDEX - 1))
+                     CharacterCode = ToInt32(PUNCTUATION_CHARACTERS(PunctuationIndex + (PUNCTUATION_CHARACTERS_SHIFT_INDEX - 1)))
+                     BIOSKeyCode = BIOS_KEY_CODES_PUNCTUATION(PunctuationIndex)
                   Else
                      CharacterCode = KeyASCII
                      BIOSKeyCode = BIOS_KEY_CODES_PUNCTUATION(PunctuationIndex)
@@ -272,8 +272,8 @@ Public Module KeyboardModule
       Return Nothing
    End Function
 
-   'This procedure returns the ASCII value of the specified punctuation key's character if it recognized.
-   Public Function PunctuationKeyToASCII(Key As Keys) As Integer?
+   'This procedure returns the ASCII value of the specified punctuation key's character if it is recognized.
+   Private Function PunctuationKeyToASCII(Key As Keys) As Integer?
       Try
          Dim KeyASCII As New Integer?
 

@@ -130,7 +130,7 @@ Public Module BIOSModule
 
          CursorPositionUpdate()
 
-         Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
+         Select Case CurrentVideoMode
             Case VideoModesE.Text80x25Mono
                VideoPageAddress = AddressesE.Text80x25MonoPage0
                Attribute = CPU.Memory(VideoPageAddress + ((Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%)) + &H1%)

@@ -105,14 +105,14 @@ Public Module InterruptHandlerModule
                      VideoAdapter.ScrollBuffer(Up:=False, ScrollArea:=New VideoAdapterClass.ScreenAreaStr With {.ULCRow = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.CH)), .ULCColumn = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.CL)), .LRCRow = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.DH)), .LRCColumn = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.DL))}, Count:=CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)))
                      Success = True
                   Case &H8%
-                     Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
+                     Select Case CurrentVideoMode
                         Case VideoModesE.Text80x25Mono
                            CursorPositionUpdate()
                            CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CPU.GET_WORD(AddressesE.Text80x25MonoPage0 + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)))
                            Success = True
                      End Select
                   Case &H9%, &HA%
-                     Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
+                     Select Case CurrentVideoMode
                         Case VideoModesE.Text80x25Mono
                            VideoPageAddress = AddressesE.Text80x25MonoPage0
                            Character = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
@@ -145,19 +145,19 @@ Public Module InterruptHandlerModule
                      TeleType(CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)))
                      Success = True
                   Case &HF%
-                     VideoMode = CPU.Memory(AddressesE.VideoMode)
+                     VideoMode = CurrentVideoMode
                      CPU.Registers(CPU8086Class.SubRegisters8BitE.AH, NewValue:=If(VideoMode = VideoModesE.Text40x25Color OrElse VideoMode = VideoModesE.Text40x25Mono, &H28%, &H50%))
                      VideoMode = VideoMode Or (CPU.Memory(AddressesE.VideoModeOptions) >> &H7%)
                      CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=VideoMode)
                      CPU.Registers(CPU8086Class.SubRegisters8BitE.BH, NewValue:=CPU.Memory(AddressesE.VideoPage))
                      Success = True
                   Case &H1A%
-                     Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
+                     Select Case CurrentVideoMode
                         Case VideoModesE.Text80x25Mono
                            Success = True
                      End Select
                   Case &H10%
-                     Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
+                     Select Case CurrentVideoMode
                         Case VideoModesE.Text80x25Mono
                            Success = True
                      End Select
@@ -173,7 +173,7 @@ Public Module InterruptHandlerModule
                      End Select
                      Success = True
                   Case &H12%
-                     Select Case DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
+                     Select Case CurrentVideoMode
                         Case VideoModesE.Text80x25Color
                            Success = True
                         Case VideoModesE.Text80x25Mono
