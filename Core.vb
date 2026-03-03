@@ -328,6 +328,39 @@ Public Module CoreModule
       End Try
    End Sub
 
+   'This procedure returns the position inside the specified bytes of the bytes to search for if found.
+   Public Function FindBytes(Bytes() As Byte, BytesToFind() As Byte, Optional Offset As Integer = 0) As Integer
+      Try
+         Dim Found As New Boolean
+         Dim MaximumIndex As Integer = Bytes.Length - BytesToFind.Length
+         Dim Position As Integer = -1
+
+         For Index As Integer = Offset To MaximumIndex
+            If Bytes(Index) = BytesToFind(0) Then
+
+               Found = True
+
+               For OtherIndex As Integer = 1 To BytesToFind.Length - 1
+                  If Not Bytes(Index + OtherIndex) = BytesToFind(OtherIndex) Then
+                     Found = False
+                     Exit For
+                  End If
+               Next OtherIndex
+               If Found Then
+                  Position = Index
+                  Exit For
+               End If
+            End If
+         Next Index
+
+         Return Position
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return -1
+   End Function
+
    'This procedure generates the output for the contents of the specified memory address.
    Private Sub GenerateAddressContent(Address As Integer?, Optional AddNewLine As Boolean = True)
       Try
@@ -558,7 +591,7 @@ Public Module CoreModule
          Dim AH As New Integer?
          Dim Command As String = Nothing
          Dim Count As New Integer?
-         Dim ErrorAt As New Integer
+         Dim ErrorAt As Integer = 0
          Dim FileName As String = Nothing
          Dim Interrupt As New Integer?
          Dim Is8Bit As New Boolean
@@ -690,6 +723,26 @@ Public Module CoreModule
                         End If
 
                         Assemble(, StartAddress:=Address)
+                     Case "MF"
+                        If Operands IsNot Nothing AndAlso IS_STRING_OPERAND(Operands) Then
+                           Operands = Unescape(REMOVE_DELIMITERS(Operands),, ErrorAt)
+                           If ErrorAt = 0 Then
+                              SearchMemory((From Character In Operands.ToCharArray() Select ToByte(Character)).ToArray())
+                           End If
+                        ElseIf Operands IsNot Nothing AndAlso IS_VALUES_OPERAND(Operands) Then
+                           SearchMemory(ParseValues(REMOVE_DELIMITERS(Operands)))
+                        Else
+                           SyncLock Synchronizer
+                              CPUEvent.Append($"Invalid operand.{NewLine}")
+                           End SyncLock
+                        End If
+                     Case "MS"
+                        FileName = If(Operands Is Nothing, RequestFileName("Save memory.", Save:=True), Operands)
+                        If Not FileName = Nothing Then
+                           File.WriteAllBytes(FileName, CPU.Memory)
+                           Output.AppendText($"Memory saved to ""{FileName}"".{NewLine}")
+                           Success = True
+                        End If
                      Case "Q"
                         Application.Exit()
                      Case "R"
@@ -707,6 +760,14 @@ Public Module CoreModule
                         CPU.Tracing = False
                         Output.AppendText($"{If(Not CPU.Clock.Status = TaskStatus.Running, "Execution already stopped.", "Execution stopped.")}{NewLine}")
                         CPU.ClockToken.Cancel()
+                     Case "SCO"
+                        FileName = If(Operands Is Nothing, RequestFileName("Save console output.", Save:=True), Operands)
+                        If Not FileName = Nothing Then
+                           If Not Path.GetExtension(FileName).ToLower() = ".txt" Then FileName = $"{FileName}.txt"
+                           File.WriteAllText(FileName, Output.Text)
+                           Output.AppendText($"Console output saved to ""{FileName}"".{NewLine}")
+                           Success = True
+                        End If
                      Case "SCR"
                         ScreenWindow.Show()
                      Case "ST"
@@ -721,6 +782,9 @@ Public Module CoreModule
                         CPU_Trace()
                      Case "TE"
                         If Not CPU.Clock.Status = TaskStatus.Running Then
+                           SyncLock Synchronizer
+                              CPUEvent.Append(NewLine)
+                           End SyncLock
                            CPU.Tracing = True
                            CPU.ClockToken = New CancellationTokenSource
                            CPU.Clock = New Task(AddressOf CPU.Execute)
@@ -741,12 +805,14 @@ Public Module CoreModule
                                  Output.AppendText($"Invalid address.{NewLine}")
                               Else
                                  Value = GET_OPERAND(Input).Trim()
-                                 If IS_VALUES_OPERAND(Value) Then
-                                    Value = REMOVE_DELIMITERS(Value)
-                                    Output.AppendText($"Finished writing values at 0x{WriteValuesToMemory(Value, CInt(Address)):X8}.{NewLine}")
-                                 ElseIf IS_STRING_OPERAND(Value) Then
+
+                                 If IS_STRING_OPERAND(Value) Then
                                     Value = Unescape(REMOVE_DELIMITERS(Value),, ErrorAt)
-                                    Output.AppendText(If(ErrorAt = 0, $"Finished writing string at 0x{WriteStringToMemory(Value, CInt(Address)):X8}.{NewLine}", $"Invalid escape sequence at: {ErrorAt}.{NewLine}"))
+                                    If ErrorAt = 0 Then
+                                       Output.AppendText($"Finished writing string at 0x{WriteStringToMemory(Value, CInt(Address)):X8}.{NewLine}")
+                                    End If
+                                 ElseIf IS_VALUES_OPERAND(Value) Then
+                                    Output.AppendText($"Finished writing values at 0x{WriteBytesToMemory(ParseValues(REMOVE_DELIMITERS(Value)), CInt(Address)):X8}.{NewLine}")
                                  Else
                                     NewValue = GetLiteral(Value)
                                     If NewValue Is Nothing Then
@@ -776,6 +842,11 @@ Public Module CoreModule
                   End Select
                End If
             End If
+
+            If ErrorAt > 0 Then
+               Output.AppendText($"Invalid escape sequence at: {ErrorAt}.{NewLine}")
+            End If
+
          End If
 
          Return Success
@@ -803,6 +874,47 @@ Public Module CoreModule
       Return New ParsedStr With {.Remainder = ""}
    End Function
 
+   'This procedure parses the specified values and returns them as bytes.
+   Private Function ParseValues(Values As String) As Byte()
+      Try
+         Dim Bytes As New List(Of Byte)
+         Dim Character As New Char
+         Dim InCharacterLiteral As Boolean = False
+         Dim NewValue As String = Nothing
+         Dim Position As Integer = 0
+         Dim Value As New Integer?
+
+         Values = $"{Values} "
+         Do Until Values.Trim() = Nothing
+            Character = Values.Chars(Position)
+            If Character = " "c Then
+               NewValue = Values.Substring(0, Position).Trim()
+               Value = GetLiteral(NewValue)
+               If Value Is Nothing Then
+                  Output.AppendText($"Invalid value: ""{NewValue}"".{NewLine}")
+                  Exit Do
+               Else
+                  Values = $"{Values.Substring(Position).Trim()} "
+                  Position = 0
+                  If CInt(Value) < &H100% Then
+                     Bytes.Add(ToByte(Value))
+                  Else
+                     Bytes.AddRange({ToByte(Value >> &H8%), ToByte(Value And &HFF%)})
+                  End If
+               End If
+            Else
+               Position += 1
+            End If
+         Loop
+
+         Return Bytes.ToArray()
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return {}
+   End Function
+
    'This procedure handles PIT events.
    Private Sub PIT_PITEvent(Counter As PITClass.CountersE, Mode As PITClass.ModesE) Handles PIT.PITEvent
       Try
@@ -815,11 +927,17 @@ Public Module CoreModule
    End Sub
 
    'This procedure displays a file dialog requesting the user to specify a file and returns the user's selection.
-   Private Function RequestFileName(Title As String) As String
+   Private Function RequestFileName(Title As String, Optional Save As Boolean = False) As String
       Try
-         With New OpenFileDialog With {.Title = Title}
-            If .ShowDialog() = DialogResult.OK Then Return .FileName
-         End With
+         If Save Then
+            With New SaveFileDialog With {.Title = Title}
+               If .ShowDialog() = DialogResult.OK Then Return .FileName
+            End With
+         Else
+            With New OpenFileDialog With {.Title = Title}
+               If .ShowDialog() = DialogResult.OK Then Return .FileName
+            End With
+         End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -871,6 +989,32 @@ Public Module CoreModule
          Else
             CurrentVideoMode = MemoryVideoMode
             SwitchVideoAdapter()
+         End If
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure searches the memory for the specified values or string.
+   Private Sub SearchMemory(Bytes() As Byte)
+      Try
+         Dim Found As Boolean = False
+         Dim NextOffset As New Integer
+
+         NextOffset = FindBytes(CPU.Memory, Bytes)
+
+         If NextOffset >= 0 Then
+            Output.AppendText($"Found at:{NewLine}")
+            Found = True
+         End If
+
+         Do While NextOffset >= 0
+            Output.AppendText($"{NextOffset:X8}{NewLine}")
+            NextOffset = FindBytes(CPU.Memory, Bytes, NextOffset + Bytes.Length)
+         Loop
+
+         If Not Found Then
+            Output.AppendText($"Not found.{NewLine}")
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -988,46 +1132,6 @@ Public Module CoreModule
             CPU.Memory(Address) = ToByte(Character)
             Address += &H1%
          Next Character
-
-         Return Address
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
-
-      Return Nothing
-   End Function
-
-   'This procedure writes the specified values to memory at the specified address and returns the last address written to.
-   Private Function WriteValuesToMemory(Values As String, Address As Integer) As Integer
-      Try
-         Dim Character As New Char
-         Dim InCharacterLiteral As Boolean = False
-         Dim Is8Bit As New Boolean
-         Dim NewValue As String = Nothing
-         Dim Position As Integer = 0
-         Dim Value As New Integer?
-
-         Values = $"{Values} "
-         Do Until Values.Trim() = Nothing
-            Character = Values.Chars(Position)
-            Is8Bit = True
-            If Character = " "c Then
-               NewValue = Values.Substring(0, Position).Trim()
-               Value = GetLiteral(NewValue, Is8Bit)
-               If Value Is Nothing Then
-                  Output.AppendText($"Invalid value: ""{NewValue}"".{NewLine}")
-                  Exit Do
-               Else
-                  Is8Bit = (CInt(Value) < &H100%)
-                  Values = $"{Values.Substring(Position).Trim()} "
-                  Position = 0
-                  WriteValueToMemory(CInt(Value), Address, Is8Bit)
-                  Address += If(Is8Bit, &H1%, &H2%)
-               End If
-            Else
-               Position += 1
-            End If
-         Loop
 
          Return Address
       Catch ExceptionO As Exception

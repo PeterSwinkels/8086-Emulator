@@ -23,12 +23,16 @@ MA [Offset:Segment]           Allows the user to enter assembly instructions.
                               Enter "?" for help.
 							  CS:IP will be set to any address specified.
 MD [Offset:Segment] [Count]   Disassemble memory starting at CS:IP.
+MF = {Values} | "String"      Searches the memory for the specified values or string
+                              and lists offsets for matches.
+MS [Path]                     Save the memory contents to a file.
 MT [Offset:Segment] [Count]   Display memory as text.
                               Byte values 0x20-0x7E are shown as characters.
 Q                             Quits the emulator.
 R                             Display all registers and their values.
 RESET                         Resets the CPU.
 S                             Causes the emulated CPU to stop executing code.
+SCO                           Save the console output to a file.
 SCR                           Displays the screen output/keyboard input window.
 ST                            Displays all word values from SS:SP to SS:BP.
 T                             Executes and displays a single instruction.

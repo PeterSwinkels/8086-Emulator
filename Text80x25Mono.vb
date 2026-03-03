@@ -23,8 +23,8 @@ Public Class Text80x25MonoClass
 
    Private ReadOnly BLACK_ATTRIBUTES() As Integer = {&H0%, &H8%, &H80%, &H88%}                                         'Defines the black character attributes.
    Private ReadOnly CHARACTER_SIZE As Size = New Size(12, 16)                                                          'Defines the character size.
-   Private ReadOnly FONT_NORMAL As New Font("Px437 IBM MDA", emSize:=14)                                               'Defines the normal font.
-   Private ReadOnly FONT_UNDERLINE As New Font("Px437 IBM MDA", emSize:=14, FontStyle.Underline)                       'Defines the underlined font.
+   Private ReadOnly FONT_NORMAL As New Font("Px437 IBM MDA", emSize:=11)                                               'Defines the normal font.
+   Private ReadOnly FONT_UNDERLINE As New Font("Px437 IBM MDA", emSize:=11, FontStyle.Underline)                       'Defines the underlined font.
    Private ReadOnly TEXT_SCREEN_SIZE As Size = New Size(&H50% * CHARACTER_SIZE.Width, &H19% * CHARACTER_SIZE.Height)   'Defines the screen size measured in characters.
 
    Private BlinkCharactersVisible As Boolean = True  'Indicates whether or not the blinking characters are visible.

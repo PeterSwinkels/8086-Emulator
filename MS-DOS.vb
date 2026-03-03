@@ -1098,7 +1098,9 @@ Public Module MSDOSModule
                            TeleType(CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.DL)))
                         Case &HFF%
                            If ExtendedKeyCode Is Nothing Then
-                              KeyCode = LastBIOSKeyCode()
+                              Do
+                                 KeyCode = LastBIOSKeyCode()
+                              Loop Until KeyCode.HasValue OrElse CPU.ClockToken.IsCancellationRequested
                               If KeyCode IsNot Nothing AndAlso (KeyCode.Value And &HFF%) = Nothing Then
                                  ExtendedKeyCode = KeyCode >> &H8%
                               End If
@@ -1134,6 +1136,12 @@ Public Module MSDOSModule
                   Case &HB%
                      CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=If(LastBIOSKeyCode() Is Nothing, &H0%, &HFF%))
                      Success = True
+                  Case &HC%
+                     LastBIOSKeyCode(, Clear:=True)
+                     Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
+                        Case &H1%, &H6%, &H7%, &H8%, &HA%
+                           Success = HandleMSDOSInterrupt(Number:=&H21%, AH:=CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)), Flags:=Flags)
+                     End Select
                   Case &HD%
                      Success = True
                   Case &HE%

@@ -1026,7 +1026,7 @@ Public Class CPU8086Class
       Return True
    End Function
 
-   'This procedure executes the specified opcode and returns whether or not it succeeded..
+   'This procedure executes the specified opcode and returns whether or not it succeeded.
    Public Function ExecuteOpcode(Optional Opcode As OpcodesE = Nothing) As Boolean
       Dim CFStopValue As New Boolean
       Dim LowOctet As New Integer
