@@ -688,6 +688,15 @@ Public Module CoreModule
                               End If
                            End If
                         End If
+                     Case "INT6"
+                        Select Case Operands.Trim().ToUpper()
+                           Case "OFF"
+                              CPU.INT6Enabled = False
+                           Case "ON"
+                              CPU.INT6Enabled = True
+                           Case Else
+                              Output.AppendText($"Invalid option.{NewLine}")
+                        End Select
                      Case "IRET"
                         CPU.ExecuteOpcode(CPU8086Class.OpcodesE.IRET)
                      Case "L"

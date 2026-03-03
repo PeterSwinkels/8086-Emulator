@@ -437,6 +437,7 @@ Public Class CPU8086Class
    Public Clock As New Task(AddressOf Execute)                                     'Contains the CPU clock.
    Public ClockToken As New CancellationTokenSource                                'Indicates whether or not to stop the CPU.
    Public HardwareInterrupts As New List(Of Integer)                               'Contains a list of pending interrupts triggered by emulated hardware.
+   Public INT6Enabled As Boolean = False                                           'Indicates whether or not interrupt 6h is triggered for invalid opcodes.
    Public Memory() As Byte = Enumerable.Repeat(CByte(&H0%), &H100000%).ToArray()   'Contains the memory used by the emulated 8086 CPU.
    Public Tracing As Boolean = False                                               'Indicates whether or not tracing is enabled.
 
@@ -601,7 +602,7 @@ Public Class CPU8086Class
       Return NewBits
    End Function
 
-   'This procedure converts the specified byte/word to a word/dword and returns the result.
+   'This procedure converts the specified BYTE/WORD to a WORD/DWORD and returns the result.
    Public Function ConvertWidening(Value As Integer, Is8Bit As Boolean) As Integer
       Value = Value And If(Is8Bit, &HFF%, &HFFFF%)
 
@@ -629,7 +630,9 @@ Public Class CPU8086Class
             End Try
 
             If Not ExecuteOpcode() Then
-               ExecuteInterrupt(OpcodesE.INT, Number:=INVALID_OPCODE)
+               If INT6Enabled Then
+                  ExecuteInterrupt(OpcodesE.INT, Number:=INVALID_OPCODE)
+               End If
             End If
 
             If Tracing Then RaiseEvent Trace()

@@ -16,6 +16,7 @@ ECXZ                          Executes until the CX register contains zero.
 EXE [Path]                    Loads a MS-DOS executable at CS:0000.
 INT int ah                    Executes an INT instruction.
                               If the CPU is inactive, external interrupts will be executed.
+INT6 ON|OFF                   Turns interrupt 6h for invalid opcodes on or off.
 IRET                          Executes an IRET instruction.
 L [Path]                      Loads a file into the emulated memory at DS:DI.
 M [Offset:Segment] [Count]    Display memory.
