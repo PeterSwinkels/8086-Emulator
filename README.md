@@ -27,3 +27,7 @@ Designed as an experimental tool; not all instructions or edge cases are handled
 Important: To ensure correct text display, install the custom font located in: ./Documents/Other/Fonts
 
 For more details, see Help.txt in the Documents folder.
+
+Also, a useful technical reference for old (1980's-1990's) x86 based hardware and software can be found at:
+
+https://helppc.netcore2k.net/
