@@ -19,6 +19,7 @@ Supports startup scripts for automated setup or testing.
 Limitations:
 
 No full operating system — only a handful of MS-DOS functions are simulated.
+Software that has the best chance of executing properly to any degree are simple text mode programs from the 1980's and early 1990's. (If they work in e.g. DOSBox with an emulated 8086 CPU and Hercules machine they might execute.)
 
 Graphics, advanced interrupt handling, and many system calls are not supported.
 
