@@ -32,3 +32,7 @@ For more details, see Help.txt in the Documents folder.
 Also, a useful technical reference for old (1980's-1990's) x86 based hardware and software can be found at:
 
 https://helppc.netcore2k.net/
+
+A utility to deal with traces containing duplicate events generated while both executing and tracing. (A glitch which appears to be caused by asynchronous code.):
+
+https://github.com/PeterSwinkels/8086-Emulator-Trace-Cleanup
