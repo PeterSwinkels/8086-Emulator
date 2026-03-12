@@ -109,176 +109,195 @@ Public Class DisassemblerClass
                Case &HCF% : Instruction = "IRET"
                Case &HD6% : Instruction = "SALC"
                Case &HD7% : Instruction = "XLATB"
+               Case &HD8% To &HDF%
+                  Instruction = "ESC"
+
+                  Operand = GetByte(Code, Position)
+
+                  Select Case (Operand And &HC0%) >> &H6%
+                     Case &H0%
+                        If (Operand And &H7%) = &H6% Then
+                           Instruction = $"{Instruction} {Operand:X2} {HEXADECIMAL_PREFIX}{GetByte(Code, Position):X2} {HEXADECIMAL_PREFIX}{GetByte(Code, Position):X2}"
+                        Else
+                           Instruction = $"{Instruction} {HEXADECIMAL_PREFIX}{Operand:X2}"
+                        End If
+                     Case &H1%
+                        Instruction = $"{Instruction} {HEXADECIMAL_PREFIX}{Operand:X2} {HEXADECIMAL_PREFIX}{GetByte(Code, Position):X2}"
+                     Case &H2%
+                        Instruction = $"{Instruction} {HEXADECIMAL_PREFIX}{Operand:X2} {HEXADECIMAL_PREFIX}{GetByte(Code, Position):X2} {HEXADECIMAL_PREFIX}{GetByte(Code, Position):X2}"
+                     Case Else
+                        Instruction = $"{Instruction} {HEXADECIMAL_PREFIX}{Operand:X2}"
+                  End Select
                Case &HF0% : Instruction = "LOCK"
-               Case &HF2% : Instruction = "REPNE"
-               Case &HF3% : Instruction = "REPZ"
-               Case &HF4% : Instruction = "HLT"
-               Case &HF5% : Instruction = "CMC"
-               Case &HF8% : Instruction = "CLC"
-               Case &HF9% : Instruction = "STC"
-               Case &HFA% : Instruction = "CLI"
-               Case &HFB% : Instruction = "STI"
-               Case &HFC% : Instruction = "CLD"
-               Case &HFD% : Instruction = "STD"
-               Case &H0% To &H5%, &H8% To &HD%, &H10% To &H15%, &H18% To &H1D%, &H20% To &H25%, &H28% To &H2D%, &H30% To &H35%, &H38% To &H3D%, &H88% To &H8B%
-                  Select Case Opcode
-                     Case &H0% To &H5% : Instruction = "ADD"
-                     Case &H8% To &HD% : Instruction = "OR"
-                     Case &H10% To &H15% : Instruction = "ADC"
-                     Case &H18% To &H1D% : Instruction = "SBB"
-                     Case &H20% To &H25% : Instruction = "AND"
-                     Case &H28% To &H2D% : Instruction = "SUB"
-                     Case &H30% To &H35% : Instruction = "XOR"
-                     Case &H38% To &H3D% : Instruction = "CMP"
-                     Case &H88% To &H8B% : Instruction = "MOV"
+                     Case &HF2% : Instruction = "REPNE"
+                     Case &HF3% : Instruction = "REPZ"
+                     Case &HF4% : Instruction = "HLT"
+                     Case &HF5% : Instruction = "CMC"
+                     Case &HF8% : Instruction = "CLC"
+                     Case &HF9% : Instruction = "STC"
+                     Case &HFA% : Instruction = "CLI"
+                     Case &HFB% : Instruction = "STI"
+                     Case &HFC% : Instruction = "CLD"
+                     Case &HFD% : Instruction = "STD"
+                     Case &H0% To &H5%, &H8% To &HD%, &H10% To &H15%, &H18% To &H1D%, &H20% To &H25%, &H28% To &H2D%, &H30% To &H35%, &H38% To &H3D%, &H88% To &H8B%
+                        Select Case Opcode
+                           Case &H0% To &H5% : Instruction = "ADD"
+                           Case &H8% To &HD% : Instruction = "OR"
+                           Case &H10% To &H15% : Instruction = "ADC"
+                           Case &H18% To &H1D% : Instruction = "SBB"
+                           Case &H20% To &H25% : Instruction = "AND"
+                           Case &H28% To &H2D% : Instruction = "SUB"
+                           Case &H30% To &H35% : Instruction = "XOR"
+                           Case &H38% To &H3D% : Instruction = "CMP"
+                           Case &H88% To &H8B% : Instruction = "MOV"
+                        End Select
+
+                        Operand = GetByte(Code, Position)
+                        Select Case (Opcode And &H7%)
+                           Case &H0% : Instruction &= $" {GetOperand(Code, Position, Operand, LH_REGISTERS)}, {LH_REGISTERS((Operand And &H38%) >> &H3%)}"
+                           Case &H1% : Instruction &= $" {GetOperand(Code, Position, Operand, XP_REGISTERS)}, {XP_REGISTERS((Operand And &H38%) >> &H3%)}"
+                           Case &H2% : Instruction &= $" {LH_REGISTERS((Operand And &H38%) >> &H3%)}, {GetOperand(Code, Position, Operand, LH_REGISTERS)}"
+                           Case &H3% : Instruction &= $" {XP_REGISTERS((Operand And &H38%) >> &H3%)}, {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
+                           Case &H4% : Instruction &= $" {LH_REGISTERS(ACCUMULATOR_REGISTER)}, {BytesToHexadecimal({Operand}.ToList())}"
+                           Case &H5% : Instruction &= $" {XP_REGISTERS(ACCUMULATOR_REGISTER)}, {BytesToHexadecimal({Operand, GetByte(Code, Position)}.ToList())}"
+                        End Select
+                     Case &H6%, &HE%, &H16%, &H1E% : Instruction = $"PUSH {SG_REGISTERS((Opcode And &H18%) >> &H3%)}"
+                     Case &H7%, &H17%, &H1F% : Instruction = $"POP {SG_REGISTERS((Opcode And &H18%) >> &H3%)}"
+                     Case &H26%, &H2E%, &H36%, &H3E% : Instruction = SG_REGISTERS((Opcode And &H18%) >> &H3%)
+                     Case &H40% To &H47% : Instruction = $"INC {XP_REGISTERS(Opcode And &H7%)}"
+                     Case &H48% To &H4F% : Instruction = $"DEC {XP_REGISTERS(Opcode And &H7%)}"
+                     Case &H50% To &H57% : Instruction = $"PUSH {XP_REGISTERS(Opcode And &H7%)}"
+                     Case &H58% To &H5F% : Instruction = $"POP {XP_REGISTERS(Opcode And &H7%)}"
+                     Case &H64%, &H65% : Instruction = SG_REGISTERS(Opcode And &H7%)
+                     Case &H70% To &H7F% : Instruction = $"{OPCODES_707F(Opcode And &HF%)} {ShortAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
+                     Case &H80%, &H82%
+                        Operand = GetByte(Code, Position)
+                        Instruction = $"{OPCODES_8083((Operand And &H3F%) >> &H3%)} {GetOperand(Code, Position, Operand, LH_REGISTERS)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
+                     Case &H81%
+                        Operand = GetByte(Code, Position)
+                        Instruction = $"{OPCODES_8083((Operand And &H3F%) >> &H3%)} {GetOperand(Code, Position, Operand, XP_REGISTERS)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
+                     Case &H83%
+                        Operand = GetByte(Code, Position)
+                        Instruction = $"{OPCODES_8083((Operand And &H3F%) >> &H3%)} {If(Operand < &HC0%, "WORD ", Nothing)}{GetOperand(Code, Position, Operand, XP_REGISTERS)}, {If(Operand < &HC0%, "BYTE ", Nothing)}{BytesToHexadecimal(GetBytes(Code, Position, Length:=1), , Signed:=True)}"
+                     Case &H84%, &H86%
+                        If Opcode = &H84% Then Instruction = "TEST "
+                        If Opcode = &H86% Then Instruction = "XCHG "
+
+                        Operand = GetByte(Code, Position)
+                        Instruction &= $"{GetOperand(Code, Position, Operand, LH_REGISTERS)}, {LH_REGISTERS((Operand And &H38%) >> &H3%)}"
+                     Case &H85%, &H87%
+                        If Opcode = &H85% Then Instruction = "TEST "
+                        If Opcode = &H87% Then Instruction = "XCHG "
+
+                        Operand = GetByte(Code, Position)
+                        Instruction &= $"{GetOperand(Code, Position, Operand, XP_REGISTERS)}, {XP_REGISTERS((Operand And &H38%) >> &H3%)}"
+                     Case &H8C%
+                        Operand = GetByte(Code, Position)
+                        Instruction = $"MOV {GetOperand(Code, Position, Operand, XP_REGISTERS)}, {SG_REGISTERS((Operand And &H38%) >> &H3%)}"
+                     Case &H8D%
+                        If Opcode = &H8D% Then Instruction = "LEA "
+
+                        Operand = GetByte(Code, Position)
+                        If Operand < &HC0& Then
+                           Instruction &= $"{XP_REGISTERS((Operand And &H38%) >> &H3%)}, {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
+                        Else
+                           Instruction = Nothing
+                        End If
+                     Case &H8E%
+                        Operand = GetByte(Code, Position)
+                        Instruction = $"MOV {SG_REGISTERS((Operand And &H38%) >> &H3%)}, {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
+                     Case &H8F%, &HFF%
+                        Operand = GetByte(Code, Position)
+
+                        If Opcode = &H8F% Then Instruction = OPCODES_8F((Operand And &H3F%) >> &H3%)
+                        If Opcode = &HFF% AndAlso Operand < &HC0% Then Instruction = OPCODES_FF__00BF((Operand And &H3F%) >> &H3%)
+                        If Opcode = &HFF% AndAlso Operand > &HBF% Then Instruction = OPCODES_FF__C0FF((Operand And &H3F%) >> &H3%)
+                        If Not Instruction = Nothing Then Instruction &= $" {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
+                     Case &H91% To &H97% : Instruction = $"XCHG {XP_REGISTERS(ACCUMULATOR_REGISTER)}, {XP_REGISTERS(Opcode And &H7%)}"
+                     Case &H9A% : Instruction = $"CALL FAR {FarAddressToHexadecimal(GetBytes(Code, Position, Length:=4))}"
+                     Case &HA0% : Instruction = $"MOV {LH_REGISTERS(ACCUMULATOR_REGISTER)}, [{BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}]"
+                     Case &HA1% : Instruction = $"MOV {XP_REGISTERS(ACCUMULATOR_REGISTER)}, [{BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}]"
+                     Case &HA2% : Instruction = $"MOV [{BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}], {LH_REGISTERS(ACCUMULATOR_REGISTER)}"
+                     Case &HA3% : Instruction = $"MOV [{BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}], {XP_REGISTERS(ACCUMULATOR_REGISTER)}"
+                     Case &HA8% : Instruction = $"TEST {LH_REGISTERS(ACCUMULATOR_REGISTER)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
+                     Case &HA9% : Instruction = $"TEST {XP_REGISTERS(ACCUMULATOR_REGISTER)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
+                     Case &HB0% To &HB7% : Instruction = $"MOV {LH_REGISTERS(Opcode And &H7%)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
+                     Case &HB8% To &HBF% : Instruction = $"MOV {XP_REGISTERS(Opcode And &H7%)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
+                     Case &HC2% : Instruction = $"RETN {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
+                     Case &HC4% To &HC5%, &H8D%
+                        If Opcode = &HC4% Then Instruction = "LES "
+                        If Opcode = &HC5% Then Instruction = "LDS "
+
+                        Operand = GetByte(Code, Position)
+                        If Operand < &HC0& Then
+                           Instruction &= $"{XP_REGISTERS((Operand And &H38%) >> &H3%)}, {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
+                        Else
+                           Instruction = Nothing
+                        End If
+                     Case &HC6% To &HC7%
+                        Operand = GetByte(Code, Position)
+                        Instruction = OPCODES_C6C7((Operand And &H3F%) >> &H3%)
+
+                        If Not Instruction = Nothing Then
+                           If Opcode = &HC6% Then
+                              Instruction &= $"{If(Operand < &HC0%, " BYTE ", " ")}{GetOperand(Code, Position, Operand, LH_REGISTERS)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
+                           ElseIf Opcode = &HC7% Then
+                              Instruction &= $"{If(Operand < &HC0%, " WORD ", " ")}{GetOperand(Code, Position, Operand, XP_REGISTERS)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
+                           End If
+                        End If
+                     Case &HCA% : Instruction = $"RETF {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
+                     Case &HCC% : Instruction = $"INT {HEXADECIMAL_PREFIX}03"
+                     Case &HCD% : Instruction = $"INT {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
+                     Case &HD0% To &HD3%
+                        Operand = GetByte(Code, Position)
+                        Instruction = OPCODES_D0D3((Operand And &H3F%) >> &H3%)
+
+                        If Not Instruction = Nothing Then
+                           If (Opcode And &H1%) = &H0% Then Instruction &= $" BYTE {GetOperand(Code, Position, Operand, LH_REGISTERS)}"
+                           If (Opcode And &H1%) = &H1% Then Instruction &= $" WORD {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
+
+                           If Opcode = &HD0% OrElse Opcode = &HD1% Then Instruction &= $", {HEXADECIMAL_PREFIX}01"
+                           If Opcode = &HD2% OrElse Opcode = &HD3% Then Instruction &= $", {LH_REGISTERS(COUNTER_REGISTER)}"
+                        End If
+                     Case &HD4% : Instruction = $"AAM {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
+                     Case &HD5% : Instruction = $"AAD {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
+                     Case &HE0% : Instruction = $"LOOPNE {ShortAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
+                     Case &HE1% : Instruction = $"LOOPE {ShortAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
+                     Case &HE2% : Instruction = $"LOOP {ShortAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
+                     Case &HE3% : Instruction = $"JCXZ {ShortAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
+                     Case &HE4% : Instruction = $"IN {LH_REGISTERS(ACCUMULATOR_REGISTER)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
+                     Case &HE5% : Instruction = $"IN {XP_REGISTERS(ACCUMULATOR_REGISTER)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
+                     Case &HE6% : Instruction = $"OUT {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}, {LH_REGISTERS(ACCUMULATOR_REGISTER)}"
+                     Case &HE7% : Instruction = $"OUT {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}, {XP_REGISTERS(ACCUMULATOR_REGISTER)}"
+                     Case &HE8% : Instruction = $"CALL NEAR {NearAddressToHexadecimal(GetBytes(Code, Position, Length:=2), Position)}"
+                     Case &HE9% : Instruction = $"JMP NEAR {NearAddressToHexadecimal(GetBytes(Code, Position, Length:=2), Position)}"
+                     Case &HEA% : Instruction = $"JMP FAR {FarAddressToHexadecimal(GetBytes(Code, Position, Length:=4))}"
+                     Case &HEB% : Instruction = $"JMP SHORT {ShortAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
+                     Case &HEC% : Instruction = $"IN {LH_REGISTERS(ACCUMULATOR_REGISTER)}, {XP_REGISTERS(DATA_REGISTER)}"
+                     Case &HED% : Instruction = $"IN {XP_REGISTERS(ACCUMULATOR_REGISTER)}, {XP_REGISTERS(DATA_REGISTER)}"
+                     Case &HEE% : Instruction = $"OUT {XP_REGISTERS(DATA_REGISTER)}, {LH_REGISTERS(ACCUMULATOR_REGISTER)}"
+                     Case &HEF% : Instruction = $"OUT {XP_REGISTERS(DATA_REGISTER)}, {XP_REGISTERS(ACCUMULATOR_REGISTER)}"
+                     Case &HF6% To &HF7%
+                        Operand = GetByte(Code, Position)
+                        Instruction = OPCODES_F6F7((Operand And &H3F%) >> &H3%)
+
+                        If Not Instruction = Nothing Then
+                           If Opcode = &HF6% Then
+                              Instruction &= $" BYTE {GetOperand(Code, Position, Operand, LH_REGISTERS)}"
+                              If (Operand And &H3F%) <= &H7% Then Instruction &= $", {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
+                           ElseIf Opcode = &HF7% Then
+                              Instruction &= $" WORD {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
+                              If (Operand And &H3F%) <= &H7% Then Instruction &= $", {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
+                           End If
+                        End If
+                     Case &HFE%
+                        Operand = GetByte(Code, Position)
+                        If Operand < &HC0% Then Instruction = OPCODES_FE__00BF((Operand And &H3F%) >> &H3%)
+                        If Operand > &HBF% Then Instruction = OPCODES_FE__C0FF((Operand And &H3F%) >> &H3%)
+                        If Not Instruction = Nothing Then Instruction &= $" {GetOperand(Code, Position, Operand, LH_REGISTERS)}"
                   End Select
 
-                  Operand = GetByte(Code, Position)
-                  Select Case (Opcode And &H7%)
-                     Case &H0% : Instruction &= $" {GetOperand(Code, Position, Operand, LH_REGISTERS)}, {LH_REGISTERS((Operand And &H38%) >> &H3%)}"
-                     Case &H1% : Instruction &= $" {GetOperand(Code, Position, Operand, XP_REGISTERS)}, {XP_REGISTERS((Operand And &H38%) >> &H3%)}"
-                     Case &H2% : Instruction &= $" {LH_REGISTERS((Operand And &H38%) >> &H3%)}, {GetOperand(Code, Position, Operand, LH_REGISTERS)}"
-                     Case &H3% : Instruction &= $" {XP_REGISTERS((Operand And &H38%) >> &H3%)}, {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
-                     Case &H4% : Instruction &= $" {LH_REGISTERS(ACCUMULATOR_REGISTER)}, {BytesToHexadecimal({Operand}.ToList())}"
-                     Case &H5% : Instruction &= $" {XP_REGISTERS(ACCUMULATOR_REGISTER)}, {BytesToHexadecimal({Operand, GetByte(Code, Position)}.ToList())}"
-                  End Select
-               Case &H6%, &HE%, &H16%, &H1E% : Instruction = $"PUSH {SG_REGISTERS((Opcode And &H18%) >> &H3%)}"
-               Case &H7%, &H17%, &H1F% : Instruction = $"POP {SG_REGISTERS((Opcode And &H18%) >> &H3%)}"
-               Case &H26%, &H2E%, &H36%, &H3E% : Instruction = SG_REGISTERS((Opcode And &H18%) >> &H3%)
-               Case &H40% To &H47% : Instruction = $"INC {XP_REGISTERS(Opcode And &H7%)}"
-               Case &H48% To &H4F% : Instruction = $"DEC {XP_REGISTERS(Opcode And &H7%)}"
-               Case &H50% To &H57% : Instruction = $"PUSH {XP_REGISTERS(Opcode And &H7%)}"
-               Case &H58% To &H5F% : Instruction = $"POP {XP_REGISTERS(Opcode And &H7%)}"
-               Case &H64%, &H65% : Instruction = SG_REGISTERS(Opcode And &H7%)
-               Case &H70% To &H7F% : Instruction = $"{OPCODES_707F(Opcode And &HF%)} {ShortAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
-               Case &H80%, &H82%
-                  Operand = GetByte(Code, Position)
-                  Instruction = $"{OPCODES_8083((Operand And &H3F%) >> &H3%)} {GetOperand(Code, Position, Operand, LH_REGISTERS)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
-               Case &H81%
-                  Operand = GetByte(Code, Position)
-                  Instruction = $"{OPCODES_8083((Operand And &H3F%) >> &H3%)} {GetOperand(Code, Position, Operand, XP_REGISTERS)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
-               Case &H83%
-                  Operand = GetByte(Code, Position)
-                  Instruction = $"{OPCODES_8083((Operand And &H3F%) >> &H3%)} {If(Operand < &HC0%, "WORD ", Nothing)}{GetOperand(Code, Position, Operand, XP_REGISTERS)}, {If(Operand < &HC0%, "BYTE ", Nothing)}{BytesToHexadecimal(GetBytes(Code, Position, Length:=1), , Signed:=True)}"
-               Case &H84%, &H86%
-                  If Opcode = &H84% Then Instruction = "TEST "
-                  If Opcode = &H86% Then Instruction = "XCHG "
-
-                  Operand = GetByte(Code, Position)
-                  Instruction &= $"{GetOperand(Code, Position, Operand, LH_REGISTERS)}, {LH_REGISTERS((Operand And &H38%) >> &H3%)}"
-               Case &H85%, &H87%
-                  If Opcode = &H85% Then Instruction = "TEST "
-                  If Opcode = &H87% Then Instruction = "XCHG "
-
-                  Operand = GetByte(Code, Position)
-                  Instruction &= $"{GetOperand(Code, Position, Operand, XP_REGISTERS)}, {XP_REGISTERS((Operand And &H38%) >> &H3%)}"
-               Case &H8C%
-                  Operand = GetByte(Code, Position)
-                  Instruction = $"MOV {GetOperand(Code, Position, Operand, XP_REGISTERS)}, {SG_REGISTERS((Operand And &H38%) >> &H3%)}"
-               Case &H8D%
-                  If Opcode = &H8D% Then Instruction = "LEA "
-
-                  Operand = GetByte(Code, Position)
-                  If Operand < &HC0& Then
-                     Instruction &= $"{XP_REGISTERS((Operand And &H38%) >> &H3%)}, {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
-                  Else
-                     Instruction = Nothing
-                  End If
-               Case &H8E%
-                  Operand = GetByte(Code, Position)
-                  Instruction = $"MOV {SG_REGISTERS((Operand And &H38%) >> &H3%)}, {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
-               Case &H8F%, &HFF%
-                  Operand = GetByte(Code, Position)
-
-                  If Opcode = &H8F% Then Instruction = OPCODES_8F((Operand And &H3F%) >> &H3%)
-                  If Opcode = &HFF% AndAlso Operand < &HC0% Then Instruction = OPCODES_FF__00BF((Operand And &H3F%) >> &H3%)
-                  If Opcode = &HFF% AndAlso Operand > &HBF% Then Instruction = OPCODES_FF__C0FF((Operand And &H3F%) >> &H3%)
-                  If Not Instruction = Nothing Then Instruction &= $" {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
-               Case &H91% To &H97% : Instruction = $"XCHG {XP_REGISTERS(ACCUMULATOR_REGISTER)}, {XP_REGISTERS(Opcode And &H7%)}"
-               Case &H9A% : Instruction = $"CALL FAR {FarAddressToHexadecimal(GetBytes(Code, Position, Length:=4))}"
-               Case &HA0% : Instruction = $"MOV {LH_REGISTERS(ACCUMULATOR_REGISTER)}, [{BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}]"
-               Case &HA1% : Instruction = $"MOV {XP_REGISTERS(ACCUMULATOR_REGISTER)}, [{BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}]"
-               Case &HA2% : Instruction = $"MOV [{BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}], {LH_REGISTERS(ACCUMULATOR_REGISTER)}"
-               Case &HA3% : Instruction = $"MOV [{BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}], {XP_REGISTERS(ACCUMULATOR_REGISTER)}"
-               Case &HA8% : Instruction = $"TEST {LH_REGISTERS(ACCUMULATOR_REGISTER)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
-               Case &HA9% : Instruction = $"TEST {XP_REGISTERS(ACCUMULATOR_REGISTER)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
-               Case &HB0% To &HB7% : Instruction = $"MOV {LH_REGISTERS(Opcode And &H7%)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
-               Case &HB8% To &HBF% : Instruction = $"MOV {XP_REGISTERS(Opcode And &H7%)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
-               Case &HC2% : Instruction = $"RETN {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
-               Case &HC4% To &HC5%, &H8D%
-                  If Opcode = &HC4% Then Instruction = "LES "
-                  If Opcode = &HC5% Then Instruction = "LDS "
-
-                  Operand = GetByte(Code, Position)
-                  If Operand < &HC0& Then
-                     Instruction &= $"{XP_REGISTERS((Operand And &H38%) >> &H3%)}, {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
-                  Else
-                     Instruction = Nothing
-                  End If
-               Case &HC6% To &HC7%
-                  Operand = GetByte(Code, Position)
-                  Instruction = OPCODES_C6C7((Operand And &H3F%) >> &H3%)
-
-                  If Not Instruction = Nothing Then
-                     If Opcode = &HC6% Then
-                        Instruction &= $"{If(Operand < &HC0%, " BYTE ", " ")}{GetOperand(Code, Position, Operand, LH_REGISTERS)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
-                     ElseIf Opcode = &HC7% Then
-                        Instruction &= $"{If(Operand < &HC0%, " WORD ", " ")}{GetOperand(Code, Position, Operand, XP_REGISTERS)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
-                     End If
-                  End If
-               Case &HCA% : Instruction = $"RETF {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
-               Case &HCC% : Instruction = $"INT {HEXADECIMAL_PREFIX}03"
-               Case &HCD% : Instruction = $"INT {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
-               Case &HD0% To &HD3%
-                  Operand = GetByte(Code, Position)
-                  Instruction = OPCODES_D0D3((Operand And &H3F%) >> &H3%)
-
-                  If Not Instruction = Nothing Then
-                     If (Opcode And &H1%) = &H0% Then Instruction &= $" BYTE {GetOperand(Code, Position, Operand, LH_REGISTERS)}"
-                     If (Opcode And &H1%) = &H1% Then Instruction &= $" WORD {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
-
-                     If Opcode = &HD0% OrElse Opcode = &HD1% Then Instruction &= $", {HEXADECIMAL_PREFIX}01"
-                     If Opcode = &HD2% OrElse Opcode = &HD3% Then Instruction &= $", {LH_REGISTERS(COUNTER_REGISTER)}"
-                  End If
-               Case &HD4% : Instruction = $"AAM {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
-               Case &HD5% : Instruction = $"AAD {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
-               Case &HE0% : Instruction = $"LOOPNE {ShortAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
-               Case &HE1% : Instruction = $"LOOPE {ShortAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
-               Case &HE2% : Instruction = $"LOOP {ShortAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
-               Case &HE3% : Instruction = $"JCXZ {ShortAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
-               Case &HE4% : Instruction = $"IN {LH_REGISTERS(ACCUMULATOR_REGISTER)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
-               Case &HE5% : Instruction = $"IN {XP_REGISTERS(ACCUMULATOR_REGISTER)}, {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
-               Case &HE6% : Instruction = $"OUT {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}, {LH_REGISTERS(ACCUMULATOR_REGISTER)}"
-               Case &HE7% : Instruction = $"OUT {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}, {XP_REGISTERS(ACCUMULATOR_REGISTER)}"
-               Case &HE8% : Instruction = $"CALL NEAR {NearAddressToHexadecimal(GetBytes(Code, Position, Length:=2), Position)}"
-               Case &HE9% : Instruction = $"JMP NEAR {NearAddressToHexadecimal(GetBytes(Code, Position, Length:=2), Position)}"
-               Case &HEA% : Instruction = $"JMP FAR {FarAddressToHexadecimal(GetBytes(Code, Position, Length:=4))}"
-               Case &HEB% : Instruction = $"JMP SHORT {ShortAddressToHexadecimal(GetBytes(Code, Position, Length:=1), Position)}"
-               Case &HEC% : Instruction = $"IN {LH_REGISTERS(ACCUMULATOR_REGISTER)}, {XP_REGISTERS(DATA_REGISTER)}"
-               Case &HED% : Instruction = $"IN {XP_REGISTERS(ACCUMULATOR_REGISTER)}, {XP_REGISTERS(DATA_REGISTER)}"
-               Case &HEE% : Instruction = $"OUT {XP_REGISTERS(DATA_REGISTER)}, {LH_REGISTERS(ACCUMULATOR_REGISTER)}"
-               Case &HEF% : Instruction = $"OUT {XP_REGISTERS(DATA_REGISTER)}, {XP_REGISTERS(ACCUMULATOR_REGISTER)}"
-               Case &HF6% To &HF7%
-                  Operand = GetByte(Code, Position)
-                  Instruction = OPCODES_F6F7((Operand And &H3F%) >> &H3%)
-
-                  If Not Instruction = Nothing Then
-                     If Opcode = &HF6% Then
-                        Instruction &= $" BYTE {GetOperand(Code, Position, Operand, LH_REGISTERS)}"
-                        If (Operand And &H3F%) <= &H7% Then Instruction &= $", {BytesToHexadecimal(GetBytes(Code, Position, Length:=1))}"
-                     ElseIf Opcode = &HF7% Then
-                        Instruction &= $" WORD {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
-                        If (Operand And &H3F%) <= &H7% Then Instruction &= $", {BytesToHexadecimal(GetBytes(Code, Position, Length:=2))}"
-                     End If
-                  End If
-               Case &HFE%
-                  Operand = GetByte(Code, Position)
-                  If Operand < &HC0% Then Instruction = OPCODES_FE__00BF((Operand And &H3F%) >> &H3%)
-                  If Operand > &HBF% Then Instruction = OPCODES_FE__C0FF((Operand And &H3F%) >> &H3%)
-                  If Not Instruction = Nothing Then Instruction &= $" {GetOperand(Code, Position, Operand, LH_REGISTERS)}"
-            End Select
-
-            If Position > Code.Count Then
+                  If Position > Code.Count Then
                Instruction = Nothing
                Position = PreviousPosition
             End If

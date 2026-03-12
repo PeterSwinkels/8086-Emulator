@@ -141,18 +141,6 @@ Public Module CoreModule
       End Try
    End Sub
 
-   'This procedure handles the emulated CPU's escape events.
-   Private Sub CPU_Escape(Opcode As Integer) Handles CPU.Escape
-      Try
-         CPU.ClockToken.Cancel()
-         SyncLock Synchronizer
-            CPUEvent.Append($"Escape: {Opcode:X2}.{NewLine}")
-         End SyncLock
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
-   End Sub
-
    'This procedure handles the emulated CPU's halt events.
    Private Sub CPU_Halt() Handles CPU.Halt
       Try
@@ -703,6 +691,8 @@ Public Module CoreModule
                         Address = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + (CInt(CPU.Registers(CPU8086Class.Registers16BitE.DI))) And CPU8086Class.ADDRESS_MASK
                         FileName = If(Operands Is Nothing, RequestFileName("Load binary."), Operands)
                         If Not FileName = Nothing Then Success = LoadBinary(FileName, CInt(Address))
+                     Case "LOADFIX"
+                        CPU.Registers(CPU8086Class.SegmentRegistersE.CS, NewValue:=LOADFIX_ADDRESS)
                      Case "M", "MD", "MT"
                         Parsed.Remainder = Input
 

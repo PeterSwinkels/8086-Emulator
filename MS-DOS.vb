@@ -81,7 +81,8 @@ Public Module MSDOSModule
       Public IsFile As Boolean     'Indicates whether or not the item is a file.
    End Structure
 
-   Public Const COMMAND_TAIL_MAXIMUM_LENGTH As Integer = &H7E%          'Defines the maximum length of a command tail in a PSP.
+   Public Const COMMAND_TAIL_MAXIMUM_LENGTH As Integer = &H7E%         'Defines the maximum length of a command tail in a PSP.
+   Public Const LOADFIX_ADDRESS As Integer = &H1000%                   'Defines the executable loading address used by LoadFix.
    Private Const CARRY_FLAG_INDEX As Integer = &H0%                     'Defines the carry flag's bit index.
    Private Const COUNTRY_INFORMATION_BUFFER_SIZE As Integer = &H28%     'Defines the country information buffer size.
    Private Const ERROR_ACCESS_DENIED As Integer = &H5%                  'Defines the access denied error code.
@@ -108,20 +109,22 @@ Public Module MSDOSModule
    Private Const EXE_RELOCATION_ITEM_COUNT As Integer = &H6%            'Defines where an executable's number of relocation items is stored.
    Private Const EXE_RELOCATION_ITEM_TABLE As Integer = &H18%           'Defines where an executable's number of relocation item table offset is stored.
    Private Const FILE_ACCESS_RW_MASK As Integer = &H3%                  'Defines the read/write bits for file access.
-   Private Const HIGHEST_ADDRESS As Integer = &HA0000%                  'Defines the highest address that can be allocated.
+   Private Const HIGHEST_ALLOCATABLE_ADDRESS As Integer = &HA0000%      'Defines the highest address that can be allocated.
    Private Const INT_20H As Integer = &H20CD%                           'Defines the INT 20h instruction.
    Private Const INVALID_CHARACTERS As String = "*<>?[]| """            'Defines the characters that are invalid in an MS-DOS file system item name.
-   Private Const LOWEST_ADDRESS As Integer = &H600%                     'Defines the lowest address that can be allocated.
+   Private Const LOWEST_ALLOCATABLE_ADDRESS As Integer = &H600%         'Defines the lowest address that can be allocated.
+   Private Const LOWEST_EXECUTABLE_ADDRESS As Integer = &H700%          'Defines the lowest address used to load an executable.
    Private Const MS_DOS As Integer = &HFF00%                            'Defines a value indicating that the operating system is MS-DOS.
    Private Const PSP_BYTES_AVAILABLE As Integer = &H6%                  'Defines the number of bytes available in a block of memory less the space used by the PSP.
    Private Const PSP_COMMAND_TAIL As Integer = &H80%                    'Defines the offset of the command tail in a PSP.
-   Private Const PSP_COMMAND_TAIL_SEGMENT As Integer = &H2C%            'Defines the segment of the MS-DOS environment in a PSP.
+   Private Const PSP_ENVIRONMENT_SEGMENT As Integer = &H2C%             'Defines the segment of the MS-DOS environment in a PSP.
    Private Const PSP_INT_20H As Integer = &H0%                          'Defines a call to the INT 20h handler in a PSP.
    Private Const PSP_INT_21H As Integer = &H50%                         'Defines a call to the INT 21h handler in a PSP.
    Private Const PSP_INT_22H As Integer = &HA%                          'Defines the offset of the INT 22h handler in a PSP.
    Private Const PSP_INT_23H As Integer = &HE%                          'Defines the offset of the INT 23h handler in a PSP.
    Private Const PSP_INT_24H As Integer = &H12%                         'Defines the offset of the INT 24h handler in a PSP.
    Private Const PSP_MEMORY_TOP As Integer = &H2%                       'Defines the offset of the top of memory value in a PSP.
+   Private Const PSP_PARENT As Integer = &H16%                          'Defines the parent process id in a PSP.
    Private Const PSP_PREVIOUS_PSP As Integer = &H38%                    'Defines the offset of the previous PSP in a PSP.
    Private Const PSP_SIZE As Integer = &H100%                           'Defines a PSP's size.
    Private Const PSP_SSSP As Integer = &H2E%                            'Defines the SS:SP values in a PSP.
@@ -129,7 +132,7 @@ Public Module MSDOSModule
    Private Const VOLUME_ATTRIBUTE As Integer = &H8%                     'Defines the volume label attribute.
 
    Private ReadOnly DATE_TO_MSDOS_DATE As Func(Of Date, Integer) = Function([Date] As Date) [Date].Day Or ([Date].Month << &H5%) Or (([Date].Year - 1980) << &H9%)   'Converts the specified date to a value suitable for MS-DOS and returns the result.
-   Private ReadOnly ENVIRONMENT_SEGMENT As Integer = LOWEST_ADDRESS                                                                                                  'Defines the MS-DOS environment's segment.
+   Private ReadOnly ENVIRONMENT_SEGMENT As Integer = LOWEST_ALLOCATABLE_ADDRESS                                                                                      'Defines the MS-DOS environment's segment.
    Private ReadOnly EXE_MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}                                                                                                      'Defines the signature of an MZ executable.
    Private ReadOnly INT_21H_RETF() As Byte = {&HCD%, &H21%, &HCB%}                                                                                                   'Defines the INT 21h and RETF instructions.
    Private ReadOnly LOWEST_FILE_HANDLE As Integer = STDFileHandlesE.STDPRN + &H1%                                                                                    'Defines the lowest possible file handle.
@@ -158,12 +161,12 @@ Public Module MSDOSModule
    Private Function AllocateMemory(Size As Integer) As Integer?
       Try
          Dim AllocatedAddress As New Integer?
-         Dim PreviousEndAddress As Integer = LOWEST_ADDRESS
+         Dim PreviousEndAddress As Integer = LOWEST_ALLOCATABLE_ADDRESS
 
          Allocations.Sort(Function(Allocation1, Allocation2) Allocation1.Item1.CompareTo(Allocation2.Item1))
 
          If Allocations.Count = 0 Then
-            AllocatedAddress = LOWEST_ADDRESS
+            AllocatedAddress = LOWEST_ALLOCATABLE_ADDRESS
          Else
             For Each Allocation As Tuple(Of Integer, Integer) In Allocations
                If Allocation.Item1 - PreviousEndAddress >= Size Then
@@ -174,13 +177,13 @@ Public Module MSDOSModule
                PreviousEndAddress = Allocation.Item2 + &H1%
             Next Allocation
 
-            If AllocatedAddress Is Nothing AndAlso HIGHEST_ADDRESS - PreviousEndAddress >= Size Then
+            If AllocatedAddress Is Nothing AndAlso HIGHEST_ALLOCATABLE_ADDRESS - PreviousEndAddress >= Size Then
                AllocatedAddress = PreviousEndAddress
             End If
          End If
 
          If AllocatedAddress IsNot Nothing Then
-            If AllocatedAddress + Size <= HIGHEST_ADDRESS Then
+            If AllocatedAddress + Size <= HIGHEST_ALLOCATABLE_ADDRESS Then
                Allocations.Add(Tuple.Create(CInt(AllocatedAddress), CInt(AllocatedAddress) + Size - &H1%))
             Else
                AllocatedAddress = New Integer?
@@ -405,14 +408,26 @@ Public Module MSDOSModule
          CPU.PutWord(Address + PSP_INT_23H + &H2%, CPU.GET_WORD(&H8C%))
          CPU.PutWord(Address + PSP_INT_24H, CPU.GET_WORD(&H91%))
          CPU.PutWord(Address + PSP_INT_24H + &H2%, CPU.GET_WORD(&H90%))
+         CPU.PutWord(Address + PSP_PARENT, Address >> &H4%)
          CPU.PutWord(Address + PSP_SSSP, CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)))
          CPU.PutWord(Address + PSP_SSSP + &H2%, CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.SS)))
-         CPU.PutWord(Address + PSP_COMMAND_TAIL_SEGMENT, (Address >> &H4%))
+         CPU.PutWord(Address + PSP_ENVIRONMENT_SEGMENT, ENVIRONMENT_SEGMENT)
          CPU.PutWord(Address + PSP_PREVIOUS_PSP, &HFFFF%)
          CPU.PutWord(Address + PSP_PREVIOUS_PSP + &H2%, &HFFFF%)
          WriteBytesToMemory(INT_21H_RETF, Address + PSP_INT_21H)
          CPU.Memory(Address + PSP_COMMAND_TAIL) = ToByte(CommandTail.Length)
          WriteStringToMemory($"{CommandTail}{ToChar(&HD%)}", Address + PSP_COMMAND_TAIL + &H1%)
+
+         ''--->>> FAKE MCB <<<---''
+         Dim MCBAddress As Integer = (ENVIRONMENT_SEGMENT - &H1%) << &H4%
+
+         CPU.Memory(MCBAddress) = ToByte("M"c)
+         CPU.PutWord(MCBAddress + &H1%, Address >> &H4%)
+         CPU.PutWord(MCBAddress + &H3%, &H4%) ''Dummy value.
+
+         ''--->>> FAKE MCB <<<---''
+
+
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -1357,12 +1372,12 @@ Public Module MSDOSModule
          Dim FreeBlockSize As New Integer
          Dim LargestBlock As Integer = &H0%
          Dim LastFreeBlock As New Integer
-         Dim PreviousEndAddress As Integer = LOWEST_ADDRESS
+         Dim PreviousEndAddress As Integer = LOWEST_ALLOCATABLE_ADDRESS
 
          Allocations.Sort(Function(Allocation1, Allocation2) Allocation1.Item1.CompareTo(Allocation2.Item1))
 
          If Allocations.Count = 0 Then
-            LargestBlock = HIGHEST_ADDRESS - LOWEST_ADDRESS
+            LargestBlock = HIGHEST_ALLOCATABLE_ADDRESS - LOWEST_ALLOCATABLE_ADDRESS
          Else
             For Each Allocation As Tuple(Of Integer, Integer) In Allocations
                FreeBlockSize = Allocation.Item1 - PreviousEndAddress
@@ -1373,7 +1388,7 @@ Public Module MSDOSModule
                PreviousEndAddress = Allocation.Item2 + &H1%
             Next Allocation
 
-            LastFreeBlock = HIGHEST_ADDRESS - PreviousEndAddress
+            LastFreeBlock = HIGHEST_ALLOCATABLE_ADDRESS - PreviousEndAddress
 
             If LastFreeBlock > LargestBlock Then
                LargestBlock = LastFreeBlock
@@ -1399,7 +1414,7 @@ Public Module MSDOSModule
          BootDrive = ToInt32(CurrentDirectory.ToCharArray.First()) - ToInt32("A"c)
          CommandTail = ""
          DTA = New Integer
-         EnvironmentText = $"COMSPEC={ToChar(BootDrive + ToInt32("A"c))}:\COMMAND.COM{ToChar(&H0%)}PATH={ToChar(&H0%)}"
+         EnvironmentText = $"COMSPEC={ToChar(BootDrive + ToInt32("A"c))}:\COMMAND.COM{ToChar(&H0%)}PATH={ToChar(&H0%)}{ToChar(&H0%)}"
          OpenFiles.Clear()
          PrinterBuffer.Clear()
          ProcessIDs = New List(Of Integer)
@@ -1421,6 +1436,8 @@ Public Module MSDOSModule
                MSDOSCurrentDirectory.Add(GetShortName(Items, CurrentDirectory()))
             End If
          Next Parent
+
+         CPU.Registers(CPU8086Class.SegmentRegistersE.CS, NewValue:=LOWEST_EXECUTABLE_ADDRESS)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -1586,7 +1603,7 @@ Public Module MSDOSModule
             ModifiedAllocation = Allocations(Index)
             NewEnd = ModifiedAllocation.Item1 + NewSize
 
-            If NewEnd <= HIGHEST_ADDRESS OrElse Index = Allocations.Count - 1 OrElse NewEnd < Allocations(Index + 1).Item1 Then
+            If NewEnd <= HIGHEST_ALLOCATABLE_ADDRESS OrElse Index = Allocations.Count - 1 OrElse NewEnd < Allocations(Index + 1).Item1 Then
                Allocations(Index) = Tuple.Create(ModifiedAllocation.Item1, NewEnd)
             Else
                ErrorCode = ERROR_INSUFFICIENT_MEMORY

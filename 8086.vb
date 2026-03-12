@@ -441,7 +441,6 @@ Public Class CPU8086Class
    Public Memory() As Byte = Enumerable.Repeat(CByte(&H0%), &H100000%).ToArray()   'Contains the memory used by the emulated 8086 CPU.
    Public Tracing As Boolean = False                                               'Indicates whether or not tracing is enabled.
 
-   Public Event Escape(Opcode As Integer)                                                'Defines the escape event.
    Public Event Halt()                                                                   'Defines the halt event.
    Public Event Interrupt(Number As Integer, AH As Integer)                              'Defines the interrupt event.
    Public Event ReadIOPort(Port As Integer, ByRef Value As Integer, Is8Bit As Boolean)   'Defines the IO port read event.
@@ -1183,7 +1182,18 @@ Public Class CPU8086Class
             Registers(DirectCast(Operand, Registers16BitE), NewValue:=NewValue)
             AdjustFlags(Value, NewValue, Is8Bit:=False,, PreserveCarryFlag:=True)
          Case OpcodesE.ESC_D8 To OpcodesE.ESC_DF
-            RaiseEvent Escape(Opcode)
+            Operand = GetByteCSIP()
+
+            Select Case (Operand And &HC0%) >> &H6%
+               Case &H0%
+                  If (Operand And &H7%) = &H6% Then
+                     GetWordCSIP()
+                  End If
+               Case &H1%
+                  GetByteCSIP()
+               Case &H2%
+                  GetWordCSIP()
+            End Select
          Case OpcodesE.HLT
             RaiseEvent Halt()
          Case OpcodesE.IN_AL_BYTE
