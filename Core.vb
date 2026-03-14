@@ -654,6 +654,19 @@ Public Module CoreModule
                      Case "EXE"
                         FileName = If(Operands Is Nothing, RequestFileName("Load Executable."), Operands)
                         If Not FileName = Nothing Then Success = LoadMSDOSProgram(FileName)
+                     Case "HLT"
+                        If Operands Is Nothing Then
+                           Output.AppendText($"HLT = {If(CPU.HLTEnabled, "ON", "OFF")}.{NewLine}")
+                        Else
+                           Select Case Operands.Trim().ToUpper()
+                              Case "OFF"
+                                 CPU.HLTEnabled = False
+                              Case "ON"
+                                 CPU.HLTEnabled = True
+                              Case Else
+                                 Output.AppendText($"Invalid option.{NewLine}")
+                           End Select
+                        End If
                      Case "INT"
                         Parsed.Remainder = Input
 
@@ -677,14 +690,18 @@ Public Module CoreModule
                            End If
                         End If
                      Case "INT6"
-                        Select Case Operands.Trim().ToUpper()
-                           Case "OFF"
-                              CPU.INT6Enabled = False
-                           Case "ON"
-                              CPU.INT6Enabled = True
-                           Case Else
-                              Output.AppendText($"Invalid option.{NewLine}")
-                        End Select
+                        If Operands Is Nothing Then
+                           Output.AppendText($"INT6 = {If(CPU.INT6Enabled, "ON", "OFF")}.{NewLine}")
+                        Else
+                           Select Case Operands.Trim().ToUpper()
+                              Case "OFF"
+                                 CPU.INT6Enabled = False
+                              Case "ON"
+                                 CPU.INT6Enabled = True
+                              Case Else
+                                 Output.AppendText($"Invalid option.{NewLine}")
+                           End Select
+                        End If
                      Case "IRET"
                         CPU.ExecuteOpcode(CPU8086Class.OpcodesE.IRET)
                      Case "L"

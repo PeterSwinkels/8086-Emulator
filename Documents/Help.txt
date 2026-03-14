@@ -14,9 +14,10 @@ CD [Path]                     Displays or sets the current directory.
 E                             Causes the emulated CPU to start executing code.
 ECXZ                          Executes until the CX register contains zero.
 EXE [Path]                    Loads a MS-DOS executable at CS:0x0000.
+HLT on|off                    Turns CPU halt for HLT on or off/displays status.
 INT int ah                    Executes an INT instruction.
                               If the CPU is inactive, external interrupts will be executed.
-INT6 ON|OFF                   Turns interrupt 0x6 for invalid opcodes on or off.
+INT6 on|off                   Turns interrupt 0x6 for invalid opcodes on or off/displays status.
 IRET                          Executes an IRET instruction.
 L [Path]                      Loads a file into the emulated memory at DS:DI.
 LOADFIX                       Sets CS to 1000h.

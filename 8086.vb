@@ -437,6 +437,7 @@ Public Class CPU8086Class
    Public Clock As New Task(AddressOf Execute)                                     'Contains the CPU clock.
    Public ClockToken As New CancellationTokenSource                                'Indicates whether or not to stop the CPU.
    Public HardwareInterrupts As New List(Of Integer)                               'Contains a list of pending interrupts triggered by emulated hardware.
+   Public HLTEnabled As Boolean = False                                            'Indicates whether the HLT instruction halts the CPU is ignored.
    Public INT6Enabled As Boolean = False                                           'Indicates whether or not interrupt 6h is triggered for invalid opcodes.
    Public Memory() As Byte = Enumerable.Repeat(CByte(&H0%), &H100000%).ToArray()   'Contains the memory used by the emulated 8086 CPU.
    Public Tracing As Boolean = False                                               'Indicates whether or not tracing is enabled.
@@ -1030,6 +1031,7 @@ Public Class CPU8086Class
 
    'This procedure executes the specified opcode and returns whether or not it succeeded.
    Public Function ExecuteOpcode(Optional Opcode As OpcodesE = Nothing) As Boolean
+      Dim Address As New Integer
       Dim CFStopValue As New Boolean
       Dim LowOctet As New Integer
       Dim NewValue As New Integer
@@ -1195,7 +1197,9 @@ Public Class CPU8086Class
                   GetWordCSIP()
             End Select
          Case OpcodesE.HLT
-            RaiseEvent Halt()
+            If HLTEnabled Then
+               RaiseEvent Halt()
+            End If
          Case OpcodesE.IN_AL_BYTE
             RaiseEvent ReadIOPort(GetByteCSIP(), NewValue, Is8Bit:=True)
             Registers(SubRegisters8BitE.AL, NewValue:=NewValue)
@@ -1259,7 +1263,7 @@ Public Class CPU8086Class
             Override = SegmentOverride()
             PutWord((CInt(If(Override Is Nothing, Registers(SegmentRegistersE.DS), Registers(Override))) << &H4%) + GetWordCSIP(), CInt(Registers(Registers16BitE.AX)))
          Case OpcodesE.MOV_SG_SRC
-            With GetSegmentAndTarget(Opcode, GetByteCSIP())
+            With GetSegmentAndTarget(Opcode, CByte(CInt(GetByteCSIP()) And &HDF%))
                If TypeOf .Operand2 Is MemoryOperandsE Then NewValue = GET_WORD(CInt(AddressFromOperand(DirectCast(.Operand2, MemoryOperandsE), .Displacement, .DisplacementIs8Bit).FlatAddress)) Else NewValue = CInt(Registers(.Operand2))
                Registers(.Operand1, NewValue:=NewValue)
             End With
@@ -1268,7 +1272,7 @@ Public Class CPU8086Class
                If TypeOf .Operand1 Is MemoryOperandsE Then Memory(CInt(.FlatAddress)) = CByte(.Operand2) Else Registers(.Operand1, NewValue:= .Operand2)
             End With
          Case OpcodesE.MOV_TGT_SG
-            With GetSegmentAndTarget(Opcode, GetByteCSIP())
+            With GetSegmentAndTarget(Opcode, CByte(CInt(GetByteCSIP()) And &HDF%))
                NewValue = CInt(Registers(.Operand1))
                If TypeOf .Operand2 Is MemoryOperandsE Then PutWord(CInt(AddressFromOperand(DirectCast(.Operand2, MemoryOperandsE), .Displacement, .DisplacementIs8Bit).FlatAddress), NewValue) Else Registers(.Operand2, NewValue:=NewValue)
             End With
@@ -1388,7 +1392,9 @@ Public Class CPU8086Class
                SetNewValue(OperandPair)
             End With
          Case OpcodesE.XLAT
-            Registers(SubRegisters8BitE.AL, NewValue:=Memory(CInt(Registers(Registers16BitE.BX)) + CInt(Registers(SubRegisters8BitE.AL))))
+            Override = SegmentOverride()
+            Address = ((CInt(Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override))) << &H4%) + CInt(Registers(Registers16BitE.BX)) + CInt(Registers(SubRegisters8BitE.AL))) And ADDRESS_MASK
+            Registers(SubRegisters8BitE.AL, NewValue:=Memory(Address))
          Case OpcodesE.EXT_INT
             RaiseEvent Interrupt(GetByteCSIP(), CInt(Registers(SubRegisters8BitE.AH)))
          Case Else

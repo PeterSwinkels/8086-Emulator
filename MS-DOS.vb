@@ -419,12 +419,12 @@ Public Module MSDOSModule
          WriteStringToMemory($"{CommandTail}{ToChar(&HD%)}", Address + PSP_COMMAND_TAIL + &H1%)
 
          ''--->>> FAKE MCB <<<---''
-         Dim MCBAddress As Integer = (ENVIRONMENT_SEGMENT - &H1%) << &H4%
-
-         CPU.Memory(MCBAddress) = ToByte("M"c)
-         CPU.PutWord(MCBAddress + &H1%, Address >> &H4%)
-         CPU.PutWord(MCBAddress + &H3%, &H4%) ''Dummy value.
-
+         ''Dim MCBAddress As Integer = (ENVIRONMENT_SEGMENT - &H1%) << &H4%
+         ''
+         ''CPU.Memory(MCBAddress) = ToByte("M"c)
+         ''CPU.PutWord(MCBAddress + &H1%, Address >> &H4%)
+         ''CPU.PutWord(MCBAddress + &H3%, &H4%) ''Dummy value.
+         ''
          ''--->>> FAKE MCB <<<---''
 
 
