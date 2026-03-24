@@ -487,7 +487,7 @@ Public Module CoreModule
          Dim Stack As New StringBuilder
 
          With Stack
-            For Offset As Integer = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BP)) To CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP))
+            For Offset As Integer = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BP)) To CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)) + &H2% Step &H2%
                Stack.Append($"{CPU.GET_WORD((SS << &H4%) + Offset):X4}{NewLine}")
             Next Offset
 
@@ -785,7 +785,21 @@ Public Module CoreModule
                            Success = True
                         End If
                      Case "SCR"
-                        ScreenWindow.Show()
+                        If Operands Is Nothing Then
+                           If ScreenWindow.Visible Then
+                              ScreenWindow.Close()
+                           Else
+                              ScreenWindow.Show()
+                           End If
+                        Else
+                           If Operands = "+" Then
+                              If ScreenWindow.Visible Then ScreenWindow.WindowState = FormWindowState.Normal
+                           ElseIf Operands = "-" Then
+                              If ScreenWindow.Visible Then ScreenWindow.WindowState = FormWindowState.Minimized
+                           Else
+                              Output.AppendText($"Invalid operand.{NewLine}")
+                           End If
+                        End If
                      Case "ST"
                         Output.AppendText(GetStack())
                      Case "T"

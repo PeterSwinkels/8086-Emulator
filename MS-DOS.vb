@@ -417,17 +417,6 @@ Public Module MSDOSModule
          WriteBytesToMemory(INT_21H_RETF, Address + PSP_INT_21H)
          CPU.Memory(Address + PSP_COMMAND_TAIL) = ToByte(CommandTail.Length)
          WriteStringToMemory($"{CommandTail}{ToChar(&HD%)}", Address + PSP_COMMAND_TAIL + &H1%)
-
-         ''--->>> FAKE MCB <<<---''
-         ''Dim MCBAddress As Integer = (ENVIRONMENT_SEGMENT - &H1%) << &H4%
-         ''
-         ''CPU.Memory(MCBAddress) = ToByte("M"c)
-         ''CPU.PutWord(MCBAddress + &H1%, Address >> &H4%)
-         ''CPU.PutWord(MCBAddress + &H3%, &H4%) ''Dummy value.
-         ''
-         ''--->>> FAKE MCB <<<---''
-
-
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -875,18 +864,21 @@ Public Module MSDOSModule
          If Attributes IsNot Nothing AndAlso Attributes.Value = VOLUME_ATTRIBUTE Then
             FileSystemItems = New List(Of FileSystemItemStr)({New FileSystemItemStr With {.Name = New DriveInfo(CurrentDirectory).VolumeLabel, .ShortName = "", .IsFile = False}})
          Else
-            NewFileSystemItems = New List(Of FileSystemItemStr)(From Item In Directory.GetFiles(SearchPath, Path.GetFileName(SearchPattern)) Select New FileSystemItemStr With {.Name = Item, .IsFile = True})
+            NewFileSystemItems = New List(Of FileSystemItemStr)
 
+            NewFileSystemItems.Add(New FileSystemItemStr With {.Name = ".", .ShortName = "", .IsFile = False})
+            NewFileSystemItems.Add(New FileSystemItemStr With {.Name = "..", .ShortName = "", .IsFile = False})
             For Each Item As String In Directory.GetDirectories(SearchPath, Path.GetFileName(SearchPattern))
                NewFileSystemItems.Add(New FileSystemItemStr With {.Name = Item, .ShortName = "", .IsFile = False})
             Next Item
+
+            NewFileSystemItems.AddRange((From Item In Directory.GetFiles(SearchPath, Path.GetFileName(SearchPattern)) Select New FileSystemItemStr With {.Name = Item, .IsFile = True}))
 
             If Attributes IsNot Nothing Then
                NewFileSystemItems = New List(Of FileSystemItemStr)(From Item In NewFileSystemItems Where AttributesMatch(File.GetAttributes(Item.Name), Attributes.Value))
             End If
 
             NewFileSystemItems = GetShortNames(NewFileSystemItems)
-            NewFileSystemItems.Reverse()
          End If
 
          Return NewFileSystemItems
@@ -1060,21 +1052,27 @@ Public Module MSDOSModule
          Dim ShortName As String = Nothing
 
          For Each FileSystemItem As FileSystemItemStr In FileSystemItems
-            ShortName = Path.GetFileName(FileSystemItem.Name.Replace(" "c, "").ToUpper())
-            BaseName = Path.GetFileNameWithoutExtension(ShortName)
-            Extension = Path.GetExtension(ShortName)
-
-            If Extension.Length > 4 Then Extension = Extension.Substring(0, 4)
-
-            If BaseName.Length > 8 Then
-               Index = 0
-               Do
-                  Index += 1
-                  Appendage = $"~{Index}"
-                  ShortName = $"{BaseName.Substring(0, 8 - Appendage.Length)}{Appendage}{Extension}"
-               Loop While NewFileSystemItems.Any(Function(Item) Item.ShortName = ShortName)
+            If FileSystemItem.Name = "." OrElse FileSystemItem.Name = ".." Then
+               ShortName = FileSystemItem.Name
+               BaseName = FileSystemItem.Name
+               Extension = ""
             Else
-               ShortName = $"{BaseName}{Extension}"
+               ShortName = Path.GetFileName(FileSystemItem.Name.Replace(" "c, "").ToUpper())
+               BaseName = Path.GetFileNameWithoutExtension(ShortName)
+               Extension = Path.GetExtension(ShortName)
+
+               If Extension.Length > 4 Then Extension = Extension.Substring(0, 4)
+
+               If BaseName.Length > 8 Then
+                  Index = 0
+                  Do
+                     Index += 1
+                     Appendage = $"~{Index}"
+                     ShortName = $"{BaseName.Substring(0, 8 - Appendage.Length)}{Appendage}{Extension}"
+                  Loop While NewFileSystemItems.Any(Function(Item) Item.ShortName = ShortName)
+               Else
+                  ShortName = $"{BaseName}{Extension}"
+               End If
             End If
 
             NewFileSystemItems.Add(New FileSystemItemStr With {.Name = FileSystemItem.Name, .ShortName = ShortName, .IsFile = FileSystemItem.IsFile})
@@ -1132,6 +1130,26 @@ Public Module MSDOSModule
                               CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=KeyCode)
                            End If
                      End Select
+
+                     Success = True
+                  Case &H7%
+                     If ExtendedKeyCode Is Nothing Then
+                        Do
+                           KeyCode = LastBIOSKeyCode()
+                        Loop Until KeyCode.HasValue OrElse CPU.ClockToken.IsCancellationRequested
+                        If KeyCode IsNot Nothing AndAlso (KeyCode.Value And &HFF%) = Nothing Then
+                           ExtendedKeyCode = KeyCode >> &H8%
+                        End If
+                        KeyCode = KeyCode And &HFF%
+                        LastBIOSKeyCode(, Clear:=True)
+                     Else
+                        KeyCode = ExtendedKeyCode
+                        ExtendedKeyCode = New Integer?
+                     End If
+
+                     If KeyCode IsNot Nothing Then
+                        CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=KeyCode)
+                     End If
 
                      Success = True
                   Case &H8%
@@ -1491,6 +1509,7 @@ Public Module MSDOSModule
          End If
 
          If Success Then
+            DTA = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)) << &H10%) Or PSP_COMMAND_TAIL
             ProcessIDs.Add(LoadAddress >> &H4%)
          End If
 

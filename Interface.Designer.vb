@@ -44,10 +44,11 @@ Partial Class InterfaceWindow
         Me.OutputBox.Multiline = True
         Me.OutputBox.Name = "OutputBox"
         Me.OutputBox.ReadOnly = True
-        Me.OutputBox.ScrollBars = System.Windows.Forms.ScrollBars.Vertical
+        Me.OutputBox.ScrollBars = System.Windows.Forms.ScrollBars.Both
         Me.OutputBox.Size = New System.Drawing.Size(800, 392)
         Me.OutputBox.TabIndex = 2
         Me.OutputBox.TabStop = False
+        Me.OutputBox.WordWrap = False
         '
         'CommandBox
         '

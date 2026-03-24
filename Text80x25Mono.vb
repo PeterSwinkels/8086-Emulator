@@ -20,12 +20,14 @@ Public Class Text80x25MonoClass
    Private Const BRIGHT_BITMASK As Integer = &H8%          'Defines the bright character attribute bit.
    Private Const NON_BLINK_ATTRIBUTES As Integer = &H7F%   'Defines the attribute bits not related to blinking.
    Private Const UNDERLINE_BITMASK As Integer = &H7%       'Defines the character underline attribute bits.
+   Private Const SCANLINE_COUNT As Integer = &HE%          'Defines the number of scanlines per character.
 
-   Private ReadOnly BLACK_ATTRIBUTES() As Integer = {&H0%, &H8%, &H80%, &H88%}                                         'Defines the black character attributes.
-   Private ReadOnly CHARACTER_SIZE As Size = New Size(12, 16)                                                          'Defines the character size.
-   Private ReadOnly FONT_NORMAL As New Font("Px437 IBM MDA", emSize:=11)                                               'Defines the normal font.
-   Private ReadOnly FONT_UNDERLINE As New Font("Px437 IBM MDA", emSize:=11, FontStyle.Underline)                       'Defines the underlined font.
-   Private ReadOnly TEXT_SCREEN_SIZE As Size = New Size(&H50% * CHARACTER_SIZE.Width, &H19% * CHARACTER_SIZE.Height)   'Defines the screen size measured in characters.
+   Private ReadOnly BLACK_ATTRIBUTES() As Integer = {&H0%, &H8%, &H80%, &H88%}                                        'Defines the black character attributes.
+   Private ReadOnly CHARACTER_SIZE As Size = New Size(14, 24)                                                         'Defines the character size.
+   Private ReadOnly FONT_NORMAL As New Font("Px437 IBM VGA 8x14", emSize:=21)                                         'Defines the normal font.
+   Private ReadOnly FONT_UNDERLINE As New Font("Px437 IBM VGA 8x14", emSize:=21, FontStyle.Underline)                 'Defines the underlined font.
+   Private ReadOnly PIXELS_PER_SCANLINE As Integer = CInt(CHARACTER_SIZE.Height / SCANLINE_COUNT)                     'Defines the number of pixels per scanline.
+   Private ReadOnly TEXT_SCREEN_SIZE As Size = New Size(&H50% * CHARACTER_SIZE.Width, &H19% * CHARACTER_SIZE.Height)  'Defines the screen size measured in characters.
 
    Private BlinkCharactersVisible As Boolean = True  'Indicates whether or not the blinking characters are visible.
 
@@ -88,15 +90,7 @@ Public Class Text80x25MonoClass
                End If
 
                If ((Attribute And BLINK_BITMASK) = &H0%) OrElse BlinkCharactersVisible Then
-                  .DrawString(Character, CharacterFont, CharacterColor, Target)
-
-                  If Memory(Position) >= &HC0% AndAlso Memory(Position) <= &HDF% Then
-                     If Target.X + CHARACTER_SIZE.Width < Screen.Width - 1 Then
-                        For y As Integer = Target.Y To Target.Y + CHARACTER_SIZE.Height - 1
-                           .DrawLine(New Pen(BitmapO.GetPixel(Target.X + CHARACTER_SIZE.Width, y)), Target.X + CHARACTER_SIZE.Width + 1, y, Target.X + CHARACTER_SIZE.Width + 2, y)
-                        Next y
-                     End If
-                  End If
+                  .DrawString(Character, CharacterFont, CharacterColor, Target.X - CInt(CHARACTER_SIZE.Width / 4), Target.Y)
                End If
             End If
 
@@ -110,7 +104,7 @@ Public Class Text80x25MonoClass
 
          If (Not Cursor.Off) AndAlso Cursor.Visible Then
             With Graphics.FromImage(Screen)
-               .FillRectangle(New SolidBrush(Color.Lime), Cursor.X * CHARACTER_SIZE.Width, (Cursor.Y * CHARACTER_SIZE.Height) + Cursor.ScanLineStart, CHARACTER_SIZE.Width, Cursor.ScanLineEnd - Cursor.ScanLineStart)
+               .FillRectangle(New SolidBrush(Color.Lime), Cursor.X * CHARACTER_SIZE.Width, (Cursor.Y * CHARACTER_SIZE.Height) + (Cursor.ScanLineStart * PIXELS_PER_SCANLINE), CHARACTER_SIZE.Width, (Cursor.ScanLineEnd * PIXELS_PER_SCANLINE) - (Cursor.ScanLineStart * PIXELS_PER_SCANLINE))
             End With
          End If
       End With
@@ -146,7 +140,7 @@ Public Class Text80x25MonoClass
 
    'This procedure returns the screen size used by a video adapter.
    Public Function Resolution() As Size Implements VideoAdapterClass.Resolution
-      Return New Size(TEXT_SCREEN_SIZE.Width, TEXT_SCREEN_SIZE.Height)
+      Return New Size(TEXT_SCREEN_SIZE.Width + &H8%, TEXT_SCREEN_SIZE.Height)
    End Function
 
    'This procedure scrolls the video adapter's buffer.
