@@ -779,6 +779,7 @@ Public Class CPU8086Class
    Private Function ExecuteMultiOpcode(Opcode As OpcodesE) As Boolean
       Dim AL As New Integer
       Dim AX As New Integer
+      Dim BitMask As New Integer
       Dim DX As New Integer
       Dim LargeValue As New Long
       Dim Operand As New Integer
@@ -829,12 +830,10 @@ Public Class CPU8086Class
                   Case Operations80_83E.SUB
                      .NewValue = .Value1 - .Value2
                      AdjustFlags(.NewValue, .Is8Bit,,,, Subtraction:=True)
-                     ''START WORK AROUND.
-                     Dim BitMask As Integer = If(.Is8Bit, &HFF%, &HFFFF%)
+                     BitMask = If(.Is8Bit, &HFF%, &HFFFF%)
                      If Not ((.NewValue And BitMask) = (.Value1 And BitMask)) Then
                         Registers(FlagRegistersE.OF, NewValue:=True)
                      End If
-                     ''END WORD AROUND.
                   Case Operations80_83E.XOR
                      .NewValue = .Value1 Xor .Value2
                      AdjustFlags(.NewValue, .Is8Bit)
@@ -964,7 +963,6 @@ Public Class CPU8086Class
                      End If
                   Case OperationsF6_F7E.NEG
                      .NewValue = &H0% - .Value1
-                     ''
                      AdjustFlags(.NewValue, Is8Bit:= .Is8Bit,,, NewOverflowFlag:=CInt((.NewValue And If(.Is8Bit, &H80%, &H8000%)) = 0))
                   Case OperationsF6_F7E.None
                      Return False
