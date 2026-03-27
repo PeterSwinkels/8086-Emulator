@@ -35,6 +35,10 @@ Public Class VGA320x200Class
       Loop
    End Sub
 
+   'This procedure draws the specified character.
+   Public Sub DrawCharacter(Index As Integer, Attribute As Integer) Implements VideoAdapterClass.DrawCharacter
+   End Sub
+
    'This procedure initializes the video adapter.
    Public Sub Initialize() Implements VideoAdapterClass.Initialize
       ClearBuffer()

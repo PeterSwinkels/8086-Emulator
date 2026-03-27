@@ -33,11 +33,16 @@ Public Module InterruptHandlerModule
    Public Function HandleInterrupt(Number As Integer, Optional AH As Integer = Nothing, Optional IRET As Boolean = True) As Boolean
       Try
          Dim Address As New Integer
+         Dim AL As New Integer
          Dim Attribute As New Byte
          Dim Character As New Byte
          Dim Count As New Integer
          Dim Flags As Integer = CPU.GET_WORD((CInt(CPU.Registers((CPU8086Class.SegmentRegistersE.SS))) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)) + &H4%)
+         Dim Mask As New Byte
+         Dim Pixel As New Integer
+         Dim PixelColor As New Byte
          Dim Position As New Integer
+         Dim Shift As New Integer
          Dim Success As Boolean = False
          Dim Tracing As Boolean = CPU.Tracing
          Dim Value As New Integer?
@@ -45,6 +50,8 @@ Public Module InterruptHandlerModule
          Dim VideoModeBit7 As New Boolean
          Dim VideoPage As New Byte
          Dim VideoPageAddress As New Integer
+         Dim x As New Integer
+         Dim y As New Integer
 
          CPU.Tracing = False
 
@@ -140,6 +147,30 @@ Public Module InterruptHandlerModule
                                  Palette = PALETTE1
                            End Select
                      End Select
+                     Success = True
+                  Case &HC%
+                     Select Case CurrentVideoMode
+                        Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B
+                           x = CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX))
+                           y = CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
+
+                           AL = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
+                           PixelColor = CByte(AL And &H3%)
+                           Position = AddressesE.CGA320x200 + If((y And 1) = 0, 0, CGA_320_x_200_BUFFER_SIZE \ 2) + (y \ 2) * 80 + (x \ 4)
+                           Pixel = x And &H3%
+                           Shift = (&H3% - Pixel) * &H2%
+                           Mask = CByte(&H3% << Shift)
+                           Value = CPU.Memory(Position)
+
+                           If (AL And &H80%) = &H0% Then
+                              Value = (Value And Not mask) Or CByte(pixelColor << shift)
+                           Else
+                              Value = Value Xor CByte(pixelColor << shift)
+                           End If
+
+                           CPU.Memory(Position) = CByte(Value)
+                     End Select
+
                      Success = True
                   Case &HE%
                      TeleType(CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)))

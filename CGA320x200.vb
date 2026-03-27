@@ -4,34 +4,17 @@ Option Explicit On
 Option Infer Off
 Option Strict On
 
+Imports System
 Imports System.Drawing
 
 'This class emulates CGA 320x200.
 Public Class CGA320x200Class
    Implements VideoAdapterClass
 
+   Private Const HEIGHT As Integer = 200             'Defines the graphic's mode height in pixels.
    Private Const PIXELS_PER_BYTE As Integer = &H4%   'Defines the number of pixels per byte.
-
-   'This procedure draws the specified video buffer's context on the specified image.
-   Public Sub Display(Screen As Image, Memory() As Byte, CodePage() As Integer) Implements VideoAdapterClass.Display
-      Dim Index As New Integer
-      Dim Position As New Integer
-
-      With DirectCast(Screen, Bitmap)
-         For y2 As Integer = 0 To 1
-            Position = AddressesE.CGA320x200 + If(y2 = 0, &H0%, CGA_320_x_200_BUFFER_SIZE \ &H2%)
-            For y1 As Integer = 0 To Resolution.Height - 1 Step 2
-               For x As Integer = 0 To Resolution.Width - 1 Step PIXELS_PER_BYTE
-                  For Pixel As Integer = &H0% To PIXELS_PER_BYTE - &H1%
-                     Index = ((CPU.Memory(Position) And (&H3% << (Pixel * &H2%))) >> (Pixel * &H2%))
-                     .SetPixel(x + (PIXELS_PER_BYTE - &H1%) - Pixel, y1 + y2, If(Index = 0, BackgroundColor, Palette(Index)))
-                  Next Pixel
-                  Position += &H1%
-               Next x
-            Next y1
-         Next y2
-      End With
-   End Sub
+   Private Const SCALING As Integer = &H2%           'Defines the scale factor.
+   Private Const WIDTH As Integer = 320              'Defines the graphic's mode width in pixels.
 
    'This procedure clears video adapter's buffer.
    Public Sub ClearBuffer() Implements VideoAdapterClass.ClearBuffer
@@ -43,6 +26,69 @@ Public Class CGA320x200Class
          Count -= &H1%
          Position += &H2%
       Loop
+   End Sub
+
+   'This procedure draws the specified video buffer's context on the specified image.
+   Public Sub Display(Screen As Image, Memory() As Byte, CodePage() As Integer) Implements VideoAdapterClass.Display
+      Dim Index As New Integer
+      Dim Position As New Integer
+
+      With Graphics.FromImage(Screen)
+         For y2 As Integer = 0 To 1
+            Position = AddressesE.CGA320x200 + If(y2 = 0, &H0%, CGA_320_x_200_BUFFER_SIZE \ &H2%)
+            For y1 As Integer = 0 To HEIGHT - 1 Step 2
+               For x As Integer = 0 To WIDTH - 1 Step PIXELS_PER_BYTE
+                  For Pixel As Integer = &H0% To PIXELS_PER_BYTE - &H1%
+                     Index = ((CPU.Memory(Position) And (&H3% << (Pixel * &H2%))) >> (Pixel * &H2%))
+                     .FillRectangle(New SolidBrush(If(Index = 0, BackgroundColor, Palette(Index))), (x + (PIXELS_PER_BYTE - &H1%) - Pixel) * SCALING, (y1 + y2) * SCALING, SCALING, SCALING)
+                  Next Pixel
+                  Position += &H1%
+               Next x
+            Next y1
+         Next y2
+      End With
+   End Sub
+
+   'This procedure draws the specified character.
+   Public Sub DrawCharacter(Index As Integer, Attribute As Integer) Implements VideoAdapterClass.DrawCharacter
+      Dim Bits(&H0% To &H7%) As Boolean
+      Dim Character(&H0% To &H7%) As Byte
+      Dim Position As New Integer
+      Dim Shift As New Integer
+      Dim x As New Integer
+      Dim y As Integer = Cursor.Y * &H8%
+      Dim Value As New Integer
+
+      Array.Copy(CPU.Memory, If(Index < &H80%, AddressesE.Characters, AddressesE.ExtendedCharacters) + (Index * &H8%), Character, &H0%, Character.Length)
+
+      For Each [Byte] As Byte In Character
+         Position = AddressesE.CGA320x200 + If((y And &H1%) = &H0%, &H0%, CGA_320_x_200_BUFFER_SIZE \ &H2%) + ((y \ 2) * CGA_320_X_200_BYTES_PER_ROW)
+
+         Value = [Byte]
+         For Bit As Integer = &H7% To &H0% Step -&H1%
+            Bits(Bit) = CBool(Value And &H1%)
+            Value = Value >> &H1%
+         Next Bit
+
+         x = Cursor.X * &H8%
+         Position += (x \ CGA_320_X_200_PIXELS_PER_BYTE)
+
+         Shift = &H6%
+         For Bit As Integer = &H0% To &H7%
+            If Bits(Bit) Then
+               CPU.Memory(Position) = CByte((CPU.Memory(Position) And Not (&H3% << Shift)) Or (Attribute << Shift))
+            End If
+
+            Shift -= &H2%
+
+            If Bit = &H3% Then
+               Position += &H1%
+               Shift = &H6%
+               x += 1
+            End If
+         Next Bit
+         y += 1
+      Next [Byte]
    End Sub
 
    'This procedure initializes the video adapter.
@@ -59,7 +105,7 @@ Public Class CGA320x200Class
 
    'This procedure returns the screen size used by a video adapter.
    Public Function Resolution() As Size Implements VideoAdapterClass.Resolution
-      Return New Size(320, 200)
+      Return New Size(WIDTH * SCALING, HEIGHT * SCALING)
    End Function
 
    'This procedure scrolls the video adapter's buffer.

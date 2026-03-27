@@ -5,6 +5,7 @@ Option Infer Off
 Option Strict On
 
 Imports System
+Imports System.IO
 Imports System.Threading.Tasks
 Imports System.Drawing
 
@@ -38,6 +39,7 @@ Public Module BIOSModule
       BIOS = &HF0000%                   'BIOS.
       BIOSStack = &HF3000%              'BIOS stack segment.
       CGA320x200 = &HB8000%             '320x200 CGA video buffer.
+      Characters = &HFFA6E%             'Character bitmaps.
       Clock = &H46C%                    'Clock.
       ClockRollover = &H470%            'Clock rollover flag.
       ColumnCount = &H44A%              'Column count.
@@ -45,6 +47,7 @@ Public Module BIOSModule
       CursorPositions = &H450%          'Cursor positions.
       CursorScanLines = &H460%          'Cursor scan line start/end.
       EquipmentFlags = &H410%           'Equipment flags.
+      ExtendedCharacters = &HC0000%     'Extended character bitmaps.
       KeyboardFlags = &H417%            'Keyboard flags.
       MemorySize = &H413%               'Memory size.
       Text80x25MonoPage0 = &HB0000%     '80x25 monochrome text video buffer.
@@ -63,12 +66,16 @@ Public Module BIOSModule
       CR = &HD%     'Carriage return.
    End Enum
 
+   Public Const CGA_320_x_200_BUFFER_SIZE As Integer = &H4000%               'Defines the 320x200 CGA mode video memory's size.
    Public Const CGA_320_X_200_BYTES_PER_ROW As Integer = &H50%               'Defines the number of bytes per row used by 320x200 CGA mode 
+   Public Const CGA_320_X_200_COLUMN_COUNT As Integer = &H28%                'Defines the number of columns used by 320x200 CGA mode. 
    Public Const CGA_320_X_200_LINES_PER_CHARACTER As Integer = &H8%          'Defines the number of lines per character used by 320x200 CGA mode 
    Public Const CGA_320_X_200_LINE_COUNT As Integer = &H19%                  'Defines the number of lines used by 320x200 CGA mode 
-   Public Const CGA_320_x_200_BUFFER_SIZE As Integer = &H4000%               'Defines the 320x200 CGA mode video memory's size.
+   Public Const CGA_320_X_200_PIXELS_PER_BYTE As Integer = &H4%              'Defines the number of pixels per byte used by 320x200 CGA mode.
+   Public Const EXTENDED_CHARACTERS_VECTOR As Integer = &H1F%                'Defines the extended character bitmap pointer's location.
+   Public Const INITIAL_MODE_FLAGS_MDA As Integer = &H30%                    'Defines the initial video mode in the equipment flags as MDA.
+   Public Const INITIAL_MODE_FLAGS_NOT_MDA As Integer = &H20%                'Defines the initial video mode in the equipment flags as not MDA.
    Public Const INITIAL_STACK_SIZE As Integer = &H10%                        'Defines the stack size at start up.
-   Public Const EQUIPMENT_FLAGS As Integer = &H30%                           'Defines the equipment flags.
    Public Const MAXIMUM_CLOCK_VALUE As Integer = &H1800B0%                   'Defines the highest value reached by the clock just before midnight.
    Public Const MAXIMUM_VIDEO_PAGE_COUNT As Integer = &H8%                   'Defines the maximum number of video pages.
    Public Const TEXT_80_X_25_BYTES_PER_ROW As Integer = &HA0%                'Defines the number of bytes per row used by 80x25 monochrome text mode 
@@ -94,6 +101,7 @@ Public Module BIOSModule
    Public Sub LoadBIOS()
       Try
          Dim Address As New Integer
+         Dim Data() As Byte = {}
          Dim Offset As Integer = AddressesE.BIOS
 
          For Interrupt As Integer = &H0% To &HFF%
@@ -103,10 +111,20 @@ Public Module BIOSModule
             Offset = WriteBytesToMemory({CPU8086Class.OpcodesE.EXT_INT, CByte(Interrupt), CPU8086Class.OpcodesE.IRET}, Offset)
          Next Interrupt
 
+         If Not MCC.IsMDA Then
+            Address = EXTENDED_CHARACTERS_VECTOR * &H4%
+            CPU.PutWord(Address + &H2%, AddressesE.ExtendedCharacters >> &H4%)
+            CPU.PutWord(Address, AddressesE.ExtendedCharacters And &HFFFF%)
+            Data = File.ReadAllBytes("EXTFONT.BIN")
+            Data.CopyTo(CPU.Memory, AddressesE.ExtendedCharacters)
+            Data = File.ReadAllBytes("FONT.BIN")
+            Data.CopyTo(CPU.Memory, AddressesE.Characters)
+         End If
+
          ClockCounter = CInt(DateTime.Now.TimeOfDay.TotalSeconds * TICKS_PER_SECOND)
          UpdateClockCounter()
 
-         CPU.PutWord(AddressesE.EquipmentFlags, EQUIPMENT_FLAGS)
+         CPU.PutWord(AddressesE.EquipmentFlags, If(MCC.IsMDA, INITIAL_MODE_FLAGS_MDA, INITIAL_MODE_FLAGS_NOT_MDA))
          CPU.PutWord(AddressesE.MemorySize, (CPU.Memory.Length \ &H400%))
          CPU.Memory(AddressesE.VideoMode) = VideoModesE.Text80x25Mono
          CPU.Memory(AddressesE.ColumnCount) = TEXT_80_X_25_COLUMN_COUNT
@@ -131,6 +149,50 @@ Public Module BIOSModule
          CursorPositionUpdate()
 
          Select Case CurrentVideoMode
+            Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B
+               VideoPageAddress = AddressesE.CGA320x200
+               Attribute = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL))
+
+               Select Case DirectCast(Character, TeletypeE)
+                  Case TeletypeE.BEL
+                     Task.Run(Sub() Console.Beep())
+                  Case TeletypeE.BS
+                     If Cursor.X > &H0% Then Cursor.X -= &H1%
+                  Case TeletypeE.CR
+                     Cursor.X = &H0%
+                  Case TeletypeE.LF
+                     If Cursor.Y < CGA_320_X_200_LINE_COUNT - &H1% Then
+                        Cursor.Y += &H1%
+                     Else
+                        VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
+                     End If
+                  Case TeletypeE.TAB
+                     Cursor.X = ((((Cursor.X + &H1%) \ &H8%) + &H1%) * &H8%) - &H1%
+                     If Cursor.X >= CGA_320_X_200_COLUMN_COUNT - &H1% Then
+                        Cursor.X = &H0%
+                        If Cursor.Y < CGA_320_X_200_COLUMN_COUNT - &H1% Then
+                           Cursor.Y += &H1%
+                        Else
+                           VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
+                        End If
+                     End If
+                  Case Else
+                     VideoAdapter.DrawCharacter(Character, Attribute)
+
+                     If Cursor.X < CGA_320_X_200_COLUMN_COUNT - &H1% Then
+                        Cursor.X += &H1%
+                     Else
+                        Cursor.X = &H0%
+                        If Cursor.Y < CGA_320_X_200_LINE_COUNT - &H1% Then
+                           Cursor.Y += &H1%
+                        Else
+                           VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
+                        End If
+                     End If
+               End Select
+
+               CPU.Memory(AddressesE.CursorPositions) = CByte(Cursor.X)
+               CPU.Memory(AddressesE.CursorPositions + &H1%) = CByte(Cursor.Y)
             Case VideoModesE.Text80x25Mono
                VideoPageAddress = AddressesE.Text80x25MonoPage0
                Attribute = CPU.Memory(VideoPageAddress + ((Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%)) + &H1%)

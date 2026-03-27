@@ -405,12 +405,15 @@ Public Module CoreModule
          If Offset + Count >= CPU.Memory.Length Then Count = CPU.Memory.Length - Offset
 
          With Dump
-            If AllHexadecimal Then
-               CPU.Memory.ToList().GetRange(Offset, CInt(Count)).ForEach(Sub([Byte] As Byte) .Append($"{[Byte]:X2} "))
+            If Offset > CPU8086Class.ADDRESS_MASK Then
+               .Append($"Address is out of range.{NewLine}{NewLine}")
             Else
-               CPU.Memory.ToList().GetRange(Offset, CInt(Count)).ForEach(Sub([Byte] As Byte) .Append(ESCAPE_BYTE([Byte])))
+               If AllHexadecimal Then
+                  CPU.Memory.ToList().GetRange(Offset, CInt(Count)).ForEach(Sub([Byte] As Byte) .Append($"{[Byte]:X2} "))
+               Else
+                  CPU.Memory.ToList().GetRange(Offset, CInt(Count)).ForEach(Sub([Byte] As Byte) .Append(ESCAPE_BYTE([Byte])))
+               End If
             End If
-
             .Append($"{NewLine}{NewLine}")
          End With
 
@@ -739,6 +742,19 @@ Public Module CoreModule
                         End If
 
                         Assemble(, StartAddress:=Address)
+                     Case "MDA"
+                        If Operands Is Nothing Then
+                           Output.AppendText($"MDA = {If(MCC.IsMDA, "ON", "OFF")}.{NewLine}")
+                        Else
+                           Select Case Operands.Trim().ToUpper()
+                              Case "OFF"
+                                 MCC.IsMDA = False
+                              Case "ON"
+                                 MCC.IsMDA = True
+                              Case Else
+                                 Output.AppendText($"Invalid option.{NewLine}")
+                           End Select
+                        End If
                      Case "MF"
                         If Operands IsNot Nothing AndAlso IS_STRING_OPERAND(Operands) Then
                            Operands = Unescape(REMOVE_DELIMITERS(Operands),, ErrorAt)

@@ -26,6 +26,7 @@ MA [Offset:Segment]           Allows the user to enter assembly instructions.
                               Enter "?" for help.
                               CS:IP will be set to any address specified.
 MD [Offset:Segment] [Count]   Disassemble memory starting at CS:IP.
+MDA on|off                    Only MDA is supported when turned on.
 MF = {Values} | "String"      Searches the memory for the specified values or string
                               and lists offsets for matches.
 MS [Path]                     Save the memory contents to a file.

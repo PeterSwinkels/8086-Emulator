@@ -970,7 +970,6 @@ Public Class CPU8086Class
                      .NewValue = Not .Value1
                   Case OperationsF6_F7E.TEST
                      .NewValue = .Value1 And .Value2
-
                      AdjustFlags(.NewValue, Is8Bit:= .Is8Bit, NewCarryFlag:=&H0%,, NewOverflowFlag:=&H0%)
                End Select
 

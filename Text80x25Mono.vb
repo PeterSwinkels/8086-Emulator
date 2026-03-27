@@ -128,6 +128,10 @@ Public Class Text80x25MonoClass
       Loop
    End Sub
 
+   'This procedure is ignored.
+   Public Sub DrawCharacter(Index As Integer, Attribute As Integer) Implements VideoAdapterClass.DrawCharacter
+   End Sub
+
    'This procedure initializes the video adapter.
    Public Sub Initialize() Implements VideoAdapterClass.Initialize
       ClearBuffer()

@@ -33,11 +33,11 @@ Public Class MCCClass
 
    Private Const FRAME_DURATION As Integer = 20    'Defines the frame duration in milliseconds.
    Private Const RETRACE_DURATION As Integer = 2   'Defines the retrace duration in milliseconds.
-   Public Const IS_MDA As Boolean = True            'Indicates whether or not an MDA will be emulated.
 
    Private ReadOnly CYCLE_CLOCK As Stopwatch = Stopwatch.StartNew()   'Defines the clock used to control refresh cycles.   
 
    Public ReadOnly GET_SELECTED_REGISTER As Func(Of RegistersE) = Function() SelectedRegister     'Returns the selected register.
+   Public IsMDA As Boolean = True                                                                 'Indicates whether or not an MDA will be emulated.
    Private RegisterValue(RegistersE.HorizontalTotalCharacters To RegistersE.LightPenLSB) As Byte   'Contains the register values.
    Private SelectedRegister As New RegistersE                                                      'Contains the selected register.
 

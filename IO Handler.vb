@@ -24,6 +24,7 @@ Public Module IOHandlerModule
       Reserved4 = &HEF%                 'Reserved.
       Reserved5 = &HF8%                 'Reserved.
       Reserved6 = &HFF%                 'Reserved.
+      Joystick = &H201%                 'Joystick.
       Reserved7 = &H21F%                'Reserved.
       Reserved8 = &H220%                'Reserved.
       Reserved9 = &H26F%                'Reserved.
@@ -66,7 +67,7 @@ Public Module IOHandlerModule
 
    Private Const PIT_IO_PORT_MASK As Integer = &H3%   'Defines the PIT I/O port number bits.
 
-   Private ReadOnly MCC As New MCCClass   'Contains the 6845 Motorola CRT Controller.
+   Public ReadOnly MCC As New MCCClass   'Contains the 6845 Motorola CRT Controller.
    Private ReadOnly PPI As New PPIClass   'Contains the 8255 Programmable Peripheral Interface .
 
    'This procedure attempts to read from the specified I/O port and returns the result.
@@ -82,14 +83,14 @@ Public Module IOHandlerModule
             Case IOPortsE.PPIPortB
                Value = PPI.PortB()
             Case IOPortsE.MDA3B0
-               Value = If(MCCClass.IS_MDA, MCC.GET_SELECTED_REGISTER(), &HFF%)
+               Value = If(MCC.IsMDA, MCC.GET_SELECTED_REGISTER(), &HFF%)
             Case IOPortsE.MDA3B1, IOPortsE.MDAData
-               Value = If(MCCClass.IS_MDA, MCC.Register(), &HFF%)
+               Value = If(MCC.IsMDA, MCC.Register(), &HFF%)
             Case IOPortsE.MDAStatus
-               Value = If(MCCClass.IS_MDA, MCC.MDAStatus(), &HFF%)
+               Value = If(MCC.IsMDA, MCC.MDAStatus(), &HFF%)
             Case IOPortsE.CGA3D0 To IOPortsE.CGAPresetLightPenLatch
                Value = &HFF%
-            Case IOPortsE.Reserved1 To IOPortsE.Reserved2, IOPortsE.Reserved3 To IOPortsE.Reserved4, IOPortsE.Reserved5 To IOPortsE.Reserved6, IOPortsE.Reserved7, IOPortsE.Reserved8 To IOPortsE.Reserved9, IOPortsE.Reserved10 To IOPortsE.Reserved11, IOPortsE.Reserved12 To IOPortsE.Reserved13, IOPortsE.Reserved14 To IOPortsE.Reserved15, IOPortsE.Reserved16 To IOPortsE.Reserved17, IOPortsE.Reserved18 To IOPortsE.Reserved19
+            Case IOPortsE.Joystick, IOPortsE.Reserved1 To IOPortsE.Reserved2, IOPortsE.Reserved3 To IOPortsE.Reserved4, IOPortsE.Reserved5 To IOPortsE.Reserved6, IOPortsE.Reserved7, IOPortsE.Reserved8 To IOPortsE.Reserved9, IOPortsE.Reserved10 To IOPortsE.Reserved11, IOPortsE.Reserved12 To IOPortsE.Reserved13, IOPortsE.Reserved14 To IOPortsE.Reserved15, IOPortsE.Reserved16 To IOPortsE.Reserved17, IOPortsE.Reserved18 To IOPortsE.Reserved19
                Value = &HFF%
          End Select
 
@@ -116,38 +117,38 @@ Public Module IOHandlerModule
             Case IOPortsE.PITModeControl
                PIT.ModeControl(NewValue:=Value)
             Case IOPortsE.MDA3B0, IOPortsE.MDAIndex
-               If MCCClass.IS_MDA Then
+               If MCC.IsMDA Then
                   MCC.SelectRegister(DirectCast(Value, MCCClass.RegistersE))
                Else
                   Success = False
                End If
             Case IOPortsE.MDA3B1, IOPortsE.MDAData
-               If MCCClass.IS_MDA Then
+               If MCC.IsMDA Then
                   MCC.Register(NewValue:=ToByte(Value))
                Else
                   Success = False
                End If
             Case IOPortsE.MDAColor
-               If MCCClass.IS_MDA Then
+               If MCC.IsMDA Then
                   MCC.ColorSelect(Value)
                Else
                   Success = False
                End If
             Case IOPortsE.CGAIndex
-               If Not MCCClass.IS_MDA Then
+               If Not MCC.IsMDA Then
                   Success = False
                End If
             Case IOPortsE.CGAData
-               If Not MCCClass.IS_MDA Then
+               If Not MCC.IsMDA Then
                   Success = False
                End If
             Case IOPortsE.CGAColor
-               If MCCClass.IS_MDA Then
+               If MCC.IsMDA Then
                   Success = False
                Else
                   MCC.ColorSelect(Value)
                End If
-            Case IOPortsE.Reserved1 To IOPortsE.Reserved2, IOPortsE.Reserved3 To IOPortsE.Reserved4, IOPortsE.Reserved5 To IOPortsE.Reserved6, IOPortsE.Reserved7, IOPortsE.Reserved8 To IOPortsE.Reserved9, IOPortsE.Reserved10 To IOPortsE.Reserved11, IOPortsE.Reserved12 To IOPortsE.Reserved13, IOPortsE.Reserved14 To IOPortsE.Reserved15, IOPortsE.Reserved16 To IOPortsE.Reserved17, IOPortsE.Reserved18 To IOPortsE.Reserved19
+            Case IOPortsE.Joystick, IOPortsE.Reserved1 To IOPortsE.Reserved2, IOPortsE.Reserved3 To IOPortsE.Reserved4, IOPortsE.Reserved5 To IOPortsE.Reserved6, IOPortsE.Reserved7, IOPortsE.Reserved8 To IOPortsE.Reserved9, IOPortsE.Reserved10 To IOPortsE.Reserved11, IOPortsE.Reserved12 To IOPortsE.Reserved13, IOPortsE.Reserved14 To IOPortsE.Reserved15, IOPortsE.Reserved16 To IOPortsE.Reserved17, IOPortsE.Reserved18 To IOPortsE.Reserved19
                Success = True
             Case Else
                Success = False
