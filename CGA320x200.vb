@@ -76,7 +76,11 @@ Public Class CGA320x200Class
          Shift = &H6%
          For Bit As Integer = &H0% To &H7%
             If Bits(Bit) Then
-               CPU.Memory(Position) = CByte((CPU.Memory(Position) And Not (&H3% << Shift)) Or (Attribute << Shift))
+               If Not (Attribute And &H80%) = &H0% Then
+                  CPU.Memory(Position) = CByte((CPU.Memory(Position) Xor ((Attribute And &H7F%) << Shift)))
+               Else
+                  CPU.Memory(Position) = CByte((CPU.Memory(Position) And Not (&H3% << Shift)) Or (Attribute << Shift))
+               End If
             End If
 
             Shift -= &H2%

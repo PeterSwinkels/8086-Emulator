@@ -120,6 +120,21 @@ Public Module InterruptHandlerModule
                      End Select
                   Case &H9%, &HA%
                      Select Case CurrentVideoMode
+                        Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B
+                           Character = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
+                           Attribute = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL))
+                           Count = CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX))
+                           CursorPositionUpdate()
+                           Do While Count > &H0%
+                              VideoAdapter.DrawCharacter(Character, Attribute)
+                              If Cursor.X < CGA_320_X_200_COLUMN_COUNT Then
+                                 Cursor.X += 1
+                              Else
+                                 Cursor.X = 0
+                                 Cursor.Y += 1
+                              End If
+                              Count -= &H1%
+                           Loop
                         Case VideoModesE.Text80x25Mono
                            VideoPageAddress = AddressesE.Text80x25MonoPage0
                            Character = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
@@ -163,9 +178,9 @@ Public Module InterruptHandlerModule
                            Value = CPU.Memory(Position)
 
                            If (AL And &H80%) = &H0% Then
-                              Value = (Value And Not mask) Or CByte(pixelColor << shift)
+                              Value = (Value And Not Mask) Or CByte(PixelColor << Shift)
                            Else
-                              Value = Value Xor CByte(pixelColor << shift)
+                              Value = Value Xor CByte(PixelColor << Shift)
                            End If
 
                            CPU.Memory(Position) = CByte(Value)

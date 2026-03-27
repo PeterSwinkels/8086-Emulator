@@ -34,6 +34,7 @@ Public Class InterfaceWindow
 
          Output = Me.OutputBox
 
+         PCSpeaker.Start()
          LoadBIOS()
          LoadMSDOS()
 
@@ -76,6 +77,7 @@ Public Class InterfaceWindow
    Private Sub InterfaceWindow_Closing(sender As Object, e As CancelEventArgs) Handles MyBase.Closing
       Try
          CPU.ClockToken.Cancel()
+         PCSpeaker.Stop()
          PIT.HighPrecisionTimer.ClockToken.Cancel()
 
          Output = Nothing

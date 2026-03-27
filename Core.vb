@@ -40,15 +40,16 @@ Public Module CoreModule
    Private Const VALUES_OPERAND_START As Char = "{"c             'Defines a values operand's start.
 
    Public WithEvents CPU As New CPU8086Class                                                   'Contains a reference to the CPU 8086 class.
-   Public WithEvents PIT As New PITClass                                                       'Contains the 8253 Programmable Interval Timer.
-   Public WithEvents ScreenRefresh As New Forms.Timer With {.Enabled = True, .Interval = 56}   'Contains the screen refresh timer.
-   Private WithEvents Assembler As New AssemblerClass                                          'Contains a reference to the assembler.
-   Private WithEvents Disassembler As New DisassemblerClass                                    'Contains a reference to the disassembler.
+   Public WithEvents PIT As New PITClass                                                       'Contains a reference to the 8253 Programmable Interval Timer class.
+   Public WithEvents ScreenRefresh As New Forms.Timer With {.Enabled = True, .Interval = 56}   'Contains a reference to the screen refresh timer class.
+   Private WithEvents Assembler As New AssemblerClass                                          'Contains a reference to the assembler class.
+   Private WithEvents Disassembler As New DisassemblerClass                                    'Contains a reference to the disassembler class.
 
    Public AssemblyModeOn As Boolean = False                             'Indicates whether input is interpreted as assembly language.
    Public CPUEvent As New StringBuilder                                 'Contains CPU event specific text.
    Public CurrentVideoMode As VideoModesE = VideoModesE.Text80x25Mono   'Contains the current video mode.
    Public Output As TextBox = Nothing                                   'Contains a reference to an output.
+   Public PCSpeaker As New PCSpeakerClass                               'Contains a reference to the PC-Speaker class.
    Public ScreenActive As Boolean = False                               'Indicates whether or not the screen window is active.
    Public Synchronizer As New Object                                    'Contains the object used to synchronize threads.
    Public VideoAdapter As VideoAdapterClass = New Text80x25MonoClass    'Contains a reference to the video adapter used.

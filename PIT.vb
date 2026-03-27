@@ -209,6 +209,9 @@ Public Class PITClass
                Else
                   .MSB = NewValue
                   InitializeCounter(Counter, NewValue:=(CInt(.MSB) << &H8%) Or CInt(.LSB))
+                  If Counter = CountersE.CassetteAndSpeaker Then
+                     PCSpeaker.SetFrequency((CInt(.MSB.Value) << 8) Or .LSB.Value)
+                  End If
                End If
             Case FormatsE.MSB
                .LSB = Nothing

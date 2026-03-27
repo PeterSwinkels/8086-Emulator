@@ -10,7 +10,10 @@ Public Class PPIClass
    Public Function PortB(Optional NewValue As Integer? = Nothing) As Integer
       Static CurrentValue As New Integer
 
-      If NewValue IsNot Nothing Then CurrentValue = CInt(NewValue)
+      If NewValue IsNot Nothing Then
+         CurrentValue = CInt(NewValue)
+         PCSpeaker.Enabled = ((CurrentValue And &H3%) = &H3%)
+      End If
 
       Return CurrentValue
    End Function
