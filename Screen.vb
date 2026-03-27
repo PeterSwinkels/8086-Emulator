@@ -10,6 +10,9 @@ Imports System.Windows.Forms
 
 'This class contains the screen output window.
 Public Class ScreenWindow
+   Private Const WM_KEYDOWN As Integer = &H100%   'Defines the key down window message.
+   Private Const WM_KEYUP As Integer = &H101%     'Defines the key up window message.
+
    'This procedure initializes this window.
    Public Sub New()
       Try
@@ -72,6 +75,25 @@ Public Class ScreenWindow
 
             VideoAdapter.Display(Me.BackgroundImage, CPU.Memory, CODE_PAGE_437)
          End If
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure sets the key scan code to be returned by the keyboard I/O port.
+   Protected Overrides Sub WndProc(ByRef m As Message)
+      Try
+         Dim Scancode As Integer = (m.LParam.ToInt32 >> &H10%) And &HFF%
+
+         If m.Msg = WM_KEYDOWN Then
+            KeyScancode = CByte(Scancode)
+         End If
+
+         If m.Msg = WM_KEYUP Then
+            KeyScancode = CByte(Scancode Or &H80%)
+         End If
+
+         MyBase.WndProc(m)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

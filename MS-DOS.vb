@@ -666,8 +666,44 @@ Public Module MSDOSModule
       End Try
    End Sub
 
-   'This procedure reads a file using an FCB block.
-   Private Sub FCBReadFile()
+   'This procedure reads a file randomly using an FCB block.
+   Private Sub FCBRandomReadFile()
+      Try
+         Dim Buffer() As Byte = {}
+         Dim Count As Integer = CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX))
+         Dim Extension As String = GetString(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) + FCBE.Extension, Length:=3).Trim()
+         Dim FileName As String = GetString(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) + FCBE.Filename, Length:=8).Trim()
+         Dim Offset As Integer = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
+         Dim CurrentBlock As Integer = CPU.GET_WORD(Offset + FCBE.CurrentBlock)
+         Dim DTAOffset As Integer = ((DTA And &HFFFF0000%) >> &HC%) + (DTA And &HFFFF%)
+         Dim RecordSize As Integer = CPU.GET_WORD(Offset + FCBE.RecordSize)
+
+         FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
+
+         Using FileO As New FileStream(GetLongName(FileSystemItems, $"{FileName}.{Extension}"), FileMode.Open, FileAccess.Read)
+            If CurrentBlock * RecordSize >= FileO.Length Then
+               CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&H1%)
+            ElseIf (CurrentBlock * RecordSize) + (RecordSize * Count) >= FileO.Length Then
+               FileO.Seek(CurrentBlock * RecordSize, SeekOrigin.Begin)
+               ReDim Buffer(0 To CInt(FileO.Length - (CurrentBlock * RecordSize)) - 1)
+               FileO.Read(Buffer, 0, Buffer.Count)
+               CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&H3%)
+            Else
+               FileO.Seek(CurrentBlock * RecordSize, SeekOrigin.Begin)
+               ReDim Buffer(0 To (RecordSize * Count) - 1)
+               FileO.Read(Buffer, 0, Buffer.Count)
+               CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&H0%)
+            End If
+         End Using
+
+         WriteBytesToMemory(Buffer, DTAOffset)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure reads a file sequentially using an FCB block.
+   Private Sub FCBSequentialReadFile()
       Try
          Dim Buffer() As Byte = {}
          Dim Extension As String = GetString(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) + FCBE.Extension, Length:=3).Trim()
@@ -1189,7 +1225,7 @@ Public Module MSDOSModule
                      FCBDeleteFile()
                      Success = True
                   Case &H14%
-                     FCBReadFile()
+                     FCBSequentialReadFile()
                      Success = True
                   Case &H15%
                      FCBWriteFile()
@@ -1207,6 +1243,9 @@ Public Module MSDOSModule
                      Address = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)) * &H4%
                      CPU.PutWord(Address + &H2%, CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)))
                      CPU.PutWord(Address, CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+                     Success = True
+                  Case &H27%
+                     FCBRandomReadFile()
                      Success = True
                   Case &H29%
                      FCBParseFilename()
@@ -1310,6 +1349,9 @@ Public Module MSDOSModule
                            Select Case DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.BX), STDFileHandlesE)
                               Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
                                  CPU.Registers(CPU8086Class.Registers16BitE.DX, NewValue:=&H80%)
+                                 Success = True
+                              Case Else
+                                 CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=&H0%)
                                  Success = True
                            End Select
                      End Select

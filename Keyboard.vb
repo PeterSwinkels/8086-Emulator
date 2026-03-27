@@ -67,6 +67,7 @@ Public Module KeyboardModule
    Private ReadOnly COMMAND_KEYS() As Integer = {Keys.Back, Keys.Delete, Keys.Down, Keys.End, Keys.Enter, Keys.Escape, Keys.Home, Keys.Insert, Keys.NumPad5, Keys.Multiply, Keys.Subtract, Keys.Add, Keys.Divide, Keys.Left, Keys.PageDown, Keys.PageUp, Keys.PrintScreen, Keys.Right, Keys.Space, Keys.Tab, Keys.Up}  'Contains the command keys.
 
    Private InsertActive As Boolean = False   'Indicates whether or not insert is active.
+   Public KeyScancode As Byte = Nothing     'Contains the most recent scancode.
 
    'This procedure converts the specified ASCII code combined with the specified modifier keys to a BIOS scan and character code and returns the result.
    Private Function GetBIOSCharacterKeyCode(KeyASCII As Integer, Alt As Boolean, Control As Boolean, Shift As Boolean) As Integer?

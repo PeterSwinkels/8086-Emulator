@@ -19,6 +19,7 @@ Public Module IOHandlerModule
       PITCounter1 = &H41%               'RAM refresh counter.
       PITCounter2 = &H42%               'Cassette and speaker.
       PITModeControl = &H43%            'Mode control register.
+      KeyboardIO = &H60%                'Keyboard I/O register.
       PPIPortB = &H61%                  'Port B output.
       Reserved3 = &HE0%                 'Reserved.
       Reserved4 = &HEF%                 'Reserved.
@@ -76,6 +77,8 @@ Public Module IOHandlerModule
          Dim Value As Integer? = Nothing
 
          Select Case (Port And &HFFFF%)
+            Case IOPortsE.KeyboardIO
+               Value = KeyScancode
             Case IOPortsE.PITCounter0 To IOPortsE.PITCounter2
                Value = PIT.ReadCounter(DirectCast(Port And PIT_IO_PORT_MASK, PITClass.CountersE))
             Case IOPortsE.PITModeControl
