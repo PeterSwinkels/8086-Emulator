@@ -6,6 +6,7 @@ Option Strict On
 
 Imports System
 Imports System.Runtime.InteropServices
+Imports System.Runtime.InteropServices.Marshal
 Imports System.Threading
 
 'This class contains the PC-Speaker.
@@ -56,11 +57,22 @@ Public Class PCSpeakerClass
    End Function
 
    <DllImport("Winmm.dll")>
+   Public Shared Function waveOutUnprepareHeader(
+    ByVal hwo As IntPtr,
+    ByRef pwh As WAVEHDR,
+    ByVal cbwh As Integer) As Integer
+   End Function
+
+   <DllImport("Winmm.dll")>
    Private Shared Function waveOutWrite(
     hWaveOut As IntPtr,
     ByRef lpWaveOutHdr As WAVEHDR,
     uSize As Integer) As Integer
    End Function
+
+   Private Const CALLBACK_NULL As Integer = &H0%
+   Private Const MMSYSERR_NOERROR As Integer = &H0%
+   Private Const WAVE_MAPPER As Integer = -1%
 
    Private Const PIT_CLOCK As Double = 1193182    'Defines the PIT's frequency.
    Private Const SAMPLE_RATE As Integer = 44100   'Defines the sample rate.
@@ -71,45 +83,36 @@ Public Class PCSpeakerClass
    Private Running As Boolean = False        'Indicates whether a tone is being generated.
    Public Enabled As Boolean = False         'Indicates whether the pc-speaker is enabled.
 
-
    'This procedure generates a tone on a loop.
    Private Sub AudioLoop()
       Dim BufferSize As Integer = &H400%
       Dim Bytes() As Byte = {}
-      Dim Format As New WAVEFORMATEX()
+      Dim Format As New WAVEFORMATEX() With {.nChannels = &H1%, .nSamplesPerSec = SAMPLE_RATE, .wBitsPerSample = &H10%, .wFormatTag = &H1%, .nBlockAlign = CShort(.nChannels * .wBitsPerSample / &H8%), .nAvgBytesPerSec = .nSamplesPerSec * .nBlockAlign}
       Dim Header As WAVEHDR = Nothing
       Dim SampleBuffer(&H0% To BufferSize - &H1%) As Short
       Dim WaveH As IntPtr = Nothing
 
-      Format.nChannels = &H1%
-      Format.nSamplesPerSec = SAMPLE_RATE
-      Format.wBitsPerSample = &H10%
-      Format.wFormatTag = &H1%
-      Format.nBlockAlign = CShort(Format.nChannels * Format.wBitsPerSample / &H8%)
-      Format.nAvgBytesPerSec = Format.nSamplesPerSec * Format.nBlockAlign
+      If waveOutOpen(WaveH, WAVE_MAPPER, Format, IntPtr.Zero, IntPtr.Zero, CALLBACK_NULL) = MMSYSERR_NOERROR Then
+         While Running
+            GenerateSamples(SampleBuffer)
 
-      waveOutOpen(WaveH, -1, Format, IntPtr.Zero, IntPtr.Zero, &H0%)
+            ReDim Bytes(&H0% To SampleBuffer.Length * &H2% - &H1%)
+            Buffer.BlockCopy(SampleBuffer, &H0%, Bytes, &H0%, Bytes.Length)
 
-      While Running
-         GenerateSamples(SampleBuffer)
+            Header = New WAVEHDR With {.dwBufferLength = Bytes.Length, .lpData = AllocHGlobal(Bytes.Length)}
 
-         ReDim Bytes(&H0% To SampleBuffer.Length * &H2% - &H1%)
-         Buffer.BlockCopy(SampleBuffer, &H0%, Bytes, &H0%, Bytes.Length)
+            Copy(Bytes, &H0%, Header.lpData, Bytes.Length)
 
-         Header = New WAVEHDR()
+            If waveOutPrepareHeader(WaveH, Header, SizeOf(Header)) = MMSYSERR_NOERROR Then
+               waveOutWrite(WaveH, Header, SizeOf(Header))
+               waveOutUnprepareHeader(WaveH, Header, SizeOf(Header))
+               FreeHGlobal(Header.lpData)
+               Thread.Sleep(10)
+            End If
+         End While
 
-         Header.dwBufferLength = Bytes.Length
-         Header.lpData = Marshal.AllocHGlobal(bytes.Length)
-
-         Marshal.Copy(Bytes, &H0%, Header.lpData, Bytes.Length)
-
-         waveOutPrepareHeader(WaveH, header, Marshal.SizeOf(header))
-         waveOutWrite(WaveH, Header, Marshal.SizeOf(Header))
-
-         Thread.Sleep(10)
-      End While
-
-      waveOutClose(WaveH)
+         waveOutClose(WaveH)
+      End If
    End Sub
 
    'This procedure generates the samples for the tone to be generated.
