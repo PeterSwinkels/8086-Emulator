@@ -1047,13 +1047,13 @@ Public Class CPU8086Class
    'This procedure executes the specified opcode and returns whether or not it succeeded.
    Public Function ExecuteOpcode(Optional Opcode As OpcodesE = Nothing) As Boolean
       Dim Address As New Integer
-      Dim CFStopValue As New Boolean
       Dim LowOctet As New Integer
       Dim NewValue As New Integer
       Dim Operand As New Integer
       Dim OperandPair As New OperandPairStr
       Dim Override As New SegmentRegistersE?
       Dim Value As New Integer
+      Dim ZFStopValue As New Boolean
 
       If Opcode = Nothing Then Opcode = DirectCast(GetByteCSIP(), OpcodesE)
 
@@ -1305,15 +1305,15 @@ Public Class CPU8086Class
             RaiseEvent WriteIOPort(GetByteCSIP(), Value:=CInt(Registers(Registers16BitE.AX)), Is8Bit:=False)
          Case OpcodesE.REPNE, OpcodesE.REPZ
             If Opcode = OpcodesE.REPNE Then
-               CFStopValue = True
+               ZFStopValue = True
             ElseIf Opcode = OpcodesE.REPZ Then
-               CFStopValue = False
+               ZFStopValue = False
             End If
 
-            Registers(FlagRegistersE.ZF, NewValue:=(Not CFStopValue))
+            Registers(FlagRegistersE.ZF, NewValue:=(Not ZFStopValue))
 
             Opcode = DirectCast(GetByteCSIP(), OpcodesE)
-            Do Until CBool(Registers(FlagRegistersE.ZF)) = CFStopValue OrElse CInt(Registers(Registers16BitE.CX)) = &H0%
+            Do Until CBool(Registers(FlagRegistersE.ZF)) = ZFStopValue OrElse CInt(Registers(Registers16BitE.CX)) = &H0%
                ExecuteStringOpcode(Opcode)
                Registers(Registers16BitE.CX, NewValue:=CInt(Registers(Registers16BitE.CX)) - &H1%)
             Loop

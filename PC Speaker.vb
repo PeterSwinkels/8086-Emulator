@@ -72,10 +72,12 @@ Public Class PCSpeakerClass
 
    Private Const CALLBACK_NULL As Integer = &H0%
    Private Const MMSYSERR_NOERROR As Integer = &H0%
+   Private Const WAVE_FORMAT_PCM As Integer = &H1%
    Private Const WAVE_MAPPER As Integer = -1%
 
    Private Const PIT_CLOCK As Double = 1193182    'Defines the PIT's frequency.
    Private Const SAMPLE_RATE As Integer = 44100   'Defines the sample rate.
+   Private Const VOLUME As Integer = &H1000%      'Defines the volume.
 
    Private AudioThread As Thread = Nothing   'Contains the thread that drives the pc-speaker.
    Private Frequency As New Double           'Contains the frequency of the tone to be generated.
@@ -87,9 +89,9 @@ Public Class PCSpeakerClass
    Private Sub AudioLoop()
       Dim BufferSize As Integer = &H400%
       Dim Bytes() As Byte = {}
-      Dim Format As New WAVEFORMATEX() With {.nChannels = &H1%, .nSamplesPerSec = SAMPLE_RATE, .wBitsPerSample = &H10%, .wFormatTag = &H1%, .nBlockAlign = CShort(.nChannels * .wBitsPerSample / &H8%), .nAvgBytesPerSec = .nSamplesPerSec * .nBlockAlign}
+      Dim Format As New WAVEFORMATEX() With {.nChannels = &H1%, .nSamplesPerSec = SAMPLE_RATE, .wBitsPerSample = &H10%, .wFormatTag = WAVE_FORMAT_PCM, .nBlockAlign = CShort(.nChannels * .wBitsPerSample / &H8%), .nAvgBytesPerSec = .nSamplesPerSec * .nBlockAlign}
       Dim Header As WAVEHDR = Nothing
-      Dim SampleBuffer(&H0% To BufferSize - &H1%) As Short
+      Dim SampleBuffer(&H0% To BufferSize - &H1%) As UShort
       Dim WaveH As IntPtr = Nothing
 
       If waveOutOpen(WaveH, WAVE_MAPPER, Format, IntPtr.Zero, IntPtr.Zero, CALLBACK_NULL) = MMSYSERR_NOERROR Then
@@ -105,9 +107,9 @@ Public Class PCSpeakerClass
 
             If waveOutPrepareHeader(WaveH, Header, SizeOf(Header)) = MMSYSERR_NOERROR Then
                waveOutWrite(WaveH, Header, SizeOf(Header))
+               Thread.Sleep(10)
                waveOutUnprepareHeader(WaveH, Header, SizeOf(Header))
                FreeHGlobal(Header.lpData)
-               Thread.Sleep(10)
             End If
          End While
 
@@ -116,7 +118,7 @@ Public Class PCSpeakerClass
    End Sub
 
    'This procedure generates the samples for the tone to be generated.
-   Private Sub GenerateSamples(SampleBuffer() As Short)
+   Private Sub GenerateSamples(SampleBuffer() As UShort)
       For Sample As Integer = 0 To SampleBuffer.Length - 1
          If Enabled AndAlso Frequency > 0 AndAlso Frequency < Short.MaxValue Then
             Phase += Frequency / SAMPLE_RATE
@@ -126,12 +128,12 @@ Public Class PCSpeakerClass
             End If
 
             If Phase < 0.5 Then
-               SampleBuffer(Sample) = 12000
+               SampleBuffer(Sample) = VOLUME
             Else
-               SampleBuffer(Sample) = -12000
+               SampleBuffer(Sample) = (-VOLUME) And &HFFFF%
             End If
          Else
-            SampleBuffer(Sample) = 0
+            SampleBuffer(Sample) = &H0%
          End If
       Next Sample
    End Sub
