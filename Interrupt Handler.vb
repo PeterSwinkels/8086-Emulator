@@ -48,6 +48,7 @@ Public Module InterruptHandlerModule
          Dim Value As New Integer?
          Dim VideoMode As New Byte
          Dim VideoModeBit7 As New Boolean
+         Dim VideoModeValid As New Boolean
          Dim VideoPage As New Byte
          Dim VideoPageAddress As New Integer
          Dim x As New Integer
@@ -69,7 +70,14 @@ Public Module InterruptHandlerModule
                      VideoModeBit7 = CBool(VideoMode >> &H7%)
                      VideoMode = VideoMode And VIDEO_MODE_MASK
 
-                     If [Enum].IsDefined(GetType(VideoModesE), VideoMode) Then
+                     Select Case DirectCast(VideoMode, VideoModesE)
+                        Case VideoModesE.Text80x25Mono
+                           If MCC.IsMDA Then VideoModeValid = True
+                        Case Else
+                           If Not MCC.IsMDA Then VideoModeValid = [Enum].IsDefined(GetType(VideoModesE), VideoMode)
+                     End Select
+
+                     If VideoModeValid Then
                         CPU.Memory(AddressesE.VideoMode) = VideoMode
                         CPU.Memory(AddressesE.VideoModeOptions) = CByte(SET_BIT(CPU.Memory(AddressesE.VideoModeOptions), VideoModeBit7, &H7%))
 
@@ -113,7 +121,7 @@ Public Module InterruptHandlerModule
                      Success = True
                   Case &H8%
                      Select Case CurrentVideoMode
-                        Case VideoModesE.Text80x25Mono
+                        Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Mono
                            CursorPositionUpdate()
                            CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CPU.GET_WORD(AddressesE.Text80x25MonoPage0 + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)))
                            Success = True
@@ -135,8 +143,13 @@ Public Module InterruptHandlerModule
                               End If
                               Count -= &H1%
                            Loop
-                        Case VideoModesE.Text80x25Mono
-                           VideoPageAddress = AddressesE.Text80x25MonoPage0
+                        Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Mono
+                           Select Case CurrentVideoMode
+                              Case VideoModesE.Text80x25Color
+                                 VideoPageAddress = AddressesE.Text80x25ColorPage0
+                              Case VideoModesE.Text80x25Mono
+                                 VideoPageAddress = AddressesE.Text80x25MonoPage0
+                           End Select
                            Character = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
                            Attribute = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL))
                            Count = CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX))

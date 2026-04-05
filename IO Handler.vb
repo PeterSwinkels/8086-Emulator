@@ -89,6 +89,8 @@ Public Module IOHandlerModule
                Value = If(MCC.IsMDA, MCC.GET_SELECTED_REGISTER(), &HFF%)
             Case IOPortsE.MDA3B1, IOPortsE.MDAData
                Value = If(MCC.IsMDA, MCC.Register(), &HFF%)
+            Case IOPortsE.MDA3B0, IOPortsE.MDAIndex, IOPortsE.MDA3B6
+               Value = If(MCC.IsMDA, MCC.SelectedRegister, &HFF%)
             Case IOPortsE.MDAStatus
                Value = If(MCC.IsMDA, MCC.MDAStatus(), &HFF%)
             Case IOPortsE.CGA3D0 To IOPortsE.CGAPresetLightPenLatch
@@ -119,7 +121,7 @@ Public Module IOHandlerModule
                PIT.WriteCounter(DirectCast(Port And PIT_IO_PORT_MASK, PITClass.CountersE), NewValue:=CByte(Value))
             Case IOPortsE.PITModeControl
                PIT.ModeControl(NewValue:=Value)
-            Case IOPortsE.MDA3B0, IOPortsE.MDAIndex
+            Case IOPortsE.MDA3B0, IOPortsE.MDAIndex, IOPortsE.MDA3B6
                If MCC.IsMDA Then
                   MCC.SelectRegister(DirectCast(Value, MCCClass.RegistersE))
                Else

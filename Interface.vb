@@ -37,6 +37,7 @@ Public Class InterfaceWindow
          PCSpeaker.Start()
          LoadBIOS()
          LoadMSDOS()
+         ScreenRefresh = New Timer With {.Enabled = True, .Interval = 56}
 
          If GetCommandLineArgs.Count > 1 Then RunCommandScript(GetCommandLineArgs.Last)
       Catch ExceptionO As Exception

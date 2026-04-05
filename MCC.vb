@@ -38,8 +38,8 @@ Public Class MCCClass
 
    Public ReadOnly GET_SELECTED_REGISTER As Func(Of RegistersE) = Function() SelectedRegister     'Returns the selected register.
    Public IsMDA As Boolean = True                                                                 'Indicates whether or not an MDA will be emulated.
+   Public SelectedRegister As New RegistersE                                                      'Contains the selected register.
    Private RegisterValue(RegistersE.HorizontalTotalCharacters To RegistersE.LightPenLSB) As Byte   'Contains the register values.
-   Private SelectedRegister As New RegistersE                                                      'Contains the selected register.
 
 
    'This procedure selects the specified color palette.

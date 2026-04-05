@@ -50,6 +50,7 @@ Public Module BIOSModule
       ExtendedCharacters = &HC0000%     'Extended character bitmaps.
       KeyboardFlags = &H417%            'Keyboard flags.
       MemorySize = &H413%               'Memory size.
+      Text80x25ColorPage0 = &HB8000%    '80x25 color text video buffer.
       Text80x25MonoPage0 = &HB0000%     '80x25 monochrome text video buffer.
       VGA320x200 = &HA0000%             '320x200 VGA video buffer.
       VideoMode = &H449%                'Current video mode.
@@ -79,6 +80,7 @@ Public Module BIOSModule
    Public Const MAXIMUM_CLOCK_VALUE As Integer = &H1800B0%                   'Defines the highest value reached by the clock just before midnight.
    Public Const MAXIMUM_VIDEO_PAGE_COUNT As Integer = &H8%                   'Defines the maximum number of video pages.
    Public Const TEXT_80_X_25_BYTES_PER_ROW As Integer = &HA0%                'Defines the number of bytes per row used by 80x25 monochrome text mode 
+   Public Const TEXT_80_X_25_COLOR_BUFFER_SIZE As Integer = &HFA0%           'Defines the 80x25 color text mode video memory's size.
    Public Const TEXT_80_X_25_COLUMN_COUNT As Integer = &H50%                 'Defines the number of columns used by 80x25 monochrome text mode 
    Public Const TEXT_80_X_25_LINE_COUNT As Integer = &H19%                   'Defines the number of lines used by 80x25 monochrome text mode 
    Public Const TEXT_80_X_25_MONO_BUFFER_SIZE As Integer = &HFA0%            'Defines the 80x25 monochrome text mode video memory's size.
@@ -111,7 +113,17 @@ Public Module BIOSModule
             Offset = WriteBytesToMemory({CPU8086Class.OpcodesE.EXT_INT, CByte(Interrupt), CPU8086Class.OpcodesE.IRET}, Offset)
          Next Interrupt
 
-         If Not MCC.IsMDA Then
+         If MCC.IsMDA Then
+            CurrentVideoMode = VideoModesE.Text80x25Mono
+            VideoAdapter = New Text80x25MonoClass
+            CPU.PutWord(AddressesE.EquipmentFlags, INITIAL_MODE_FLAGS_MDA)
+            CPU.Memory(AddressesE.VideoMode) = CurrentVideoMode
+         Else
+            CurrentVideoMode = VideoModesE.Text80x25Color
+            VideoAdapter = New Text80x25ColorClass
+            CPU.PutWord(AddressesE.EquipmentFlags, INITIAL_MODE_FLAGS_NOT_MDA)
+            CPU.Memory(AddressesE.VideoMode) = CurrentVideoMode
+
             Address = EXTENDED_CHARACTERS_VECTOR * &H4%
             CPU.PutWord(Address + &H2%, AddressesE.ExtendedCharacters >> &H4%)
             CPU.PutWord(Address, AddressesE.ExtendedCharacters And &HFFFF%)
@@ -121,15 +133,14 @@ Public Module BIOSModule
             Data.CopyTo(CPU.Memory, AddressesE.Characters)
          End If
 
+         SwitchVideoAdapter()
+
          ClockCounter = CInt(DateTime.Now.TimeOfDay.TotalSeconds * TICKS_PER_SECOND)
          UpdateClockCounter()
 
-         CPU.PutWord(AddressesE.EquipmentFlags, If(MCC.IsMDA, INITIAL_MODE_FLAGS_MDA, INITIAL_MODE_FLAGS_NOT_MDA))
          CPU.PutWord(AddressesE.MemorySize, (CPU.Memory.Length \ &H400%))
-         CPU.Memory(AddressesE.VideoMode) = VideoModesE.Text80x25Mono
          CPU.Memory(AddressesE.ColumnCount) = TEXT_80_X_25_COLUMN_COUNT
          CPU.PutWord(AddressesE.CRTControllerBasePOrt, IOPortsE.MDA3B0)
-         SwitchVideoAdapter()
 
          CPU.Registers(CPU8086Class.SegmentRegistersE.SS, NewValue:=AddressesE.BIOSStack)
          CPU.Registers(CPU8086Class.Registers16BitE.SP, NewValue:=INITIAL_STACK_SIZE)
@@ -193,8 +204,14 @@ Public Module BIOSModule
 
                CPU.Memory(AddressesE.CursorPositions) = CByte(Cursor.X)
                CPU.Memory(AddressesE.CursorPositions + &H1%) = CByte(Cursor.Y)
-            Case VideoModesE.Text80x25Mono
-               VideoPageAddress = AddressesE.Text80x25MonoPage0
+            Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Mono
+               Select Case CurrentVideoMode
+                  Case VideoModesE.Text80x25Color
+                     VideoPageAddress = AddressesE.Text80x25ColorPage0
+                  Case VideoModesE.Text80x25Mono
+                     VideoPageAddress = AddressesE.Text80x25MonoPage0
+               End Select
+
                Attribute = CPU.Memory(VideoPageAddress + ((Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%)) + &H1%)
                CPU.Registers(CPU8086Class.SubRegisters8BitE.BH, NewValue:=Attribute)
                CursorBlink.Enabled = False

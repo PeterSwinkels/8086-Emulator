@@ -137,6 +137,7 @@
     <Compile Include="Interrupt Handler.vb" />
     <Compile Include="IO Handler.vb" />
     <Compile Include="Keyboard.vb" />
+    <Compile Include="Text80x25Color.vb" />
     <Compile Include="Text80x25Mono.vb" />
     <Compile Include="My Project\AssemblyInfo.vb" />
     <Compile Include="My Project\Application.Designer.vb">

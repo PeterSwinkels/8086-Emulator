@@ -7,25 +7,18 @@ Option Strict On
 Imports System
 Imports System.Convert
 Imports System.Drawing
-Imports System.Linq
 Imports System.Windows.Forms
 
-'This class emulates the text 80x25 monochrome video mode.
-Public Class Text80x25MonoClass
+'This class emulates the text 80x25 color video mode.
+Public Class Text80x25ColorClass
    Implements VideoAdapterClass
 
-   Private Const BLACK_ON_GREEN As Integer = &H70%         'Defines the black on green attribute bit.
-   Private Const DARK_GREEN_ON_GREEN As Integer = &H78%    'Defines the black on green attribute bit.
    Private Const BLINK_BITMASK As Integer = &H80%          'Defines the character blink attribute bit.
-   Private Const BRIGHT_BITMASK As Integer = &H8%          'Defines the bright character attribute bit.
-   Private Const NON_BLINK_ATTRIBUTES As Integer = &H7F%   'Defines the attribute bits not related to blinking.
-   Private Const UNDERLINE_BITMASK As Integer = &H7%       'Defines the character underline attribute bits.
    Private Const SCANLINE_COUNT As Integer = &HE%          'Defines the number of scanlines per character.
 
-   Private ReadOnly BLACK_ATTRIBUTES() As Integer = {&H0%, &H8%, &H80%, &H88%}                                        'Defines the black character attributes.
+   Private ReadOnly COLORS() As Color = {Color.Black, Color.DarkBlue, Color.DarkGreen, Color.DarkCyan, Color.DarkRed, Color.Purple, Color.Brown, Color.DarkGray, Color.Gray, Color.Blue, Color.Green, Color.Cyan, Color.Red, Color.Magenta, Color.Yellow, Color.White}  'Defines the colors.
    Private ReadOnly CHARACTER_SIZE As Size = New Size(14, 24)                                                         'Defines the character size.
-   Private ReadOnly FONT_NORMAL As New Font("Px437 IBM VGA 8x14", emSize:=21)                                         'Defines the normal font.
-   Private ReadOnly FONT_UNDERLINE As New Font("Px437 IBM VGA 8x14", emSize:=21, FontStyle.Underline)                 'Defines the underlined font.
+   Private ReadOnly FONT As New Font("Px437 IBM VGA 8x14", emSize:=21)                                                'Defines the font.
    Private ReadOnly PIXELS_PER_SCANLINE As Integer = CInt(CHARACTER_SIZE.Height / SCANLINE_COUNT)                     'Defines the number of pixels per scanline.
    Private ReadOnly TEXT_SCREEN_SIZE As Size = New Size(&H50% * CHARACTER_SIZE.Width, &H19% * CHARACTER_SIZE.Height)  'Defines the screen size measured in characters.
 
@@ -40,12 +33,12 @@ Public Class Text80x25MonoClass
 
    'This procedure clears video adapter's buffer.
    Public Sub ClearBuffer() Implements VideoAdapterClass.ClearBuffer
-      Dim Count As Integer = TEXT_80_X_25_MONO_BUFFER_SIZE \ &H2%
+      Dim Count As Integer = TEXT_80_X_25_COLOR_BUFFER_SIZE \ &H2%
       Dim Position As Integer = &H0%
-      Dim VideoPageAddress As Integer = AddressesE.Text80x25MonoPage0
+      Dim VideoPageAddress As Integer = AddressesE.Text80x25ColorPage0
 
       Do While Count > &H0%
-         CPU.PutWord(VideoPageAddress + Position, &H200%)
+         CPU.PutWord(VideoPageAddress + Position, &H700%)
          Count -= &H1%
          Position += &H2%
       Loop
@@ -57,24 +50,18 @@ Public Class Text80x25MonoClass
       Dim BitmapO As Bitmap = DirectCast(Screen, Bitmap)
       Dim Character As New Char
       Dim CharacterColor As Brush = Nothing
-      Dim CharacterFont As Font = Nothing
       Dim ColorO As New Color
       Dim Target As New Point(0, 0)
-      Dim VideoPageAddress As Integer = AddressesE.Text80x25MonoPage0
+      Dim VideoPageAddress As Integer = AddressesE.Text80x25ColorPage0
 
       With Graphics.FromImage(Screen)
          .Clear(Color.Black)
 
-         For Position As Integer = VideoPageAddress To VideoPageAddress + TEXT_80_X_25_MONO_BUFFER_SIZE Step &H2%
+         For Position As Integer = VideoPageAddress To VideoPageAddress + TEXT_80_X_25_COLOR_BUFFER_SIZE Step &H2%
             Character = ToChar(CodePage(Memory(Position)))
-            Attribute = Memory(Position + &H1%)
+            Attribute = ToByte((Memory(Position + &H1%) And &H7F%) \ &H10%)
 
-            If Attribute > &H0% AndAlso Not BLACK_ATTRIBUTES.Contains(Attribute) Then
-               Select Case (Attribute And NON_BLINK_ATTRIBUTES)
-                  Case BLACK_ON_GREEN, DARK_GREEN_ON_GREEN
-                     .FillRectangle(New SolidBrush(Color.Green), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
-               End Select
-            End If
+            .FillRectangle(New SolidBrush(COLORS(Attribute)), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
 
             If Target.X < TEXT_SCREEN_SIZE.Width - CHARACTER_SIZE.Width Then
                Target.X += CHARACTER_SIZE.Width
@@ -90,26 +77,10 @@ Public Class Text80x25MonoClass
             Character = ToChar(CodePage(Memory(Position)))
             Attribute = Memory(Position + &H1%)
 
-            If Attribute > &H0% AndAlso Not BLACK_ATTRIBUTES.Contains(Attribute) Then
-               If (Attribute And NON_BLINK_ATTRIBUTES) = BLACK_ON_GREEN Then
-                  CharacterColor = New SolidBrush(Color.Black)
-               ElseIf (Attribute And NON_BLINK_ATTRIBUTES) = DARK_GREEN_ON_GREEN Then
-                  CharacterColor = New SolidBrush(Color.DarkGreen)
-               ElseIf (Attribute And BRIGHT_BITMASK) = &H0% Then
-                  CharacterColor = New SolidBrush(Color.Green)
-               Else
-                  CharacterColor = New SolidBrush(Color.Lime)
-               End If
+            CharacterColor = New SolidBrush(COLORS(Attribute And &HF%))
 
-               If (Attribute And UNDERLINE_BITMASK) = &H1% Then
-                  CharacterFont = FONT_UNDERLINE
-               Else
-                  CharacterFont = FONT_NORMAL
-               End If
-
-               If ((Attribute And BLINK_BITMASK) = &H0%) OrElse BlinkCharactersVisible Then
-                  .DrawString(Character, CharacterFont, CharacterColor, Target.X - CInt(CHARACTER_SIZE.Width / 4), Target.Y)
-               End If
+            If ((Attribute And BLINK_BITMASK) = &H0%) OrElse BlinkCharactersVisible Then
+               .DrawString(Character, FONT, CharacterColor, Target.X - CInt(CHARACTER_SIZE.Width / 4), Target.Y)
             End If
 
             If Target.X < TEXT_SCREEN_SIZE.Width - CHARACTER_SIZE.Width Then
@@ -121,7 +92,8 @@ Public Class Text80x25MonoClass
          Next Position
 
          If (Not Cursor.Off) AndAlso Cursor.Visible Then
-            .FillRectangle(New SolidBrush(Color.Lime), Cursor.X * CHARACTER_SIZE.Width, (Cursor.Y * CHARACTER_SIZE.Height) + (Cursor.ScanLineStart * PIXELS_PER_SCANLINE), CHARACTER_SIZE.Width, (Cursor.ScanLineEnd * PIXELS_PER_SCANLINE) - (Cursor.ScanLineStart * PIXELS_PER_SCANLINE))
+            Attribute = ToByte(Memory((AddressesE.Text80x25MonoPage0 + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)) + &H1%) And &HF%)
+            .FillRectangle(New SolidBrush(COLORS(Attribute)), Cursor.X * CHARACTER_SIZE.Width, (Cursor.Y * CHARACTER_SIZE.Height) + (Cursor.ScanLineStart * PIXELS_PER_SCANLINE), CHARACTER_SIZE.Width, (Cursor.ScanLineEnd * PIXELS_PER_SCANLINE) - (Cursor.ScanLineStart * PIXELS_PER_SCANLINE))
          End If
       End With
    End Sub
@@ -150,7 +122,7 @@ Public Class Text80x25MonoClass
       Dim Attribute As Integer = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH))
       Dim CharacterCell As New Integer
       Dim Position As New Integer
-      Dim VideoPageAddress As Integer = AddressesE.Text80x25MonoPage0
+      Dim VideoPageAddress As Integer = AddressesE.Text80x25ColorPage0
 
       If Count = &H0% OrElse Count > TEXT_80_X_25_LINE_COUNT Then
          For Row As Integer = ScrollArea.ULCRow To ScrollArea.LRCRow

@@ -124,6 +124,7 @@ Public Module MSDOSModule
    Private Const PSP_INT_23H As Integer = &HE%                          'Defines the offset of the INT 23h handler in a PSP.
    Private Const PSP_INT_24H As Integer = &H12%                         'Defines the offset of the INT 24h handler in a PSP.
    Private Const PSP_MEMORY_TOP As Integer = &H2%                       'Defines the offset of the top of memory value in a PSP.
+   Private Const PSP_MEMORY_TOP_ADDRESS As Integer = &HBFFF%            'Defines the top of memory value in a PSP.
    Private Const PSP_PARENT As Integer = &H16%                          'Defines the parent process id in a PSP.
    Private Const PSP_PREVIOUS_PSP As Integer = &H38%                    'Defines the offset of the previous PSP in a PSP.
    Private Const PSP_SIZE As Integer = &H100%                           'Defines a PSP's size.
@@ -400,7 +401,7 @@ Public Module MSDOSModule
    Private Sub CreatePSP(Address As Integer)
       Try
          CPU.PutWord(Address + PSP_INT_20H, INT_20H)
-         CPU.PutWord(Address + PSP_MEMORY_TOP, LargestFreeMemoryBlock())
+         CPU.PutWord(Address + PSP_MEMORY_TOP, PSP_MEMORY_TOP_ADDRESS)
          CPU.PutWord(Address + PSP_BYTES_AVAILABLE, &HFEF0%)
          CPU.PutWord(Address + PSP_INT_22H, CPU.GET_WORD(&H8A%))
          CPU.PutWord(Address + PSP_INT_22H + &H2%, CPU.GET_WORD(&H88%))

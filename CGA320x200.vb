@@ -7,7 +7,7 @@ Option Strict On
 Imports System
 Imports System.Drawing
 
-'This class emulates CGA 320x200.
+'This class emulates the CGA 320x200 video mode.
 Public Class CGA320x200Class
    Implements VideoAdapterClass
 
@@ -79,7 +79,7 @@ Public Class CGA320x200Class
                If Not (Attribute And &H80%) = &H0% Then
                   CPU.Memory(Position) = CByte((CPU.Memory(Position) Xor ((Attribute And &H7F%) << Shift)))
                Else
-                  CPU.Memory(Position) = CByte((CPU.Memory(Position) And Not (&H3% << Shift)) Or (Attribute << Shift))
+                  CPU.Memory(Position) = CByte((CPU.Memory(Position) And Not (&H3% << Shift)) Or ((Attribute << Shift) And &HFF%))
                End If
             End If
 
