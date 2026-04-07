@@ -42,7 +42,7 @@ Public Class DisassemblerClass
    Public ReadOnly HEXADECIMAL_PREFIX As String = "0x"
 
    'The definitions for events that can be raised by this class.
-   Public Event HandleError(ExceptionO As Exception)
+   Public Event HandleException(ExceptionO As Exception)
 
    'This procedure returns the specified bytes as a hexadecimal number.
    Public Function BytesToHexadecimal(Bytes As List(Of Byte), Optional NoPrefix As Boolean = False, Optional Reverse As Boolean = True, Optional Signed As Boolean = False) As String
@@ -62,7 +62,7 @@ Public Class DisassemblerClass
 
          Return Hexadecimal.ToString()
       Catch ExceptionO As Exception
-         RaiseEvent HandleError(ExceptionO)
+         RaiseEvent HandleException(ExceptionO)
       End Try
 
       Return Nothing
@@ -312,7 +312,7 @@ Public Class DisassemblerClass
 
          Return ""
       Catch ExceptionO As Exception
-         RaiseEvent HandleError(ExceptionO)
+         RaiseEvent HandleException(ExceptionO)
       End Try
 
       Return Nothing
@@ -323,7 +323,7 @@ Public Class DisassemblerClass
       Try
          Return If(FarAddress.Count < &H4%, Nothing, $"{BytesToHexadecimal({FarAddress(&H2%), FarAddress(&H3%)}.ToList())}:{BytesToHexadecimal({FarAddress(&H0%), FarAddress(&H1%)}.ToList(), NoPrefix:=True)}")
       Catch ExceptionO As Exception
-         RaiseEvent HandleError(ExceptionO)
+         RaiseEvent HandleException(ExceptionO)
       End Try
 
       Return Nothing
@@ -335,7 +335,7 @@ Public Class DisassemblerClass
          Position += &H1%
          Return If(Position > Code.Count, Nothing, Code(Position - &H1%))
       Catch ExceptionO As Exception
-         RaiseEvent HandleError(ExceptionO)
+         RaiseEvent HandleException(ExceptionO)
       End Try
 
       Return Nothing
@@ -352,7 +352,7 @@ Public Class DisassemblerClass
 
          Return Bytes
       Catch ExceptionO As Exception
-         RaiseEvent HandleError(ExceptionO)
+         RaiseEvent HandleException(ExceptionO)
       End Try
 
       Return Nothing
@@ -379,7 +379,7 @@ Public Class DisassemblerClass
 
          Return Literal
       Catch ExceptionO As Exception
-         RaiseEvent HandleError(ExceptionO)
+         RaiseEvent HandleException(ExceptionO)
       End Try
 
       Return Nothing
@@ -390,7 +390,7 @@ Public Class DisassemblerClass
       Try
          Return If(NearAddress.Count < &H2%, Nothing, $"{HEXADECIMAL_PREFIX}{((Position + ToInt32(BytesToHexadecimal(NearAddress, NoPrefix:=True), fromBase:=16) And &HFFFF%)):X4}")
       Catch ExceptionO As Exception
-         RaiseEvent HandleError(ExceptionO)
+         RaiseEvent HandleException(ExceptionO)
       End Try
 
       Return Nothing
@@ -427,7 +427,7 @@ Public Class DisassemblerClass
 
          Return $"{Sign}{Signed}"
       Catch ExceptionO As Exception
-         RaiseEvent HandleError(ExceptionO)
+         RaiseEvent HandleException(ExceptionO)
       End Try
 
       Return Nothing
@@ -438,7 +438,7 @@ Public Class DisassemblerClass
       Try
          Return If(ShortAddress.Count < &H1%, Nothing, $"{HEXADECIMAL_PREFIX}{((Position + ToSByte(BytesToHexadecimal(ShortAddress, NoPrefix:=True), fromBase:=16) And &HFF%)):X2}")
       Catch ExceptionO As Exception
-         RaiseEvent HandleError(ExceptionO)
+         RaiseEvent HandleException(ExceptionO)
       End Try
 
       Return Nothing
