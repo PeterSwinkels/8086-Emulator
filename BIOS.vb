@@ -5,6 +5,7 @@ Option Infer Off
 Option Strict On
 
 Imports System
+Imports System.Collections.Generic
 Imports System.IO
 Imports System.Threading.Tasks
 Imports System.Drawing
@@ -92,12 +93,12 @@ Public Module BIOSModule
    Private Const TICKS_PER_SECOND As Double = 18.2064814814815                'Defines the number of clock ticks per second.
 
    Public ReadOnly BACKGROUND_COLORS() As Color = {Color.Black, Color.DarkBlue, Color.DarkGreen, Color.DarkCyan, Color.DarkRed, Color.Purple, Color.Brown, Color.White, Color.Gray, Color.Blue, Color.Green, Color.Cyan, Color.Red, Color.Pink, Color.Yellow, Color.White}   'Contains the background colors.
-   Public ReadOnly PALETTE0() As Color = {Nothing, Color.DarkGreen, Color.DarkRed, Color.Brown}                                                                                                                                                                              'Contains palette #0 colors.
-   Public ReadOnly PALETTE1() As Color = {Nothing, Color.DarkCyan, Color.Purple, Color.White}                                                                                                                                                                                'Contains palette #1 colors.
+   Public ReadOnly PALETTE0() As Color = {Color.Black, Color.DarkGreen, Color.DarkRed, Color.Brown}                                                                                                                                                                          'Contains palette #0 colors.
+   Public ReadOnly PALETTE1() As Color = {Color.Black, Color.DarkCyan, Color.Purple, Color.White}                                                                                                                                                                            'Contains palette #1 colors.
 
-   Public BackgroundColor As Color = Color.Black   'Contains the current background color.
-   Public ClockCounter As Integer = &H0%           'Contains the system clock counter.
-   Public Palette() As Color = Nothing             'Contains the current palette.
+   Public ClockCounter As Integer = &H0%         'Contains the system clock counter.
+   Public Palette() As Color = Nothing           'Contains the current palette.
+   Public PaletteBrushes As New List(Of Brush)   'Contains the current palette's brushes.
 
    'This procedure loads the BIOS into memory.
    Public Sub LoadBIOS()

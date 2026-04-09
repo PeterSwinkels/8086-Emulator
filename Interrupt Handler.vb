@@ -166,9 +166,9 @@ Public Module InterruptHandlerModule
                   Case &HB%
                      Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH))
                         Case &H0%
-                           BackgroundColor = BACKGROUND_COLORS(CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL)) And &HF%)
+                           Palette(0) = BACKGROUND_COLORS(CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL)) And &HF%)
                         Case &H1%
-                           MCC.ColorSelect(CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL)))
+                           MCC.ColorSelect(If(CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL)) = &H0%, &H0%, &H20%))
                      End Select
                      Success = True
                   Case &HC%

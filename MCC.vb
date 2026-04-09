@@ -6,6 +6,7 @@ Option Strict On
 
 Imports System
 Imports System.Diagnostics
+Imports System.Drawing
 
 'This class contains the 6845 Motorola CRT Controller's related procedures.
 Public Class MCCClass
@@ -41,7 +42,6 @@ Public Class MCCClass
    Public SelectedRegister As New RegistersE                                                      'Contains the selected register.
    Private RegisterValue(RegistersE.HorizontalTotalCharacters To RegistersE.LightPenLSB) As Byte   'Contains the register values.
 
-
    'This procedure selects the specified color palette.
    Public Sub ColorSelect(Value As Integer)
       Select Case Value
@@ -49,6 +49,12 @@ Public Class MCCClass
             Palette = PALETTE0
          Case &H20%
             Palette = PALETTE1
+      End Select
+
+      Select Case Value
+         Case &H0%, &H20%
+            PaletteBrushes.Clear()
+            Array.ForEach(Palette, Sub(Item) PaletteBrushes.Add(New SolidBrush(Item)))
       End Select
    End Sub
 

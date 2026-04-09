@@ -40,7 +40,7 @@ Public Class CGA320x200Class
                For x As Integer = 0 To WIDTH - 1 Step PIXELS_PER_BYTE
                   For Pixel As Integer = &H0% To PIXELS_PER_BYTE - &H1%
                      Index = ((CPU.Memory(Position) And (&H3% << (Pixel * &H2%))) >> (Pixel * &H2%))
-                     .FillRectangle(New SolidBrush(If(Index = 0, BackgroundColor, Palette(Index))), (x + (PIXELS_PER_BYTE - &H1%) - Pixel) * SCALING, (y1 + y2) * SCALING, SCALING, SCALING)
+                     .FillRectangle(PaletteBrushes(Index), (x + (PIXELS_PER_BYTE - &H1%) - Pixel) * SCALING, (y1 + y2) * SCALING, SCALING, SCALING)
                   Next Pixel
                   Position += &H1%
                Next x
@@ -104,7 +104,7 @@ Public Class CGA320x200Class
       CPU.PutWord(AddressesE.CursorScanLines, Word:=CURSOR_DEFAULT)
       CursorBlink.Enabled = False
 
-      Palette = PALETTE1
+      MCC.ColorSelect(&H20%)
    End Sub
 
    'This procedure returns the screen size used by a video adapter.
