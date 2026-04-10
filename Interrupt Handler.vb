@@ -6,11 +6,9 @@ Option Strict On
 
 Imports System
 Imports System.Convert
-Imports System.Diagnostics
 Imports System.Environment
 Imports System.Threading.Tasks
 Imports System.Windows.Forms
-Imports Emulator8086Program.CPU8086Class
 
 'This module contains the default interrupt handler.
 Public Module InterruptHandlerModule
@@ -22,13 +20,11 @@ Public Module InterruptHandlerModule
    'This procedure handles any pending hardware interrupts.
    Public Sub ExecuteHardwareInterrupts()
       Try
-         Dim Vector As New Integer
+         Dim Vector As Integer = PIC.GetInterruptVector()
 
-         SyncLock Synchronizer
-            Do While CPU.HardwareInterrupts.TryDequeue(Vector)
-               CPU.ExecuteInterrupt(OpcodesE.INT, Vector)
-            Loop
-         End SyncLock
+         If Not Vector = &HFF% Then
+            CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Vector)
+         End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -64,6 +60,7 @@ Public Module InterruptHandlerModule
          Select Case Number
             Case &H8%
                UpdateClockCounter()
+               PIC.WriteCommand(&H20%)
                Success = True
             Case &H9%
                CPU.Memory(AddressesE.KeyboardFlags) = ToByte(GetKeyboardFlags())

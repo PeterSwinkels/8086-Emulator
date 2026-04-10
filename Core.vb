@@ -40,7 +40,6 @@ Public Module CoreModule
    Private Const VALUES_OPERAND_START As Char = "{"c             'Defines a values operand's start.
 
    Public WithEvents CPU As New CPU8086Class                  'Contains a reference to the CPU 8086 class.
-   Public WithEvents PIT As New PITClass                      'Contains a reference to the 8253 Programmable Interval Timer class.
    Public WithEvents ScreenRefresh As Forms.Timer             'Contains a reference to the screen refresh timer class.
    Private WithEvents Assembler As New AssemblerClass         'Contains a reference to the assembler class.
    Private WithEvents Disassembler As New DisassemblerClass   'Contains a reference to the disassembler class.
@@ -51,6 +50,7 @@ Public Module CoreModule
    Public Output As TextBox = Nothing                   'Contains a reference to an output.
    Public PCSpeaker As New PCSpeakerClass               'Contains a reference to the PC-Speaker class.
    Public PIC As New PICClass                           'Contains a reference to the 8259 Programmable Interrupt Controller.
+   Public PIT As New PITClass                           'Contains a reference to the 8253 Programmable Interval Timer class.
    Public ScreenActive As Boolean = False               'Indicates whether or not the screen window is active.
    Public Synchronizer As New Object                    'Contains the object used to synchronize threads.
    Public VideoAdapter As VideoAdapterClass = Nothing   'Contains a reference to the video adapter used.
@@ -962,19 +962,6 @@ Public Module CoreModule
 
       Return {}
    End Function
-
-   'This procedure handles PIT events.
-   Private Sub PIT_PITEvent(Counter As PITClass.CountersE, Mode As PITClass.ModesE) Handles PIT.PITEvent
-      Try
-         If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
-            SyncLock Synchronizer
-               CPU.HardwareInterrupts.Enqueue(CPU8086Class.SYSTEM_TIMER)
-            End SyncLock
-         End If
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
-   End Sub
 
    'This procedure displays a file dialog requesting the user to specify a file and returns the user's selection.
    Private Function RequestFileName(Title As String, Optional Save As Boolean = False) As String

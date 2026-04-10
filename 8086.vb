@@ -438,7 +438,6 @@ Public Class CPU8086Class
    Public Clock As New Task(AddressOf Execute)                                     'Contains the CPU clock.
    Public ClockToken As New CancellationTokenSource                                'Indicates whether or not to stop the CPU.
    Public DoSystemTimerTick As Boolean = False                                     'Indicates whether or not the system timer tick interrupt needs to be executed.
-   Public HardwareInterrupts As New ConcurrentQueue(Of Integer)                    'Contains a list of pending interrupts triggered by emulated hardware.
    Public HLTEnabled As Boolean = False                                            'Indicates whether the HLT instruction halts the CPU is ignored.
    Public INT6Enabled As Boolean = False                                           'Indicates whether or not interrupt 6h is triggered for invalid opcodes.
    Public Memory() As Byte = Enumerable.Repeat(CByte(&H0%), &H100000%).ToArray()   'Contains the memory used by the emulated 8086 CPU.
@@ -626,9 +625,10 @@ Public Class CPU8086Class
             If Tracing Then RaiseEvent Trace()
 
             SyncLock Synchronizer
-               Do While HardwareInterrupts.TryDequeue(Vector)
+               Vector = PIC.GetInterruptVector()
+               If Not Vector = &HFF% Then
                   ExecuteInterrupt(OpcodesE.INT, Vector)
-               Loop
+               End If
 
                If DoSystemTimerTick Then
                   ExecuteInterrupt(OpcodesE.INT, SYSTEM_TIMER_TICK)

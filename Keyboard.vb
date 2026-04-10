@@ -219,9 +219,7 @@ Public Module KeyboardModule
                End If
          End Select
 
-         SyncLock Synchronizer
-            CPU.HardwareInterrupts.Enqueue(CPU8086Class.KEYBOARD)
-         End SyncLock
+         PIC.RaiseIRQ(&H1%)
 
          Return BIOSKeyCode
       Catch ExceptionO As Exception

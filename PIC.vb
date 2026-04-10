@@ -33,7 +33,6 @@ Public Class PICClass
       Return IRQFound
    End Function
 
-   ''NOTE: Not yet implemented.
    'This procedure returns an interrupt vector.
    Public Function GetInterruptVector() As Byte
       Dim IRQ As New Integer?
@@ -43,7 +42,7 @@ Public Class PICClass
          IRQ = FindPendingUnmaskedIRQ()
          If IRQ IsNot Nothing Then
             PendingIRQs = ToByte(PendingIRQs And Not (&H1% << IRQ))
-            InterruptInProgress = True
+            '' InterruptInProgress = True ''<<<--- May cause freezing. Also appears to be not really necessary.
             Vector = CByte(&H8% + IRQ)
          End If
       End If
@@ -56,7 +55,6 @@ Public Class PICClass
       Return IRQMask
    End Function
 
-   ''NOTE: Not yet implemented.
    'This procedure handles raised IRQs.
    Public Sub RaiseIRQ(IRQ As Integer)
       If IRQ >= &H0% AndAlso IRQ <= &H7% Then

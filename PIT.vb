@@ -5,6 +5,7 @@ Option Infer Off
 Option Strict On
 
 Imports System
+Imports System.Threading.Tasks
 
 'This class contains the 8253 PIT.
 Public Class PITClass
@@ -55,8 +56,6 @@ Public Class PITClass
    Private Const MODE_MASK As Integer = &HE%         'Defines the mode bits.
 
    Private ReadOnly Counters(&H0% To &H2%) As CounterStr  'Contains the counters.
-
-   Public Event PITEvent(Counter As CountersE, Mode As ModesE)  'Defines an event triggered by the 8253 PIT.
 
    Public WithEvents HighPrecisionTimer As HighPrecisionTimerClass = Nothing   'Contains the PIT's timer.
 
@@ -193,7 +192,9 @@ Public Class PITClass
                      .Value = .Reload
                      .Mode3Half = True
                   Else
-                     RaiseEvent PITEvent(Counter, .Mode)
+                     If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
+                        PIC.RaiseIRQ(&H0%)
+                     End If
                      .Value = .Reload
                      .Mode3Half = False
                   End If
@@ -203,12 +204,14 @@ Public Class PITClass
             End If
 
             If .Mode = ModesE.Mode2 Then
-               .Value -= 1
-               If .Value = 1 Then
-                  RaiseEvent PITEvent(Counter, .Mode)
+               .Value -= &H1%
+               If .Value = &H1% Then
+                  If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
+                     PIC.RaiseIRQ(&H0%)
+                  End If
                End If
 
-               If .Value <= 0 Then
+               If .Value <= &H0% Then
                   .Value = .Reload
                End If
 
@@ -219,7 +222,9 @@ Public Class PITClass
                If .Value > &H0% Then
                   .Value -= &H1%
                   If .Value = &H0% Then
-                     RaiseEvent PITEvent(Counter, .Mode)
+                     If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
+                        PIC.RaiseIRQ(&H0%)
+                     End If
                   End If
                End If
 
@@ -228,7 +233,9 @@ Public Class PITClass
 
             .Value -= &H1%
             If .Value <= &H0% Then
-               RaiseEvent PITEvent(Counter, .Mode)
+               If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
+                  PIC.RaiseIRQ(&H0%)
+               End If
                If .Mode = ModesE.Mode2 OrElse .Mode = ModesE.Mode3 Then
                   .Value = .Reload
                Else

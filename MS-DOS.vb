@@ -1355,6 +1355,15 @@ Public Module MSDOSModule
                                  CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=&H0%)
                                  Success = True
                            End Select
+                        Case &H1%
+                           Select Case DirectCast(CPU.Registers(CPU8086Class.Registers16BitE.BX), STDFileHandlesE)
+                              Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
+                                 Success = True
+                              Case Else
+                                 CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=ERROR_INVALID_HANDLE)
+                                 Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+                                 Success = True
+                           End Select
                      End Select
                   Case &H47%
                      GetCurrentPath(Flags)
