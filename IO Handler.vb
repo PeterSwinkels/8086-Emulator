@@ -13,6 +13,8 @@ Public Module IOHandlerModule
 
    'This enumeration lists the I/O ports recognized by the CPU.
    Public Enum IOPortsE As Integer
+      PICICW1 = &H20%                   'Initialization Command Word 1.
+      PICICW2 = &H21%                   'Initialization Command Word 2.
       Reserved1 = &H10%                 'Reserved.
       Reserved2 = &H1F%                 'Reserved.
       PITCounter0 = &H40%               'Time of day clock.
@@ -77,6 +79,8 @@ Public Module IOHandlerModule
          Dim Value As Integer? = Nothing
 
          Select Case (Port And &HFFFF%)
+            Case IOPortsE.PICICW2
+               Value = PIC.ReadMask()
             Case IOPortsE.KeyboardIO
                Value = KeyScancode
             Case IOPortsE.PITCounter0 To IOPortsE.PITCounter2
@@ -115,6 +119,10 @@ Public Module IOHandlerModule
          Dim Success As Boolean = True
 
          Select Case (Port And &HFFFF%)
+            Case IOPortsE.PICICW1
+               PIC.WriteCommand(ToByte(Value))
+            Case IOPortsE.PICICW2
+               PIC.WriteMask(ToByte(Value))
             Case IOPortsE.PPIPortB
                PPI.PortB(Value)
             Case IOPortsE.PITCounter0 To IOPortsE.PITCounter2

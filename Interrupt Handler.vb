@@ -22,11 +22,11 @@ Public Module InterruptHandlerModule
    'This procedure handles any pending hardware interrupts.
    Public Sub ExecuteHardwareInterrupts()
       Try
-         Dim Number As New Integer
+         Dim Vector As New Integer
 
          SyncLock Synchronizer
-            Do While CPU.HardwareInterrupts.TryDequeue(Number)
-               CPU.ExecuteInterrupt(OpcodesE.INT, Number)
+            Do While CPU.HardwareInterrupts.TryDequeue(Vector)
+               CPU.ExecuteInterrupt(OpcodesE.INT, Vector)
             Loop
          End SyncLock
       Catch ExceptionO As Exception

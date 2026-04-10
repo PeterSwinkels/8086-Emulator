@@ -135,6 +135,8 @@ Public Module BIOSModule
 
          SwitchVideoAdapter()
 
+         PIC.WriteMask(&HFC%)
+
          ClockCounter = CInt(DateTime.Now.TimeOfDay.TotalSeconds * TICKS_PER_SECOND)
          UpdateClockCounter()
 

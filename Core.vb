@@ -50,6 +50,7 @@ Public Module CoreModule
    Public CurrentVideoMode As New VideoModesE           'Contains the current video mode.
    Public Output As TextBox = Nothing                   'Contains a reference to an output.
    Public PCSpeaker As New PCSpeakerClass               'Contains a reference to the PC-Speaker class.
+   Public PIC As New PICClass                           'Contains a reference to the 8259 Programmable Interrupt Controller.
    Public ScreenActive As Boolean = False               'Indicates whether or not the screen window is active.
    Public Synchronizer As New Object                    'Contains the object used to synchronize threads.
    Public VideoAdapter As VideoAdapterClass = Nothing   'Contains a reference to the video adapter used.
