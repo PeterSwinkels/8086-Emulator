@@ -30,23 +30,32 @@ Public Class CGA320x200Class
 
    'This procedure draws the specified video buffer's context on the specified image.
    Public Sub Display(Screen As Image, Memory() As Byte, CodePage() As Integer) Implements VideoAdapterClass.Display
+      Dim BaseX As New Integer
+      Dim GraphicsO As Graphics = Graphics.FromImage(Screen)
       Dim Index As New Integer
       Dim Position As New Integer
+      Dim Shift As New Integer
 
-      With Graphics.FromImage(Screen)
-         For y2 As Integer = 0 To 1
-            Position = AddressesE.CGA320x200 + If(y2 = 0, &H0%, CGA_320_x_200_BUFFER_SIZE \ &H2%)
-            For y1 As Integer = 0 To HEIGHT - 1 Step 2
-               For x As Integer = 0 To WIDTH - 1 Step PIXELS_PER_BYTE
-                  For Pixel As Integer = &H0% To PIXELS_PER_BYTE - &H1%
-                     Index = ((CPU.Memory(Position) And (&H3% << (Pixel * &H2%))) >> (Pixel * &H2%))
-                     .FillRectangle(PaletteBrushes(Index), (x + (PIXELS_PER_BYTE - &H1%) - Pixel) * SCALING, (y1 + y2) * SCALING, SCALING, SCALING)
-                  Next Pixel
-                  Position += &H1%
-               Next x
-            Next y1
-         Next y2
-      End With
+      Try
+         With GraphicsO
+            For y2 As Integer = 0 To 1
+               Position = AddressesE.CGA320x200 + If(y2 = 0, &H0%, CGA_320_x_200_BUFFER_SIZE \ &H2%)
+               For y1 As Integer = 0 To HEIGHT - 1 Step 2
+                  For x As Integer = 0 To WIDTH - 1 Step PIXELS_PER_BYTE
+                     BaseX = x + (PIXELS_PER_BYTE - &H1%)
+                     For Pixel As Integer = &H0% To PIXELS_PER_BYTE - &H1%
+                        Shift = Pixel * &H2%
+                        Index = ((Memory(Position) And (&H3% << Shift)) >> Shift)
+                        .FillRectangle(PaletteBrushes(Index), (BaseX - Pixel) * SCALING, (y1 + y2) * SCALING, SCALING, SCALING)
+                     Next Pixel
+                     Position += &H1%
+                  Next x
+               Next y1
+            Next y2
+         End With
+      Finally
+         GraphicsO.Dispose()
+      End Try
    End Sub
 
    'This procedure draws the specified character.

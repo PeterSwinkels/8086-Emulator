@@ -6,10 +6,11 @@ Option Strict On
 
 Imports System
 Imports System.Convert
+Imports System.Diagnostics
 Imports System.Environment
-Imports System.Linq
 Imports System.Threading.Tasks
 Imports System.Windows.Forms
+Imports Emulator8086Program.CPU8086Class
 
 'This module contains the default interrupt handler.
 Public Module InterruptHandlerModule
@@ -21,11 +22,15 @@ Public Module InterruptHandlerModule
    'This procedure handles any pending hardware interrupts.
    Public Sub ExecuteHardwareInterrupts()
       Try
-         Do While CPU.HardwareInterrupts.Any
-            HandleInterrupt(Number:=CPU.HardwareInterrupts.First,, IRET:=False)
-            CPU.HardwareInterrupts.RemoveAt(0)
-         Loop
-      Catch
+         Dim Number As New Integer
+
+         SyncLock Synchronizer
+            Do While CPU.HardwareInterrupts.TryDequeue(Number)
+               CPU.ExecuteInterrupt(OpcodesE.INT, Number)
+            Loop
+         End SyncLock
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
       End Try
    End Sub
 

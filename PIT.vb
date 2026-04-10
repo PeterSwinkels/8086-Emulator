@@ -34,15 +34,18 @@ Public Class PITClass
 
    'This structure defines a counter and its settings.
    Private Structure CounterStr
-      Public BCD As Boolean       'Defines whether or not a counter is in BCD mode.
-      Public Format As FormatsE   'Defines a counter's format.
-      Public Mode As ModesE       'Defines a counter's mode.
-      Public MSB As Byte?         'Defines a counter's most significant byte.
-      Public Latched As Boolean   'Indicates whether or not a counter is latched.
-      Public LSB As Byte?         'Defines a counter's least significant byte.
-      Public LSBRead As Boolean   'Indicates whether or not a counter's lsb has been read.
-      Public Reload As Integer    'Defines a counter's reload value.
-      Public Value As Integer     'Defines a counter's value.
+      Public BCD As Boolean              'Defines whether or not a counter is in BCD mode.
+      Public Format As FormatsE          'Defines a counter's format.
+      Public Mode As ModesE              'Defines a counter's mode.
+      Public Mode3Half As Boolean        'Defines ... ???
+      Public MSB As Byte?                'Defines a counter's most significant byte.
+      Public Latched As Boolean          'Indicates whether or not a counter is latched.
+      Public LatchedValue As Integer     'Contains the latched counter.
+      Public LatchedLSBRead As Boolean   'Indicates LSB/MSB order for latch.
+      Public LSB As Byte?                'Defines a counter's least significant byte.
+      Public LSBRead As Boolean          'Indicates whether or not a counter's lsb has been read.
+      Public Reload As Integer           'Defines a counter's reload value.
+      Public Value As Integer            'Defines a counter's value.
    End Structure
 
    Private Const BINARY_BCD_MASK As Integer = &H1%   'Defines the binary/BCD bit.
@@ -93,12 +96,17 @@ Public Class PITClass
    Private Sub InitializeCounter(Counter As CountersE, NewValue As Integer)
       With Counters(Counter)
          If .BCD Then NewValue = CByte(BCDCap(NewValue))
-         If .Mode = ModesE.Mode3 Then NewValue = NewValue And &HFFFE%
 
          Select Case .Mode
             Case ModesE.Mode0
                .Value = NewValue
                .Reload = .Value
+            Case ModesE.Mode3
+               NewValue = NewValue And &HFFFE
+
+               .Reload = NewValue
+               .Value = NewValue
+               .Mode3Half = False
             Case Else
                .Reload = .Value
          End Select
@@ -107,20 +115,23 @@ Public Class PITClass
 
    'This procedure emulates the mode control register.
    Public Sub ModeControl(NewValue As Integer)
+      Dim CounterIndex As Integer = (NewValue And COUNTER_MASK) >> &H6%
       Dim Format As FormatsE = DirectCast((NewValue And FORMAT_MASK) >> &H4%, FormatsE)
 
-      With Counters((NewValue And COUNTER_MASK) >> &H6%)
+      With Counters(CounterIndex)
          .BCD = ((NewValue And BINARY_BCD_MASK) = &H1%)
-         .Mode = DirectCast((NewValue And MODE_MASK) >> &H1%, ModesE)
 
-         Select Case Format
-            Case FormatsE.MSB To FormatsE.LSBMSB
-               .Format = Format
-            Case FormatsE.None
-               .Latched = True
-               .LSB = CByte(.Value And &HFF%)
-               .MSB = CByte(.Value >> &H8%)
-         End Select
+         If Format = FormatsE.None Then
+            .Latched = True
+            .LatchedValue = .Value
+            .LatchedLSBRead = False
+         Else
+            .Mode = DirectCast((NewValue And MODE_MASK) >> &H1%, ModesE)
+            .Format = Format
+            .LSB = Nothing
+            .MSB = Nothing
+            .LSBRead = False
+         End If
       End With
    End Sub
 
@@ -130,22 +141,22 @@ Public Class PITClass
 
       With Counters(Counter)
          If .Latched Then
-            .Latched = False
             Select Case .Format
                Case FormatsE.LSB
-                  .LSBRead = False
-                  Value = CByte(.LSB)
-               Case FormatsE.LSBMSB
-                  If .LSBRead Then
-                     .LSBRead = False
-                     Value = CByte(.LSB)
-                  Else
-                     .LSBRead = True
-                     Value = CByte(.MSB)
-                  End If
+                  Value = CByte(.LatchedValue And &HFF%)
+                  .Latched = False
                Case FormatsE.MSB
-                  .LSBRead = False
-                  Value = CByte(.MSB)
+                  Value = CByte(.LatchedValue >> &H8%)
+                  .Latched = False
+               Case FormatsE.LSBMSB
+                  If Not .LatchedLSBRead Then
+                     Value = CByte(.LatchedValue And &HFF%)
+                     .LatchedLSBRead = True
+                  Else
+                     Value = CByte(.LatchedValue >> &H8%)
+                     .LatchedLSBRead = False
+                     .Latched = False
+                  End If
             End Select
          Else
             Select Case .Format
@@ -174,23 +185,57 @@ Public Class PITClass
    Private Sub UpdateCounters() Handles HighPrecisionTimer.IntervalElapsed
       For Each Counter As CountersE In [Enum].GetValues(GetType(CountersE))
          With Counters(Counter)
-            Select Case .Value
-               Case Is <= &H0%
-                  RaiseEvent PITEvent(Counter, .Mode)
+            If .Mode = ModesE.Mode3 Then
+               .Value -= &H2%
 
-                  Select Case .Mode
-                     Case ModesE.Mode2, ModesE.Mode3
-                        .Value = .Reload
-                     Case Else
-                        .Value = &H0%
-                  End Select
-               Case Else
-                  If .BCD Then
-                     .Value -= If(.Mode = ModesE.Mode3, If((.Value And &HF%) = &H0%, &H8%, &H2%), If((.Value And &HF%) = &H0%, &H7%, &H1%))
+               If .Value <= &H0% Then
+                  If Not .Mode3Half Then
+                     .Value = .Reload
+                     .Mode3Half = True
                   Else
-                     .Value -= If(.Mode = ModesE.Mode3, &H2%, &H1%)
+                     RaiseEvent PITEvent(Counter, .Mode)
+                     .Value = .Reload
+                     .Mode3Half = False
                   End If
-            End Select
+               End If
+
+               Continue For
+            End If
+
+            If .Mode = ModesE.Mode2 Then
+               .Value -= 1
+               If .Value = 1 Then
+                  RaiseEvent PITEvent(Counter, .Mode)
+               End If
+
+               If .Value <= 0 Then
+                  .Value = .Reload
+               End If
+
+               Continue For
+            End If
+
+            If .Mode = ModesE.Mode0 Then
+               If .Value > &H0% Then
+                  .Value -= &H1%
+                  If .Value = &H0% Then
+                     RaiseEvent PITEvent(Counter, .Mode)
+                  End If
+               End If
+
+               Continue For
+            End If
+
+            .Value -= &H1%
+            If .Value <= &H0% Then
+               RaiseEvent PITEvent(Counter, .Mode)
+               If .Mode = ModesE.Mode2 OrElse .Mode = ModesE.Mode3 Then
+                  .Value = .Reload
+               Else
+                  .Value = &H0%
+               End If
+            End If
+
          End With
       Next Counter
    End Sub

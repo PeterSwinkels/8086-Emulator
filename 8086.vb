@@ -6,7 +6,7 @@ Option Strict On
 
 Imports System
 Imports System.BitConverter
-Imports System.Collections.Generic
+Imports System.Collections.Concurrent
 Imports System.Linq
 Imports System.Math
 Imports System.Threading
@@ -422,28 +422,28 @@ Public Class CPU8086Class
       Public Value2 As Integer               'Defines the value referred to be the second operand.
    End Structure
 
-   Public Const KEYBOARD As Integer = &H9%               'Defines the keyboard hardware interrupt number.
-   Public Const SYSTEM_TIMER As Integer = &H8%           'Defines the system timer's interrupt number.
+   Public Const KEYBOARD As Integer = &H9%               'Defines the keyboard hardware interrupt vector.
+   Public Const SYSTEM_TIMER As Integer = &H8%           'Defines the system timer's interrupt vector.
 
-   Private Const BREAK_POINT As Integer = &H3%           'Defines the break point interrupt number.
-   Private Const DIVIDE_BY_ZERO As Integer = &H0%        'Defines the divide by zero interrupt number.
+   Private Const BREAK_POINT As Integer = &H3%           'Defines the break point interrupt vector.
+   Private Const DIVIDE_BY_ZERO As Integer = &H0%        'Defines the divide by zero interrupt vector.
    Private Const LOW_FLAG_BITS As Integer = &HD7%        'Defines the bits used in the flag register's lower byte.
-   Private Const OVERFLOW_TRAP As Integer = &H4%         'Defines the overflow trap interrupt number. 
-   Private Const SINGLE_STEP As Integer = &H1%           'Defines the single step interrupt number.
+   Private Const OVERFLOW_TRAP As Integer = &H4%         'Defines the overflow trap interrupt vector. 
+   Private Const SINGLE_STEP As Integer = &H1%           'Defines the single step interrupt vector.
 
    Public Const ADDRESS_MASK As Integer = &HFFFFF%      'Defines the 20 bits used to address memory.
-   Public Const INVALID_OPCODE As Integer = &H6%        'Defines the invalid opcode interrupt number.
+   Public Const INVALID_OPCODE As Integer = &H6%        'Defines the invalid opcode interrupt vector.
 
    Public Clock As New Task(AddressOf Execute)                                     'Contains the CPU clock.
    Public ClockToken As New CancellationTokenSource                                'Indicates whether or not to stop the CPU.
-   Public HardwareInterrupts As New List(Of Integer)                               'Contains a list of pending interrupts triggered by emulated hardware.
+   Public HardwareInterrupts As New ConcurrentQueue(Of Integer)                    'Contains a list of pending interrupts triggered by emulated hardware.
    Public HLTEnabled As Boolean = False                                            'Indicates whether the HLT instruction halts the CPU is ignored.
    Public INT6Enabled As Boolean = False                                           'Indicates whether or not interrupt 6h is triggered for invalid opcodes.
    Public Memory() As Byte = Enumerable.Repeat(CByte(&H0%), &H100000%).ToArray()   'Contains the memory used by the emulated 8086 CPU.
    Public Tracing As Boolean = False                                               'Indicates whether or not tracing is enabled.
 
    Public Event Halt()                                                                   'Defines the halt event.
-   Public Event Interrupt(Number As Integer, AH As Integer)                              'Defines the interrupt event.
+   Public Event Interrupt(Vector As Integer, AH As Integer)                              'Defines the interrupt event.
    Public Event ReadIOPort(Port As Integer, ByRef Value As Integer, Is8Bit As Boolean)   'Defines the IO port read event.
    Public Event Trace()                                                                  'Defines the trace event.
    Public Event WriteIOPort(Port As Integer, Value As Integer, Is8Bit As Boolean)        'Defines the IO port write event.
@@ -618,20 +618,20 @@ Public Class CPU8086Class
    'This procedure gives the CPU the command to execute instructions and returns the address of the next instruction to be executed.
    Public Function Execute() As Task(Of Integer)
       Try
+         Dim Vector As New Integer
+
          Do Until ClockToken.Token.IsCancellationRequested
             If Tracing Then RaiseEvent Trace()
 
-            Try
-               Do While HardwareInterrupts.Any
-                  ExecuteInterrupt(OpcodesE.INT, Number:=HardwareInterrupts.First)
-                  HardwareInterrupts.RemoveAt(0)
+            SyncLock Synchronizer
+               Do While HardwareInterrupts.TryDequeue(Vector)
+                  ExecuteInterrupt(OpcodesE.INT, Vector)
                Loop
-            Catch
-            End Try
+            End SyncLock
 
             If Not ExecuteOpcode() Then
                If INT6Enabled Then
-                  ExecuteInterrupt(OpcodesE.INT, Number:=INVALID_OPCODE)
+                  ExecuteInterrupt(OpcodesE.INT, Vector:=INVALID_OPCODE)
                End If
             End If
 
@@ -750,7 +750,7 @@ Public Class CPU8086Class
    End Function
 
    'This procedure executes the specified interrupt call.
-   Public Sub ExecuteInterrupt(Opcode As OpcodesE, Optional Number As Integer? = Nothing)
+   Public Sub ExecuteInterrupt(Opcode As OpcodesE, Optional Vector As Integer? = Nothing)
       Dim Address As New Integer
 
       If (Opcode = OpcodesE.INTO AndAlso CBool(Registers(FlagRegistersE.OF))) OrElse (Not Opcode = OpcodesE.INTO) Then
@@ -760,16 +760,16 @@ Public Class CPU8086Class
 
          Select Case Opcode
             Case OpcodesE.INT
-               If Number Is Nothing Then Number = GetByteCSIP()
+               If Vector Is Nothing Then Vector = GetByteCSIP()
             Case OpcodesE.INT3
-               Number = BREAK_POINT
+               Vector = BREAK_POINT
             Case OpcodesE.INTO
-               Number = OVERFLOW_TRAP
+               Vector = OVERFLOW_TRAP
          End Select
 
          Stack(Push:=CInt(Registers(SegmentRegistersE.CS)))
          Stack(Push:=CInt(Registers(Registers16BitE.IP)))
-         Address = CInt(Number) * &H4%
+         Address = CInt(Vector) * &H4%
          Registers(SegmentRegistersE.CS, NewValue:=GET_WORD(Address + &H2%))
          Registers(Registers16BitE.IP, NewValue:=GET_WORD(Address))
       End If
@@ -1436,9 +1436,9 @@ Public Class CPU8086Class
             Registers(Register:=FlagRegistersE.All, NewValue:=Stack())
             If CBool(Registers(FlagRegistersE.TF)) Then
                If Not ExecuteOpcode() Then
-                  ExecuteInterrupt(OpcodesE.INT, Number:=INVALID_OPCODE)
+                  ExecuteInterrupt(OpcodesE.INT, Vector:=INVALID_OPCODE)
                End If
-               ExecuteInterrupt(OpcodesE.INT, Number:=SINGLE_STEP)
+               ExecuteInterrupt(OpcodesE.INT, Vector:=SINGLE_STEP)
                Registers(FlagRegistersE.TF, NewValue:=False)
             End If
          Case OpcodesE.PUSH_AX To OpcodesE.PUSH_DI

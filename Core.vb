@@ -155,12 +155,12 @@ Public Module CoreModule
    End Sub
 
    'This procedure handles the emulated CPU's interrupt events.
-   Private Sub CPU_Interrupt(Number As Integer, AH As Integer) Handles CPU.Interrupt
+   Private Sub CPU_Interrupt(Vector As Integer, AH As Integer) Handles CPU.Interrupt
       Try
-         If Not HandleInterrupt(Number, AH) Then
+         If Not HandleInterrupt(Vector, AH) Then
             CPU.ClockToken.Cancel()
             SyncLock Synchronizer
-               CPUEvent.Append($"INT {Number:X}, {AH:X}{NewLine}")
+               CPUEvent.Append($"INT {Vector:X}, {AH:X}{NewLine}")
             End SyncLock
          End If
       Catch ExceptionO As Exception
@@ -650,7 +650,7 @@ Public Module CoreModule
                            Application.DoEvents()
 
                            If Not CPU.ExecuteOpcode() Then
-                              CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Number:=CPU8086Class.INVALID_OPCODE)
+                              CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Vector:=CPU8086Class.INVALID_OPCODE)
                            End If
                         Loop
 
@@ -677,7 +677,7 @@ Public Module CoreModule
                         Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=" "c, Ending:=" "c)
                         Interrupt = GetLiteral(Parsed.Element)
                         If Interrupt Is Nothing Then
-                           Output.AppendText($"Invalid interrupt number.{NewLine}")
+                           Output.AppendText($"Invalid interrupt vector.{NewLine}")
                         Else
                            Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=Nothing, Ending:=Nothing)
                            AH = GetLiteral(Parsed.Element)
@@ -823,7 +823,7 @@ Public Module CoreModule
                         CPU_Trace()
 
                         If Not CPU.ExecuteOpcode() Then
-                           CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Number:=CPU8086Class.INVALID_OPCODE)
+                           CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Vector:=CPU8086Class.INVALID_OPCODE)
                         End If
 
                         CPU_Trace()
@@ -966,7 +966,9 @@ Public Module CoreModule
    Private Sub PIT_PITEvent(Counter As PITClass.CountersE, Mode As PITClass.ModesE) Handles PIT.PITEvent
       Try
          If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
-            CPU.HardwareInterrupts.Add(CPU8086Class.SYSTEM_TIMER)
+            SyncLock Synchronizer
+               CPU.HardwareInterrupts.Enqueue(CPU8086Class.SYSTEM_TIMER)
+            End SyncLock
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)

@@ -107,12 +107,12 @@ Public Module BIOSModule
          Dim Data() As Byte = {}
          Dim Offset As Integer = AddressesE.BIOS
 
-         For Interrupt As Integer = &H0% To &HFF%
-            Address = Interrupt * &H4%
+         For Vector As Integer = &H0% To &HFF%
+            Address = Vector * &H4%
             CPU.PutWord(Address + &H2%, AddressesE.BIOS >> &H4%)
             CPU.PutWord(Address, Offset)
-            Offset = WriteBytesToMemory({CPU8086Class.OpcodesE.EXT_INT, CByte(Interrupt), CPU8086Class.OpcodesE.IRET}, Offset)
-         Next Interrupt
+            Offset = WriteBytesToMemory({CPU8086Class.OpcodesE.EXT_INT, CByte(Vector), CPU8086Class.OpcodesE.IRET}, Offset)
+         Next Vector
 
          If MCC.IsMDA Then
             CurrentVideoMode = VideoModesE.Text80x25Mono
@@ -242,7 +242,6 @@ Public Module BIOSModule
                      End If
                   Case Else
                      CPU.Memory(VideoPageAddress + (Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%)) = Character
-
                      If Cursor.X < TEXT_80_X_25_COLUMN_COUNT - &H1% Then
                         Cursor.X += &H1%
                      Else
@@ -280,7 +279,9 @@ Public Module BIOSModule
          CPU.PutWord(AddressesE.Clock, ClockCounter And &HFFFF%)
          CPU.PutWord(AddressesE.Clock + &H2%, ClockCounter >> &H10%)
 
-         CPU.HardwareInterrupts.Add(SYSTEM_TIMER_TICK)
+         SyncLock Synchronizer
+            CPU.HardwareInterrupts.Enqueue(SYSTEM_TIMER_TICK)
+         End SyncLock
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
