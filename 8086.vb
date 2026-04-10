@@ -422,20 +422,22 @@ Public Class CPU8086Class
       Public Value2 As Integer               'Defines the value referred to be the second operand.
    End Structure
 
-   Public Const KEYBOARD As Integer = &H9%               'Defines the keyboard hardware interrupt vector.
-   Public Const SYSTEM_TIMER As Integer = &H8%           'Defines the system timer's interrupt vector.
+   Public Const KEYBOARD As Integer = &H9%       'Defines the keyboard hardware interrupt vector.
+   Public Const SYSTEM_TIMER As Integer = &H8%   'Defines the system timer's interrupt vector.
 
-   Private Const BREAK_POINT As Integer = &H3%           'Defines the break point interrupt vector.
-   Private Const DIVIDE_BY_ZERO As Integer = &H0%        'Defines the divide by zero interrupt vector.
-   Private Const LOW_FLAG_BITS As Integer = &HD7%        'Defines the bits used in the flag register's lower byte.
-   Private Const OVERFLOW_TRAP As Integer = &H4%         'Defines the overflow trap interrupt vector. 
-   Private Const SINGLE_STEP As Integer = &H1%           'Defines the single step interrupt vector.
+   Private Const BREAK_POINT As Integer = &H3%          'Defines the break point interrupt vector.
+   Private Const DIVIDE_BY_ZERO As Integer = &H0%       'Defines the divide by zero interrupt vector.
+   Private Const LOW_FLAG_BITS As Integer = &HD7%       'Defines the bits used in the flag register's lower byte.
+   Private Const OVERFLOW_TRAP As Integer = &H4%        'Defines the overflow trap interrupt vector. 
+   Private Const SINGLE_STEP As Integer = &H1%          'Defines the single step interrupt vector.
+   Private Const SYSTEM_TIMER_TICK As Integer = &H1C%   'Defines the system timer tick interrupt number.
 
    Public Const ADDRESS_MASK As Integer = &HFFFFF%      'Defines the 20 bits used to address memory.
    Public Const INVALID_OPCODE As Integer = &H6%        'Defines the invalid opcode interrupt vector.
 
    Public Clock As New Task(AddressOf Execute)                                     'Contains the CPU clock.
    Public ClockToken As New CancellationTokenSource                                'Indicates whether or not to stop the CPU.
+   Public DoSystemTimerTick As Boolean = False                                     'Indicates whether or not the system timer tick interrupt needs to be executed.
    Public HardwareInterrupts As New ConcurrentQueue(Of Integer)                    'Contains a list of pending interrupts triggered by emulated hardware.
    Public HLTEnabled As Boolean = False                                            'Indicates whether the HLT instruction halts the CPU is ignored.
    Public INT6Enabled As Boolean = False                                           'Indicates whether or not interrupt 6h is triggered for invalid opcodes.
@@ -627,6 +629,11 @@ Public Class CPU8086Class
                Do While HardwareInterrupts.TryDequeue(Vector)
                   ExecuteInterrupt(OpcodesE.INT, Vector)
                Loop
+
+               If DoSystemTimerTick Then
+                  ExecuteInterrupt(OpcodesE.INT, SYSTEM_TIMER_TICK)
+                  DoSystemTimerTick = False
+               End If
             End SyncLock
 
             If Not ExecuteOpcode() Then

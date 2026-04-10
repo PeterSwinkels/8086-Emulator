@@ -89,7 +89,6 @@ Public Module BIOSModule
    Public Const VGA_320_X_200_BYTES_PER_ROW As Integer = &H140%              'Defines the number of bytes per row used by 320x200 VGA mode 
    Public Const VGA_320_X_200_LINE_COUNT As Integer = &H19%                  'Defines the number of lines used by 320x200 VGA mode 
    Public Const VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE As Integer = &H8%    'Defines the number of per character side used by 320x200 VGA mode 
-   Private Const SYSTEM_TIMER_TICK As Integer = &H1C%                         'Defines the system clock tick interrupt vector.
    Private Const TICKS_PER_SECOND As Double = 18.2064814814815                'Defines the number of clock ticks per second.
 
    Public ReadOnly BACKGROUND_COLORS() As Color = {Color.Black, Color.DarkBlue, Color.DarkGreen, Color.DarkCyan, Color.DarkRed, Color.Purple, Color.Brown, Color.White, Color.Gray, Color.Blue, Color.Green, Color.Cyan, Color.Red, Color.Pink, Color.Yellow, Color.White}   'Contains the background colors.
@@ -280,7 +279,7 @@ Public Module BIOSModule
          CPU.PutWord(AddressesE.Clock + &H2%, ClockCounter >> &H10%)
 
          SyncLock Synchronizer
-            CPU.HardwareInterrupts.Enqueue(SYSTEM_TIMER_TICK)
+            CPU.DoSystemTimerTick = True
          End SyncLock
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
