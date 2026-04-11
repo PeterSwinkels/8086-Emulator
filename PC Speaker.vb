@@ -4,150 +4,94 @@ Option Explicit On
 Option Infer Off
 Option Strict On
 
+Imports SDL2.SDL
 Imports System
 Imports System.Runtime.InteropServices
-Imports System.Runtime.InteropServices.Marshal
-Imports System.Threading
 
 'This class contains the PC-Speaker.
 Public Class PCSpeakerClass
-   <StructLayout(LayoutKind.Sequential)>
-   Public Structure WAVEFORMATEX
-      Public wFormatTag As Short
-      Public nChannels As Short
-      Public nSamplesPerSec As Integer
-      Public nAvgBytesPerSec As Integer
-      Public nBlockAlign As Short
-      Public wBitsPerSample As Short
-      Public cbSize As Short
-   End Structure
+   Private Const PIT_CLOCK As Double = 1193182.0   'Defines the PIT's frequency.
+   Private Const VOLUME As Short = &H2000S         'Defines the tone's frequency.
 
-   <StructLayout(LayoutKind.Sequential)>
-   Public Structure WAVEHDR
-      Public lpData As IntPtr
-      Public dwBufferLength As Integer
-      Public dwBytesRecorded As Integer
-      Public dwUser As IntPtr
-      Public dwFlags As Integer
-      Public dwLoops As Integer
-      Public lpNext As IntPtr
-      Public reserved As IntPtr
-   End Structure
+   Public Enabled As Boolean = False                             'Indicates whether or not the pc-speaker is enabled.
+   Private AudioCallbackDelegate As SDL_AudioCallback = Nothing   'Contains the delegate used to play tones.
+   Private DeviceID As UInteger = &H0UI                           'Contains the audio device's id.
+   Private Frequency As Double = 0.0                              'Contains the tone's frequency.
+   Private Phase As Double = 0.0                                  'Contains the phase while generating a tone.
+   Private SampleRate As Integer = 44100                          'Contains the sample rate.
 
-   <DllImport("Winmm.dll")>
-   Private Shared Function waveOutClose(
-    hWaveOut As IntPtr) As Integer
-   End Function
+   'This procedure plays tones based on the current frequency.
+   Private Sub AudioCallback(userdata As IntPtr, stream As IntPtr, len As Integer)
+      Dim SampleCount As Integer = len \ 2
+      Dim Buffer(&H0% To SampleCount - &H1%) As Short
+      Dim LocalFrequency As New Double
+      Dim LocalEnabled As New Boolean
+      Dim LocalPhase As New Double
+      Dim LocalSampleRate As New Integer
+      Dim Position As New Double
+      Dim SamplesPerPeriod As New Double
 
-   <DllImport("Winmm.dll")>
-   Private Shared Function waveOutOpen(
-    ByRef hWaveOut As IntPtr,
-    uDeviceID As Integer,
-    ByRef lpFormat As WAVEFORMATEX,
-    dwCallback As IntPtr,
-    dwInstance As IntPtr,
-    dwFlags As Integer) As Integer
-   End Function
+      SyncLock SYNCHRONIZER
+         LocalFrequency = Frequency
+         LocalEnabled = Enabled
+         LocalPhase = Phase
+         LocalSampleRate = SampleRate
+      End SyncLock
 
-   <DllImport("Winmm.dll")>
-   Private Shared Function waveOutPrepareHeader(
-    hWaveOut As IntPtr,
-    ByRef lpWaveOutHdr As WAVEHDR,
-    uSize As Integer) As Integer
-   End Function
+      If LocalEnabled AndAlso LocalFrequency > &H0% AndAlso LocalFrequency <= Short.MaxValue Then
+         SamplesPerPeriod = LocalSampleRate / LocalFrequency
 
-   <DllImport("Winmm.dll")>
-   Public Shared Function waveOutUnprepareHeader(
-    ByVal hwo As IntPtr,
-    ByRef pwh As WAVEHDR,
-    ByVal cbwh As Integer) As Integer
-   End Function
+         For Sample As Integer = &H0% To SampleCount - &H1%
+            Position = LocalPhase Mod SamplesPerPeriod
+            Buffer(Sample) = If(Position < SamplesPerPeriod / 2, VOLUME, -VOLUME)
+            LocalPhase += 1
+         Next Sample
 
-   <DllImport("Winmm.dll")>
-   Private Shared Function waveOutWrite(
-    hWaveOut As IntPtr,
-    ByRef lpWaveOutHdr As WAVEHDR,
-    uSize As Integer) As Integer
-   End Function
+         SyncLock SYNCHRONIZER
+            Phase = LocalPhase
+         End SyncLock
 
-   Private Const CALLBACK_NULL As Integer = &H0%
-   Private Const MMSYSERR_NOERROR As Integer = &H0%
-   Private Const WAVE_FORMAT_PCM As Integer = &H1%
-   Private Const WAVE_MAPPER As Integer = -1%
-
-   Private Const BUFFER_SIZE As Integer = &H400%   'Defines the wave buffer size.
-   Private Const PIT_CLOCK As Double = 1193182     'Defines the PIT's frequency.
-   Private Const SAMPLE_RATE As Integer = 44100    'Defines the sample rate.
-   Private Const VOLUME As Integer = &H1000%       'Defines the volume.
-
-   Private AudioThread As Thread = Nothing   'Contains the thread that drives the pc-speaker.
-   Private Frequency As New Double           'Contains the frequency of the tone to be generated.
-   Private Phase As New Double               'Contains the phase.
-   Private Running As Boolean = False        'Indicates whether a tone is being generated.
-   Public Enabled As Boolean = False         'Indicates whether the pc-speaker is enabled.
-
-   'This procedure generates a tone on a loop.
-   Private Sub AudioLoop()
-      Dim Format As New WAVEFORMATEX() With {.nChannels = &H1%, .nSamplesPerSec = SAMPLE_RATE, .wBitsPerSample = &H10%, .wFormatTag = WAVE_FORMAT_PCM, .nBlockAlign = CShort(.nChannels * .wBitsPerSample / &H8%), .nAvgBytesPerSec = .nSamplesPerSec * .nBlockAlign}
-      Dim Header As WAVEHDR = Nothing
-      Dim RawWaveData() As Byte = {}
-      Dim Samples(&H0% To BUFFER_SIZE - &H1%) As UShort
-      Dim WaveH As IntPtr = Nothing
-
-      If waveOutOpen(WaveH, WAVE_MAPPER, Format, IntPtr.Zero, IntPtr.Zero, CALLBACK_NULL) = MMSYSERR_NOERROR Then
-         While Running
-            GenerateSamples(Samples)
-            ReDim RawWaveData(&H0% To Samples.Length * &H2% - &H1%)
-            Buffer.BlockCopy(Samples, &H0%, RawWaveData, &H0%, RawWaveData.Length)
-            Header = New WAVEHDR With {.dwBufferLength = RawWaveData.Length, .lpData = AllocHGlobal(RawWaveData.Length)}
-            Copy(RawWaveData, &H0%, Header.lpData, RawWaveData.Length)
-
-            If waveOutPrepareHeader(WaveH, Header, SizeOf(Header)) = MMSYSERR_NOERROR Then
-               waveOutWrite(WaveH, Header, SizeOf(Header))
-               Thread.Sleep(10)
-               waveOutUnprepareHeader(WaveH, Header, SizeOf(Header))
-               FreeHGlobal(Header.lpData)
-            End If
-         End While
-
-         waveOutClose(WaveH)
+         Marshal.Copy(Buffer, &H0%, stream, SampleCount)
+      Else
+         Marshal.Copy(Buffer, &H0%, stream, SampleCount)
       End If
    End Sub
 
-   'This procedure generates the samples for the tone to be generated.
-   Private Sub GenerateSamples(Samples() As UShort)
-      For Sample As Integer = 0 To Samples.Length - 1
-         If Enabled AndAlso Frequency > 0 AndAlso Frequency < Short.MaxValue Then
-            Phase += Frequency / SAMPLE_RATE
-            If Phase >= 1 Then
-               Phase -= 1
-            End If
-            Samples(Sample) = CUShort(If(Phase < 0.5, VOLUME, (-VOLUME) And &HFFFF%))
-         Else
-            Samples(Sample) = &H0%
-         End If
-      Next Sample
-   End Sub
-
-   'This procedure sets the frequency of the tone to be generated based on the specified divisor.
+   'This procedure sets the frequency based on the specified divisor.
    Public Sub SetFrequency(Divisor As Integer)
-      Frequency = If(Divisor <= 0, 0, PIT_CLOCK / Divisor)
+      SyncLock SYNCHRONIZER
+         Frequency = If(Divisor <= &H0%, &H0%, PIT_CLOCK / Divisor)
+      End SyncLock
    End Sub
 
-   'This procedure starts the pc-speaker.
+   'This procedure turns the pc-speaker on.
    Public Sub Start()
-      Running = True
-      AudioThread = New Thread(AddressOf AudioLoop) With {.IsBackground = True}
-      AudioThread.Start()
+      Dim Desired As SDL_AudioSpec = Nothing
+      Dim Obtained As SDL_AudioSpec = Nothing
+
+      If DeviceID = &H0UI Then
+         If SDL_Init(SDL_INIT_AUDIO) >= &H0% Then
+            AudioCallbackDelegate = AddressOf AudioCallback
+
+            Desired = New SDL_AudioSpec() With {.callback = AudioCallbackDelegate, .channels = &H1%, .format = AUDIO_S16SYS, .freq = SampleRate, .samples = &H200%}
+            Obtained = New SDL_AudioSpec()
+            DeviceID = SDL_OpenAudioDevice(Nothing, &H0%, Desired, Obtained, &H0%)
+            If Not DeviceID = &H0UI Then
+               SampleRate = Obtained.freq
+               SDL_PauseAudioDevice(DeviceID, &H0%)
+            End If
+         End If
+      End If
    End Sub
 
-   'This procedure stops the pc-speaker.
+   'This procedure turns the pc-speaker off.
    Public Sub [Stop]()
-      Running = False
-      If AudioThread IsNot Nothing Then
-         AudioThread.Join()
+      If Not DeviceID = &H0UI Then
+         SDL_PauseAudioDevice(DeviceID, &H1%)
+         SDL_CloseAudioDevice(DeviceID)
+         DeviceID = &H0UI
       End If
+
+      SDL_Quit()
    End Sub
 End Class
-
-
