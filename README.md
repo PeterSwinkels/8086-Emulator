@@ -25,9 +25,16 @@ Graphics, advanced interrupt handling, and many system calls are not supported.
 
 Designed as an experimental tool; not all instructions or edge cases are handled.
 
-Important: To ensure correct text display, install the custom font located in: ./Documents/Other/Fonts
-
 For more details, see Help.txt in the Documents folder.
+
+Important:
+
+- To ensure correct text display, install the custom font located in: ./Documents/Other/Fonts
+- 
+- Copy ./Documents/Bin/SDL2.DLL to the folder containing the emulator's executable.
+- 
+- Use the Nuget Package Manager to install SDL2-CS.dll in the solution.
+
 
 Also, a useful technical reference for old (1980's-1990's) x86 based hardware and software can be found at:
 
