@@ -137,8 +137,7 @@ Public Class PCSpeakerClass
    'This procedure starts the pc-speaker.
    Public Sub Start()
       Running = True
-      AudioThread = New Thread(AddressOf AudioLoop)
-      AudioThread.IsBackground = True
+      AudioThread = New Thread(AddressOf AudioLoop) With {.IsBackground = True}
       AudioThread.Start()
    End Sub
 
