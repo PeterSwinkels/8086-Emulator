@@ -1540,7 +1540,7 @@ Public Module MSDOSModule
             CPU.Registers(CPU8086Class.Registers16BitE.IP, NewValue:=PSP_SIZE)
             CPU.Registers(CPU8086Class.Registers16BitE.BP, NewValue:=&H0%)
             CPU.Registers(CPU8086Class.SegmentRegistersE.SS, NewValue:=CPU.Registers(CPU8086Class.SegmentRegistersE.CS))
-            CPU.Registers(CPU8086Class.Registers16BitE.SP, NewValue:=&HFFFC%)
+            CPU.Registers(CPU8086Class.Registers16BitE.SP, NewValue:=&HFFFF%)
             CPU.PutWord((CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.SS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)), CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)))
             CPU.PutWord((CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.SS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)) + &H2%, &H0%)
 
