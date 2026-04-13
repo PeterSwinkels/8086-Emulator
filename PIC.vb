@@ -42,7 +42,7 @@ Public Class PICClass
          IRQ = FindPendingUnmaskedIRQ()
          If IRQ IsNot Nothing Then
             PendingIRQs = ToByte(PendingIRQs And Not (&H1% << IRQ))
-            '' InterruptInProgress = True ''<<<--- May cause freezing. Also appears to be not really necessary.
+            ''InterruptInProgress = True ''<<<--- May cause freezing. Also appears to be not really necessary.
             Vector = CByte(&H8% + IRQ)
          End If
       End If
