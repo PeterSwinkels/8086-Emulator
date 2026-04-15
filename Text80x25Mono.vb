@@ -164,7 +164,7 @@ Public Class Text80x25MonoClass
                Case True
                   For Row As Integer = ScrollArea.ULCRow + &H1% To ScrollArea.LRCRow
                      For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
-                        If Row < ScrollArea.LRCRow Then
+                        If Row <= ScrollArea.LRCRow AndAlso Row < TEXT_80_X_25_LINE_COUNT Then
                            CharacterCell = CPU.GET_WORD(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
                            CPU.PutWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
                         Else
@@ -178,7 +178,7 @@ Public Class Text80x25MonoClass
                Case False
                   For Row As Integer = ScrollArea.LRCRow - &H1% To ScrollArea.ULCRow Step -&H1%
                      For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
-                        If Row > ScrollArea.ULCRow Then
+                        If Row >= ScrollArea.ULCRow AndAlso Row > 0 Then
                            CharacterCell = CPU.GET_WORD(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
                            CPU.PutWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
                         Else

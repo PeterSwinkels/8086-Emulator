@@ -1476,8 +1476,8 @@ Public Class CPU8086Class
 
       Select Case Opcode
          Case OpcodesE.CMPSB
-            SourceValue = Memory((CInt(Registers(SegmentRegistersE.DS)) << &H4%) + CInt(Registers(Registers16BitE.SI)))
-            TargetValue = Memory((CInt(Registers(SegmentRegistersE.ES)) << &H4%) + CInt(Registers(Registers16BitE.DI)))
+            SourceValue = Memory(((CInt(Registers(SegmentRegistersE.DS)) << &H4%) + CInt(Registers(Registers16BitE.SI))) And ADDRESS_MASK)
+            TargetValue = Memory(((CInt(Registers(SegmentRegistersE.ES)) << &H4%) + CInt(Registers(Registers16BitE.DI))) And ADDRESS_MASK)
             NewValue = TargetValue - SourceValue
             AdjustFlags(NewValue)
          Case OpcodesE.CMPSW
@@ -1486,16 +1486,16 @@ Public Class CPU8086Class
             NewValue = TargetValue - SourceValue
             AdjustFlags(NewValue, Is8Bit:=False)
          Case OpcodesE.LODSB
-            Registers(SubRegisters8BitE.AL, NewValue:=Memory((CInt(Registers(SegmentRegistersE.DS)) << &H4%) + CInt(Registers(Registers16BitE.SI))))
+            Registers(SubRegisters8BitE.AL, NewValue:=Memory(((CInt(Registers(SegmentRegistersE.DS)) << &H4%) + CInt(Registers(Registers16BitE.SI))) And ADDRESS_MASK))
          Case OpcodesE.LODSW
             Registers(Registers16BitE.AX, NewValue:=GET_WORD((CInt(Registers(SegmentRegistersE.DS)) << &H4%) + CInt(Registers(Registers16BitE.SI))))
          Case OpcodesE.MOVSB
-            Memory((CInt(Registers(SegmentRegistersE.ES)) << &H4%) + CInt(Registers(Registers16BitE.DI))) = Memory((CInt(Registers(SegmentRegistersE.DS)) << &H4%) + CInt(Registers(Registers16BitE.SI)))
+            Memory(((CInt(Registers(SegmentRegistersE.ES)) << &H4%) + CInt(Registers(Registers16BitE.DI))) And ADDRESS_MASK) = Memory(((CInt(Registers(SegmentRegistersE.DS)) << &H4%) + CInt(Registers(Registers16BitE.SI))) And ADDRESS_MASK)
          Case OpcodesE.MOVSW
             PutWord((CInt(Registers(SegmentRegistersE.ES)) << &H4%) + CInt(Registers(Registers16BitE.DI)), GET_WORD((CInt(Registers(SegmentRegistersE.DS)) << &H4%) + CInt(Registers(Registers16BitE.SI))))
          Case OpcodesE.SCASB
             SourceValue = CInt(Registers(SubRegisters8BitE.AL))
-            TargetValue = Memory((CInt(Registers(SegmentRegistersE.ES)) << &H4%) + CInt(Registers(Registers16BitE.DI)))
+            TargetValue = Memory(((CInt(Registers(SegmentRegistersE.ES)) << &H4%) + CInt(Registers(Registers16BitE.DI))) And ADDRESS_MASK)
             NewValue = TargetValue - SourceValue
             AdjustFlags(NewValue)
          Case OpcodesE.SCASW
@@ -1504,7 +1504,7 @@ Public Class CPU8086Class
             NewValue = TargetValue - SourceValue
             AdjustFlags(NewValue, Is8Bit:=False)
          Case OpcodesE.STOSB
-            Memory((CInt(Registers(SegmentRegistersE.ES)) << &H4%) + CInt(Registers(Registers16BitE.DI))) = CByte(Registers(SubRegisters8BitE.AL))
+            Memory(((CInt(Registers(SegmentRegistersE.ES)) << &H4%) + CInt(Registers(Registers16BitE.DI))) And ADDRESS_MASK) = CByte(Registers(SubRegisters8BitE.AL))
          Case OpcodesE.STOSW
             PutWord((CInt(Registers(SegmentRegistersE.ES)) << &H4%) + CInt(Registers(Registers16BitE.DI)), CInt(Registers(Registers16BitE.AX)))
          Case Else

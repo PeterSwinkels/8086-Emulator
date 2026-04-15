@@ -38,6 +38,7 @@ Public Module BIOSModule
    'This enumeration lists the flat addresses of BIOS data area locations.
    Public Enum AddressesE As Integer
       BIOS = &HF0000%                   'BIOS.
+      BIOSMemorySize = &H413%               'BIOS Memory size.
       BIOSStack = &HF3000%              'BIOS stack segment.
       CGA320x200 = &HB8000%             '320x200 CGA video buffer.
       Characters = &HFFA6E%             'Character bitmaps.
@@ -50,7 +51,6 @@ Public Module BIOSModule
       EquipmentFlags = &H410%           'Equipment flags.
       ExtendedCharacters = &HC0000%     'Extended character bitmaps.
       KeyboardFlags = &H417%            'Keyboard flags.
-      MemorySize = &H413%               'Memory size.
       Text80x25ColorPage0 = &HB8000%    '80x25 color text video buffer.
       Text80x25MonoPage0 = &HB0000%     '80x25 monochrome text video buffer.
       VGA320x200 = &HA0000%             '320x200 VGA video buffer.
@@ -89,6 +89,7 @@ Public Module BIOSModule
    Public Const VGA_320_X_200_BYTES_PER_ROW As Integer = &H140%              'Defines the number of bytes per row used by 320x200 VGA mode 
    Public Const VGA_320_X_200_LINE_COUNT As Integer = &H19%                  'Defines the number of lines used by 320x200 VGA mode 
    Public Const VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE As Integer = &H8%    'Defines the number of per character side used by 320x200 VGA mode 
+   Private Const BIOS_MEMORY_SIZE As Integer = &H280%                        'Defines the BIOS memory size in 1kb blocks.
    Private Const TICKS_PER_SECOND As Double = 18.2064814814815                'Defines the number of clock ticks per second.
 
    Public ReadOnly BACKGROUND_COLORS() As Color = {Color.Black, Color.DarkBlue, Color.DarkGreen, Color.DarkCyan, Color.DarkRed, Color.Purple, Color.Brown, Color.White, Color.Gray, Color.Blue, Color.Green, Color.Cyan, Color.Red, Color.Pink, Color.Yellow, Color.White}   'Contains the background colors.
@@ -140,7 +141,7 @@ Public Module BIOSModule
          ClockCounter = CInt(DateTime.Now.TimeOfDay.TotalSeconds * TICKS_PER_SECOND)
          UpdateClockCounter()
 
-         CPU.PutWord(AddressesE.MemorySize, (CPU.Memory.Length \ &H400%))
+         CPU.PutWord(AddressesE.BIOSMemorySize, BIOS_MEMORY_SIZE)
          CPU.Memory(AddressesE.ColumnCount) = TEXT_80_X_25_COLUMN_COUNT
          CPU.PutWord(AddressesE.CRTControllerBasePOrt, IOPortsE.MDA3B0)
 

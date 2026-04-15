@@ -31,7 +31,7 @@ Public Module InterruptHandlerModule
    End Sub
 
    'This procedure handles the specified interrupt and returns whether or not is succeeded.
-   Public Function HandleInterrupt(Number As Integer, Optional AH As Integer = Nothing, Optional IRET As Boolean = True) As Boolean
+   Public Function HandleInterrupt(Vector As Integer, Optional AH As Integer = Nothing, Optional IRET As Boolean = True) As Boolean
       Try
          Dim Address As New Integer
          Dim AL As New Integer
@@ -57,7 +57,7 @@ Public Module InterruptHandlerModule
 
          CPU.Tracing = False
 
-         Select Case Number
+         Select Case Vector
             Case &H8%
                UpdateClockCounter()
                PIC.WriteCommand(&H20%)
@@ -242,7 +242,7 @@ Public Module InterruptHandlerModule
                CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CPU.GET_WORD(AddressesE.EquipmentFlags))
                Success = True
             Case &H12%
-               CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CPU.GET_WORD(AddressesE.MemorySize))
+               CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=CPU.GET_WORD(AddressesE.BIOSMemorySize))
                Success = True
             Case &H16%
                Select Case AH
@@ -306,7 +306,7 @@ Public Module InterruptHandlerModule
                      TerminateProgram($"Program terminated with return code: {CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)):X2}.{NewLine}")
                      Success = True
                   Case Else
-                     Success = HandleMSDOSInterrupt(Number, AH, Flags)
+                     Success = HandleMSDOSInterrupt(Vector, AH, Flags)
                End Select
             Case &H23%
                CPU.ClockToken.Cancel()
@@ -327,7 +327,7 @@ Public Module InterruptHandlerModule
                      Success = True
                End Select
             Case Else
-               Success = HandleMSDOSInterrupt(Number, AH, Flags)
+               Success = HandleMSDOSInterrupt(Vector, AH, Flags)
          End Select
 
          If IRET Then

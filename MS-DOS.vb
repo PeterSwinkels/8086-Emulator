@@ -1124,7 +1124,7 @@ Public Module MSDOSModule
    End Function
 
    'This procedure handles the specified MS-DOS interrupt and returns whether or not it succeeded.
-   Public Function HandleMSDOSInterrupt(Number As Integer, AH As Integer, ByRef Flags As Integer) As Boolean
+   Public Function HandleMSDOSInterrupt(Vector As Integer, AH As Integer, ByRef Flags As Integer) As Boolean
       Try
          Dim Address As New Integer
          Dim KeyCode As New Integer?
@@ -1133,7 +1133,7 @@ Public Module MSDOSModule
          Dim Success As Boolean = False
          Static ExtendedKeyCode As New Integer?
 
-         Select Case Number
+         Select Case Vector
             Case &H21%
                Select Case AH
                   Case &H1%
@@ -1210,7 +1210,7 @@ Public Module MSDOSModule
                      LastBIOSKeyCode(, Clear:=True)
                      Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
                         Case &H1%, &H6%, &H7%, &H8%, &HA%
-                           Success = HandleMSDOSInterrupt(Number:=&H21%, AH:=CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)), Flags:=Flags)
+                           Success = HandleMSDOSInterrupt(Vector:=&H21%, AH:=CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)), Flags:=Flags)
                      End Select
                   Case &HD%
                      Success = True
