@@ -1528,7 +1528,7 @@ Public Module MSDOSModule
             End If
          Else
             SyncLock Synchronizer
-               CPUEvent.Append($"Loading the compact binary executable ""{FileName}"" at address {LoadAddress:X8}.{NewLine}")
+               CPU_EVENT.Append($"Loading the compact binary executable ""{FileName}"" at address {LoadAddress:X8}.{NewLine}")
             End SyncLock
 
             CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=&HFFFF%)
@@ -1554,7 +1554,7 @@ Public Module MSDOSModule
             ProcessSegments.Push(Allocations.Last.Item1)
          Else
             SyncLock Synchronizer
-               CPUEvent.Append($"Memory allocation failure.{NewLine}")
+               CPU_EVENT.Append($"Memory allocation failure.{NewLine}")
             End SyncLock
 
             Success = False
@@ -1590,7 +1590,7 @@ Public Module MSDOSModule
 
          If LoadAddress + Executable.Count <= CPU.Memory.Length Then
             SyncLock Synchronizer
-               CPUEvent.Append($"Loading the MZ-executable ""{FileName}"" at address {LoadAddress:X8}.{NewLine}")
+               CPU_EVENT.Append($"Loading the MZ-executable ""{FileName}"" at address {LoadAddress:X8}.{NewLine}")
             End SyncLock
 
             CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=&H0%)
@@ -1627,7 +1627,7 @@ Public Module MSDOSModule
             End If
          Else
             SyncLock Synchronizer
-               CPUEvent.Append($"""{FileName}"" does not fit inside the emulated memory.{NewLine}")
+               CPU_EVENT.Append($"""{FileName}"" does not fit inside the emulated memory.{NewLine}")
             End SyncLock
          End If
 
@@ -1887,7 +1887,7 @@ Public Module MSDOSModule
          End If
 
          SyncLock Synchronizer
-            CPUEvent.Append(Message)
+            CPU_EVENT.Append(Message)
          End SyncLock
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -1952,14 +1952,14 @@ Public Module MSDOSModule
                Select Case STDHandle
                   Case STDFileHandlesE.STDAUX
                      SyncLock Synchronizer
-                        CPUEvent.Append($"STDAUX:{NewLine}")
+                        CPU_EVENT.Append($"STDAUX:{NewLine}")
 
                         For Character As Integer = &H0% To Count - &H1%
                            Buffer.Append(ESCAPE_BYTE(CPU.Memory(Position And CPU8086Class.ADDRESS_MASK)))
                            Position += &H1%
                         Next Character
 
-                        CPUEvent.Append($"{Buffer}{NewLine}")
+                        CPU_EVENT.Append($"{Buffer}{NewLine}")
                      End SyncLock
                   Case STDFileHandlesE.STDPRN
                      PrinterBuffer.Clear()

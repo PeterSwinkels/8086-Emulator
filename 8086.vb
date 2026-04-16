@@ -6,7 +6,6 @@ Option Strict On
 
 Imports System
 Imports System.BitConverter
-Imports System.Collections.Concurrent
 Imports System.Linq
 Imports System.Math
 Imports System.Threading
@@ -651,7 +650,7 @@ Public Class CPU8086Class
          Return Task.FromResult(GET_FLAT_CS_IP())
       Catch ExceptionO As Exception
          SyncLock Synchronizer
-            CPUEvent.Append($"{ExceptionO.Message}{Environment.NewLine}")
+            CPU_EVENT.Append($"{ExceptionO.Message}{Environment.NewLine}")
          End SyncLock
       End Try
 

@@ -12,6 +12,7 @@ Public Class CGA320x200Class
    Implements VideoAdapterClass
 
    Private Const HEIGHT As Integer = 200             'Defines the graphic's mode height in pixels.
+   Private Const INVERT_BIT As Integer = &H80%       'Defines the inverted character color bit.
    Private Const PIXELS_PER_BYTE As Integer = &H4%   'Defines the number of pixels per byte.
    Private Const SCALING As Integer = &H2%           'Defines the scale factor.
    Private Const WIDTH As Integer = 320              'Defines the graphic's mode width in pixels.
@@ -46,7 +47,7 @@ Public Class CGA320x200Class
                      For Pixel As Integer = &H0% To PIXELS_PER_BYTE - &H1%
                         Shift = Pixel * &H2%
                         Index = ((Memory(Position) And (&H3% << Shift)) >> Shift)
-                        .FillRectangle(PaletteBrushes(Index), (BaseX - Pixel) * SCALING, (y1 + y2) * SCALING, SCALING, SCALING)
+                        .FillRectangle(MCC.PaintBrushes(Index), (BaseX - Pixel) * SCALING, (y1 + y2) * SCALING, SCALING, SCALING)
                      Next Pixel
                      Position += &H1%
                   Next x
@@ -60,48 +61,52 @@ Public Class CGA320x200Class
 
    'This procedure draws the specified character.
    Public Sub DrawCharacter(Index As Integer, Attribute As Integer) Implements VideoAdapterClass.DrawCharacter
-      Dim Bits(&H0% To &H7%) As Boolean
+      Dim Background As New Byte
+      Dim BitSet(&H0% To &H7%) As Boolean
       Dim Character(&H0% To &H7%) As Byte
+      Dim Invert As Boolean = (Attribute And INVERT_BIT) = INVERT_BIT
       Dim Position As New Integer
+      Dim RemainingBits As New Integer
       Dim Shift As New Integer
       Dim x As New Integer
       Dim y As Integer = Cursor.Y * &H8%
-      Dim Value As New Integer
 
       Array.Copy(CPU.Memory, If(Index < &H80%, AddressesE.Characters, AddressesE.ExtendedCharacters) + (Index * &H8%), Character, &H0%, Character.Length)
 
-      For Each [Byte] As Byte In Character
+      Attribute = Attribute And &H3%
+
+      For Each ScanLine As Byte In Character
          Position = AddressesE.CGA320x200 + If((y And &H1%) = &H0%, &H0%, CGA_320_x_200_BUFFER_SIZE \ &H2%) + ((y \ 2) * CGA_320_X_200_BYTES_PER_ROW)
 
-         Value = [Byte]
+         RemainingBits = ScanLine
          For Bit As Integer = &H7% To &H0% Step -&H1%
-            Bits(Bit) = CBool(Value And &H1%)
-            Value = Value >> &H1%
+            BitSet(Bit) = CBool(RemainingBits And &H1%)
+            RemainingBits = RemainingBits >> &H1%
          Next Bit
 
          x = Cursor.X * &H8%
          Position += (x \ CGA_320_X_200_PIXELS_PER_BYTE)
 
+         Background = CPU.Memory(Position)
+         CPU.Memory(Position) = &H0%
          Shift = &H6%
          For Bit As Integer = &H0% To &H7%
-            If Bits(Bit) Then
-               If Not (Attribute And &H80%) = &H0% Then
-                  CPU.Memory(Position) = CByte((CPU.Memory(Position) Xor ((Attribute And &H7F%) << Shift)))
-               Else
-                  CPU.Memory(Position) = CByte((CPU.Memory(Position) And Not (&H3% << Shift)) Or ((Attribute << Shift) And &HFF%))
-               End If
-            End If
-
+            CPU.Memory(Position) = CByte(CPU.Memory(Position) Or If(BitSet(Bit), Attribute << Shift, &H0%))
             Shift -= &H2%
 
             If Bit = &H3% Then
                Position += &H1%
+               CPU.Memory(Position) = &H0%
                Shift = &H6%
                x += 1
             End If
          Next Bit
          y += 1
-      Next [Byte]
+
+         If Invert AndAlso Background > &H0% Then
+            CPU.PutWord(Position - &H1%, CPU.GET_WORD(Position - &H1%) Xor &HFFFF%)
+         End If
+      Next ScanLine
    End Sub
 
    'This procedure initializes the video adapter.
@@ -113,7 +118,7 @@ Public Class CGA320x200Class
       CPU.PutWord(AddressesE.CursorScanLines, Word:=CURSOR_DEFAULT)
       CursorBlink.Enabled = False
 
-      MCC.ColorSelect(&H20%)
+      MCC.ColorSelect(&H1%)
    End Sub
 
    'This procedure returns the screen size used by a video adapter.

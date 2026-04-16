@@ -32,30 +32,44 @@ Public Class MCCClass
       LightPenLSB                   'Light pen LSB.
    End Enum
 
-   Private Const FRAME_DURATION As Integer = 20    'Defines the frame duration in milliseconds.
-   Private Const RETRACE_DURATION As Integer = 2   'Defines the retrace duration in milliseconds.
+   Public Const INTENSITY_BIT As Integer = &H10%   'Defines the color intensity bit.
+   Private Const FRAME_DURATION As Integer = 20     'Defines the frame duration in milliseconds.
+   Private Const RETRACE_DURATION As Integer = 2    'Defines the retrace duration in milliseconds.
 
-   Private ReadOnly CYCLE_CLOCK As Stopwatch = Stopwatch.StartNew()   'Defines the clock used to control refresh cycles.   
+   Public ReadOnly GET_SELECTED_REGISTER As Func(Of RegistersE) = Function() SelectedRegister       'Returns the selected register.
+   Private ReadOnly CYCLE_CLOCK As Stopwatch = Stopwatch.StartNew()                                  'Defines the clock used to control refresh cycles.
+   Private ReadOnly PALETTE0L() As Color = {Color.Black, Color.Green, Color.DarkRed, Color.Brown}    'Contains palette #0 low intensity colors.
+   Private ReadOnly PALETTE1L() As Color = {Color.Black, Color.DarkCyan, Color.Purple, Color.Gray}   'Contains palette #1 low intensity colors.
+   Private ReadOnly PALETTE0H() As Color = {Color.Black, Color.LightGreen, Color.Red, Color.Yellow}  'Contains palette #0 high intensity colors.
+   Private ReadOnly PALETTE1H() As Color = {Color.Black, Color.Cyan, Color.Magenta, Color.White}     'Contains palette #1 high intensity colors.
 
-   Public ReadOnly GET_SELECTED_REGISTER As Func(Of RegistersE) = Function() SelectedRegister     'Returns the selected register.
+   Public ActivePalette(&H0% To &H3%) As Color                                                    'Contains the active palette.
    Public IsMDA As Boolean = True                                                                 'Indicates whether or not an MDA will be emulated.
+   Public PaintBrushes(&H0% To &H3%) As Brush                                                     'Contains the paint brushes created using the active palette.
    Public SelectedRegister As New RegistersE                                                      'Contains the selected register.
+   Private IntenseColors As Boolean = True                                                         'Indicates whether or not intense colors are turned on.
    Private RegisterValue(RegistersE.HorizontalTotalCharacters To RegistersE.LightPenLSB) As Byte   'Contains the register values.
+   Private SelectedPalette As New Integer                                                          'Contains the palette number used by the active palette.
 
-   'This procedure selects the specified color palette.
+   'This procedure selects the active the palette.
    Public Sub ColorSelect(Value As Integer)
       Select Case Value
          Case &H0%
-            Palette = PALETTE0
-         Case &H20%
-            Palette = PALETTE1
+            SelectedPalette = Value
+            ActivePalette = If(IntenseColors, PALETTE0H, PALETTE0L)
+            CreateBrushes()
+         Case &H1%
+            SelectedPalette = Value
+            ActivePalette = If(IntenseColors, PALETTE1H, PALETTE1L)
+            CreateBrushes()
       End Select
+   End Sub
 
-      Select Case Value
-         Case &H0%, &H20%
-            PaletteBrushes.Clear()
-            Array.ForEach(Palette, Sub(Item) PaletteBrushes.Add(New SolidBrush(Item)))
-      End Select
+   'This procedure creates the brushes based on the active palette.
+   Private Sub CreateBrushes()
+      For Index As Integer = ActivePalette.GetLowerBound(0) To ActivePalette.GetUpperBound(0)
+         PaintBrushes(Index) = New SolidBrush(ActivePalette(Index))
+      Next Index
    End Sub
 
    'This procedure returns the monochrome display adapter status port's current value.
@@ -71,6 +85,12 @@ Public Class MCCClass
 
       Return RegisterValue(SelectedRegister)
    End Function
+
+   'This procedure selects the specified color intensity.
+   Public Sub SelectIntensity(NewIntensity As Boolean)
+      IntenseColors = NewIntensity
+      ColorSelect(SelectedPalette)
+   End Sub
 
    'This procedure selects the specified register and returns whether or not the selection succeeded.
    Public Function SelectRegister(Register As RegistersE) As Boolean

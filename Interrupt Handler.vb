@@ -6,6 +6,7 @@ Option Strict On
 
 Imports System
 Imports System.Convert
+Imports System.Drawing
 Imports System.Environment
 Imports System.Threading.Tasks
 Imports System.Windows.Forms
@@ -16,6 +17,8 @@ Public Module InterruptHandlerModule
    Public Const ZERO_FLAG_INDEX As Integer = &H6%    'Defines the zero flag's bit index.
    Private Const CURSOR_MASK As Integer = &H1F1F%     'Defines the cursor end/start bits.
    Private Const VIDEO_MODE_MASK As Byte = &H7F%      'Defines the bits indicating a video mode.
+
+   Private ReadOnly BACKGROUND_COLORS() As Color = {Color.Black, Color.DarkBlue, Color.DarkGreen, Color.DarkCyan, Color.DarkRed, Color.Purple, Color.Brown, Color.White, Color.Gray, Color.Blue, Color.Green, Color.Cyan, Color.Red, Color.Pink, Color.Yellow, Color.White}   'Contains the background colors.
 
    'This procedure handles any pending hardware interrupts.
    Public Sub ExecuteHardwareInterrupts()
@@ -168,9 +171,10 @@ Public Module InterruptHandlerModule
                   Case &HB%
                      Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH))
                         Case &H0%
-                           Palette(0) = BACKGROUND_COLORS(CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL)) And &HF%)
+                           MCC.ActivePalette(0) = BACKGROUND_COLORS(CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL)) And &HF%)
+                           MCC.SelectIntensity((CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL)) And MCCClass.INTENSITY_BIT) = MCCClass.INTENSITY_BIT)
                         Case &H1%
-                           MCC.ColorSelect(If(CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL)) = &H0%, &H0%, &H20%))
+                           MCC.ColorSelect(CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL)) And &H1%)
                      End Select
                      Success = True
                   Case &HC%

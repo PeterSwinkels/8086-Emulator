@@ -53,6 +53,8 @@ Public Module IOHandlerModule
       MDAColor = &H3B9%                 'Color select register.
       MDAStatus = &H3BA%                'Status register.
       MDALightPenStrobeReset = &H3BB%   'Light pen strobe reset.
+      VGAVideoDACPELAddress = &H3C8%    'VGA video DAC PEL address.
+      VGAVideoDAC = &H3C9%              'VGA video DAC.
       CGA3D0 = &H3D0%                   '6845 CGA.
       CGA3D1 = &H3D1%                   '6845 CGA.
       CGA3D2 = &H3D2%                   '6845 CGA.
@@ -69,9 +71,6 @@ Public Module IOHandlerModule
    End Enum
 
    Private Const PIT_IO_PORT_MASK As Integer = &H3%   'Defines the PIT I/O port number bits.
-
-   Public ReadOnly MCC As New MCCClass   'Contains the 6845 Motorola CRT Controller.
-   Private ReadOnly PPI As New PPIClass   'Contains the 8255 Programmable Peripheral Interface .
 
    'This procedure attempts to read from the specified I/O port and returns the result.
    Public Function ReadIOPort(Port As Integer) As Integer?
@@ -106,7 +105,7 @@ Public Module IOHandlerModule
          Return Value
       Catch ExceptionO As Exception
          SyncLock Synchronizer
-            CPUEvent.Append($"{ExceptionO.Message}{NewLine}")
+            CPU_EVENT.Append($"{ExceptionO.Message}{NewLine}")
          End SyncLock
       End Try
 
@@ -130,39 +129,23 @@ Public Module IOHandlerModule
             Case IOPortsE.PITModeControl
                PIT.ModeControl(NewValue:=Value)
             Case IOPortsE.MDA3B0, IOPortsE.MDAIndex, IOPortsE.MDA3B6
-               If MCC.IsMDA Then
-                  MCC.SelectRegister(DirectCast(Value, MCCClass.RegistersE))
-               Else
-                  Success = False
-               End If
+               MCC.SelectRegister(DirectCast(Value, MCCClass.RegistersE))
             Case IOPortsE.MDA3B1, IOPortsE.MDAData
-               If MCC.IsMDA Then
-                  MCC.Register(NewValue:=ToByte(Value))
-               Else
-                  Success = False
-               End If
+               MCC.Register(NewValue:=ToByte(Value))
             Case IOPortsE.MDAColor
-               If MCC.IsMDA Then
-                  MCC.ColorSelect(Value)
-               Else
-                  Success = False
-               End If
+               Success = True
+            Case IOPortsE.VGAVideoDACPELAddress
+               VGA_PALETTE.SelectAddress(Value)
+            Case IOPortsE.VGAVideoDAC
+               VGA_PALETTE.WriteToDAC(Value)
             Case IOPortsE.CGAIndex
-               If Not MCC.IsMDA Then
-                  Success = False
-               End If
+               Success = True
             Case IOPortsE.CGAData
-               If Not MCC.IsMDA Then
-                  Success = False
-               End If
-            Case IOPortsE.CGAColor
-               If MCC.IsMDA Then
-                  Success = False
-               Else
-                  MCC.ColorSelect(Value)
-               End If
+               Success = True
             Case IOPortsE.CGAMode
                Success = True
+            Case IOPortsE.CGAColor
+               MCC.ColorSelect(Value)
             Case IOPortsE.Joystick, IOPortsE.Reserved1 To IOPortsE.Reserved2, IOPortsE.Reserved3 To IOPortsE.Reserved4, IOPortsE.Reserved5 To IOPortsE.Reserved6, IOPortsE.Reserved7, IOPortsE.Reserved8 To IOPortsE.Reserved9, IOPortsE.Reserved10 To IOPortsE.Reserved11, IOPortsE.Reserved12 To IOPortsE.Reserved13, IOPortsE.Reserved14 To IOPortsE.Reserved15, IOPortsE.Reserved16 To IOPortsE.Reserved17, IOPortsE.Reserved18 To IOPortsE.Reserved19
                Success = True
             Case Else
@@ -171,8 +154,8 @@ Public Module IOHandlerModule
 
          Return Success
       Catch ExceptionO As Exception
-         SyncLock Synchronizer
-            CPUEvent.Append($"{ExceptionO.Message}{NewLine}")
+         SyncLock SYNCHRONIZER
+            CPU_EVENT.Append($"{ExceptionO.Message}{NewLine}")
          End SyncLock
       End Try
 

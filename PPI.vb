@@ -12,7 +12,7 @@ Public Class PPIClass
 
       If NewValue IsNot Nothing Then
          CurrentValue = CInt(NewValue)
-         PCSpeaker.Enabled = ((CurrentValue And &H3%) = &H3%)
+         PC_SPEAKER.Enabled = ((CurrentValue And &H3%) = &H3%)
       End If
 
       Return CurrentValue

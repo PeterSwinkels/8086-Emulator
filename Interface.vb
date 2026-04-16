@@ -34,7 +34,7 @@ Public Class InterfaceWindow
 
          Output = Me.OutputBox
 
-         PCSpeaker.Start()
+         PC_SPEAKER.Start()
          LoadBIOS()
          LoadMSDOS()
          ScreenRefresh = New Timer With {.Enabled = True, .Interval = 56}
@@ -78,7 +78,7 @@ Public Class InterfaceWindow
    Private Sub InterfaceWindow_Closing(sender As Object, e As CancelEventArgs) Handles MyBase.Closing
       Try
          CPU.ClockToken.Cancel()
-         PCSpeaker.Stop()
+         PC_SPEAKER.Stop()
          PIT.HighPrecisionTimer.ClockToken.Cancel()
 
          Output = Nothing
@@ -135,9 +135,9 @@ Public Class InterfaceWindow
       Try
          CPUActiveLabel.Text = $"CPU {If(CPU.Clock.Status = TaskStatus.Running, "active", "inactive")}."
          SyncLock Synchronizer
-            If CPUEvent.Length > 0 Then
-               OutputBox.AppendText(CPUEvent.ToString())
-               CPUEvent.Clear()
+            If CPU_EVENT.Length > 0 Then
+               OutputBox.AppendText(CPU_EVENT.ToString())
+               CPU_EVENT.Clear()
             End If
          End SyncLock
       Catch ExceptionO As Exception
