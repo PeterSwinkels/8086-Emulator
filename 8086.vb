@@ -539,7 +539,7 @@ Public Class CPU8086Class
    End Function
 
    'This procedure adjusts the flags register based on the specified values.
-   Private Sub AdjustFlags(NewValue As Integer, Optional Is8Bit As Boolean = True, Optional NewCarryFlag As Integer? = Nothing, Optional PreserveCarryFlag As Boolean = False, Optional NewOverflowFlag As Integer? = Nothing, Optional Subtraction As Boolean = True)
+   Private Sub AdjustFlags(NewValue As Integer, Optional Is8Bit As Boolean = True, Optional NewCarryFlag As Integer? = Nothing, Optional PreserveCarryFlag As Boolean = False, Optional NewOverflowFlag As Integer? = Nothing, Optional Subtraction As Boolean = True, Optional OldValue As Integer? = Nothing)
       Dim BitMask As Integer = If(Is8Bit, &HFF%, &HFFFF%)
       Dim SignMask As Integer = If(Is8Bit, &H80%, &H8000%)
 
@@ -562,6 +562,14 @@ Public Class CPU8086Class
             Registers(FlagRegistersE.CF, NewValue:=NewValue > BitMask OrElse NewValue < &H0%)
          Else
             Registers(FlagRegistersE.CF, NewValue:=NewCarryFlag)
+         End If
+      End If
+
+      If OldValue IsNot Nothing Then
+         If Subtraction Then
+            Registers(FlagRegistersE.AF, NewValue:=(Not (OldValue And &H8%) = &H8%) AndAlso (NewValue And &H8%) = &H8%)
+         Else
+            Registers(FlagRegistersE.AF, NewValue:=(Not (OldValue And &H10%) = &H10%) AndAlso (NewValue And &H10%) = &H10%)
          End If
       End If
    End Sub
@@ -593,8 +601,8 @@ Public Class CPU8086Class
       If Rotate Then NewBits = NewBits Or If(Right, NewCarryFlag << If(Is8Bit, &H7%, &HF%), NewCarryFlag)
       If ReplicateSign Then NewBits = NewBits Or SignBit
 
-      Registers(FlagRegistersE.OF, NewValue:=((NewBits >= &H0%) AndAlso ((NewBits And If(Is8Bit, &HFF%, &HFFFF%)) >= SignMask)))
       Registers(FlagRegistersE.CF, NewValue:=NewCarryFlag)
+      Registers(FlagRegistersE.OF, NewValue:=(Not (NewBits And SignMask) = (Bits And SignMask)))
 
       If UpdatePFSFZF Then
          Registers(FlagRegistersE.PF, NewValue:=(BitCount(NewBits And &HFF%) Mod &H2%) = &H0%)
@@ -819,30 +827,27 @@ Public Class CPU8086Class
                   Case Operations80_83E.ADC
                      .NewValue = .Value1 + .Value2
                      If CBool(Registers(FlagRegistersE.CF)) Then .NewValue += &H1%
-                     AdjustFlags(.NewValue, .Is8Bit,,,, Subtraction:=False)
+                     AdjustFlags(.NewValue, .Is8Bit,,,, Subtraction:=False, .Value1)
                   Case Operations80_83E.ADD
                      .NewValue = .Value1 + .Value2
-                     AdjustFlags(.NewValue, .Is8Bit,,,, Subtraction:=False)
+                     AdjustFlags(.NewValue, .Is8Bit,,,, Subtraction:=False, .Value1)
                   Case Operations80_83E.AND
                      .NewValue = .Value1 And .Value2
                      AdjustFlags(.NewValue, .Is8Bit)
                   Case Operations80_83E.CMP
                      .NewValue = .Value1 - .Value2
-                     AdjustFlags(.NewValue, .Is8Bit)
+                     AdjustFlags(.NewValue, .Is8Bit,,,,, .Value1)
                   Case Operations80_83E.OR
                      .NewValue = .Value1 Or .Value2
                      AdjustFlags(.NewValue, .Is8Bit)
                   Case Operations80_83E.SBB
                      .NewValue = .Value1 - .Value2
                      If CBool(Registers(FlagRegistersE.CF)) Then .NewValue -= &H1%
-                     AdjustFlags(.NewValue, .Is8Bit,,,, Subtraction:=True)
+                     AdjustFlags(.NewValue, .Is8Bit,,,,, OldValue:= .Value1)
                   Case Operations80_83E.SUB
                      .NewValue = .Value1 - .Value2
-                     AdjustFlags(.NewValue, .Is8Bit,,,, Subtraction:=True)
+                     AdjustFlags(.NewValue, .Is8Bit,,,,, OldValue:= .Value1)
                      BitMask = If(.Is8Bit, &HFF%, &HFFFF%)
-                     If Not ((.NewValue And BitMask) = (.Value1 And BitMask)) Then
-                        Registers(FlagRegistersE.OF, NewValue:=True)
-                     End If
                   Case Operations80_83E.XOR
                      .NewValue = .Value1 Xor .Value2
                      AdjustFlags(.NewValue, .Is8Bit)
@@ -972,7 +977,7 @@ Public Class CPU8086Class
                      End If
                   Case OperationsF6_F7E.NEG
                      .NewValue = &H0% - .Value1
-                     AdjustFlags(.NewValue, Is8Bit:= .Is8Bit,,, NewOverflowFlag:=CInt((.NewValue And If(.Is8Bit, &H80%, &H8000%)) = 0))
+                     AdjustFlags(.NewValue, Is8Bit:= .Is8Bit,,, NewOverflowFlag:=CInt((.NewValue And If(.Is8Bit, &H80%, &H8000%)) = &H0%),, OldValue:= .Value1)
                   Case OperationsF6_F7E.None
                      Return False
                   Case OperationsF6_F7E.NOT
@@ -1006,10 +1011,10 @@ Public Class CPU8086Class
                         Registers(Registers16BitE.IP, NewValue:= .Value1)
                      Case OperationsFEFF00_FEFFBFE.DEC
                         .NewValue = .Value1 - &H1%
-                        AdjustFlags(.NewValue, .Is8Bit,, PreserveCarryFlag:=True)
+                        AdjustFlags(.NewValue, .Is8Bit,, PreserveCarryFlag:=True,,, OldValue:= .Value1)
                      Case OperationsFEFF00_FEFFBFE.INC
                         .NewValue = .Value1 + &H1%
-                        AdjustFlags(.NewValue, .Is8Bit,, PreserveCarryFlag:=True,, Subtraction:=False)
+                        AdjustFlags(.NewValue, .Is8Bit,, PreserveCarryFlag:=True,, Subtraction:=False, OldValue:= .Value1)
                      Case OperationsFEFF00_FEFFBFE.JMP_DWORD_FAR
                         Registers(SegmentRegistersE.CS, NewValue:=GET_WORD(CInt(.FlatAddress) + &H2%))
                         Registers(Registers16BitE.IP, NewValue:= .Value1)
@@ -1122,16 +1127,16 @@ Public Class CPU8086Class
                   Case OpcodesE.ADC_TGT_REG8 To OpcodesE.ADC_AX_WORD
                      .NewValue = .Value1 + .Value2
                      If CBool(Registers(FlagRegistersE.CF)) Then .NewValue += &H1%
-                     AdjustFlags(.NewValue, .Is8Bit,,,, Subtraction:=False)
+                     AdjustFlags(.NewValue, .Is8Bit,,,, Subtraction:=False, OldValue:= .Value1)
                   Case OpcodesE.ADD_TGT_REG8 To OpcodesE.ADD_AX_WORD
                      .NewValue = .Value1 + .Value2
-                     AdjustFlags(.NewValue, .Is8Bit,,,, Subtraction:=False)
+                     AdjustFlags(.NewValue, .Is8Bit,,,, Subtraction:=False, OldValue:= .Value1)
                   Case OpcodesE.AND_TGT_REG8 To OpcodesE.AND_AX_WORD
                      .NewValue = .Value1 And .Value2
                      AdjustFlags(.NewValue, .Is8Bit)
                   Case OpcodesE.CMP_TGT_REG8 To OpcodesE.CMP_AX_WORD, OpcodesE.SUB_TGT_REG8 To OpcodesE.SUB_AX_WORD
                      .NewValue = .Value1 - .Value2
-                     AdjustFlags(.NewValue, .Is8Bit)
+                     AdjustFlags(.NewValue, .Is8Bit,,,,, OldValue:= .Value1)
                   Case OpcodesE.MOV_TGT_REG8 To OpcodesE.MOV_REG16_SRC
                      .NewValue = .Value2
                   Case OpcodesE.OR_TGT_REG8 To OpcodesE.OR_AX_WORD
@@ -1140,10 +1145,10 @@ Public Class CPU8086Class
                   Case OpcodesE.SBB_TGT_REG8 To OpcodesE.SBB_AX_WORD
                      .NewValue = .Value1 - .Value2
                      If CBool(Registers(FlagRegistersE.CF)) Then .NewValue -= &H1%
-                     AdjustFlags(.NewValue, .Is8Bit)
+                     AdjustFlags(.NewValue, .Is8Bit,,,,, .Value1)
                   Case OpcodesE.SUB_TGT_REG8 To OpcodesE.SUB_AX_WORD
                      .NewValue = .Value1 - .Value2
-                     AdjustFlags(.NewValue, .Is8Bit)
+                     AdjustFlags(.NewValue, .Is8Bit,,,,, .Value1)
                   Case OpcodesE.XOR_TGT_REG8 To OpcodesE.XOR_AX_WORD
                      .NewValue = .Value1 Xor .Value2
                      AdjustFlags(.NewValue, .Is8Bit)
@@ -1206,7 +1211,7 @@ Public Class CPU8086Class
                   NewValue = Value + &H1%
             End Select
             Registers(DirectCast(Operand, Registers16BitE), NewValue:=NewValue)
-            AdjustFlags(NewValue, Is8Bit:=False,, PreserveCarryFlag:=True)
+            AdjustFlags(NewValue, Is8Bit:=False,, PreserveCarryFlag:=True,,, Value)
          Case OpcodesE.ESC_D8 To OpcodesE.ESC_DF
             Operand = GetByteCSIP()
 
@@ -1478,12 +1483,12 @@ Public Class CPU8086Class
             SourceValue = Memory(((CInt(Registers(SegmentRegistersE.DS)) << &H4%) + CInt(Registers(Registers16BitE.SI))) And ADDRESS_MASK)
             TargetValue = Memory(((CInt(Registers(SegmentRegistersE.ES)) << &H4%) + CInt(Registers(Registers16BitE.DI))) And ADDRESS_MASK)
             NewValue = TargetValue - SourceValue
-            AdjustFlags(NewValue)
+            AdjustFlags(NewValue,,,,,, TargetValue)
          Case OpcodesE.CMPSW
             SourceValue = GET_WORD((CInt(Registers(SegmentRegistersE.DS)) << &H4%) + CInt(Registers(Registers16BitE.SI)))
             TargetValue = GET_WORD((CInt(Registers(SegmentRegistersE.ES)) << &H4%) + CInt(Registers(Registers16BitE.DI)))
             NewValue = TargetValue - SourceValue
-            AdjustFlags(NewValue, Is8Bit:=False)
+            AdjustFlags(NewValue, Is8Bit:=False,,,,, TargetValue)
          Case OpcodesE.LODSB
             Registers(SubRegisters8BitE.AL, NewValue:=Memory(((CInt(Registers(SegmentRegistersE.DS)) << &H4%) + CInt(Registers(Registers16BitE.SI))) And ADDRESS_MASK))
          Case OpcodesE.LODSW
@@ -1496,12 +1501,12 @@ Public Class CPU8086Class
             SourceValue = CInt(Registers(SubRegisters8BitE.AL))
             TargetValue = Memory(((CInt(Registers(SegmentRegistersE.ES)) << &H4%) + CInt(Registers(Registers16BitE.DI))) And ADDRESS_MASK)
             NewValue = TargetValue - SourceValue
-            AdjustFlags(NewValue)
+            AdjustFlags(NewValue,,,,,, TargetValue)
          Case OpcodesE.SCASW
             SourceValue = CInt(Registers(Registers16BitE.AX))
             TargetValue = GET_WORD((CInt(Registers(SegmentRegistersE.ES)) << &H4%) + CInt(Registers(Registers16BitE.DI)))
             NewValue = TargetValue - SourceValue
-            AdjustFlags(NewValue, Is8Bit:=False)
+            AdjustFlags(NewValue, Is8Bit:=False,,,,, TargetValue)
          Case OpcodesE.STOSB
             Memory(((CInt(Registers(SegmentRegistersE.ES)) << &H4%) + CInt(Registers(Registers16BitE.DI))) And ADDRESS_MASK) = CByte(Registers(SubRegisters8BitE.AL))
          Case OpcodesE.STOSW
