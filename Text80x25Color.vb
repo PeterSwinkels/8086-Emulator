@@ -13,8 +13,8 @@ Imports System.Windows.Forms
 Public Class Text80x25ColorClass
    Implements VideoAdapterClass
 
-   Private Const BLINK_BITMASK As Integer = &H80%          'Defines the character blink attribute bit.
-   Private Const SCANLINE_COUNT As Integer = &HE%          'Defines the number of scanlines per character.
+   Private Const BLINK_BITMASK As Integer = &H80%   'Defines the character blink attribute bit.
+   Private Const SCANLINE_COUNT As Integer = &HE%   'Defines the number of scanlines per character.
 
    Private ReadOnly COLORS() As Color = {Color.Black, Color.DarkBlue, Color.DarkGreen, Color.DarkCyan, Color.DarkRed, Color.Purple, Color.Brown, Color.DarkGray, Color.Gray, Color.Blue, Color.Green, Color.Cyan, Color.Red, Color.Magenta, Color.Yellow, Color.White}  'Defines the colors.
    Private ReadOnly CHARACTER_SIZE As Size = New Size(14, 24)                                                         'Defines the character size.
@@ -59,8 +59,11 @@ Public Class Text80x25ColorClass
 
          For Position As Integer = VideoPageAddress To VideoPageAddress + TEXT_80_X_25_COLOR_BUFFER_SIZE Step &H2%
             Character = ToChar(CodePage(Memory(Position)))
-            Attribute = ToByte((Memory(Position + &H1%) And &H7F%) \ &H10%)
-
+            If MCC.BlinkingOn Then
+               Attribute = ToByte((Memory(Position + &H1%) And &H7F%) \ &H10%)
+            Else
+               Attribute = ToByte(Memory(Position + &H1%) \ &H10%)
+            End If
             .FillRectangle(New SolidBrush(COLORS(Attribute)), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
 
             If Target.X < TEXT_SCREEN_SIZE.Width - CHARACTER_SIZE.Width Then
@@ -79,7 +82,7 @@ Public Class Text80x25ColorClass
 
             CharacterColor = New SolidBrush(COLORS(Attribute And &HF%))
 
-            If ((Attribute And BLINK_BITMASK) = &H0%) OrElse BlinkCharactersVisible Then
+            If ((Attribute And BLINK_BITMASK) = &H0%) OrElse BlinkCharactersVisible OrElse Not MCC.BlinkingOn Then
                .DrawString(Character, FONT, CharacterColor, Target.X - CInt(CHARACTER_SIZE.Width / 4), Target.Y)
             End If
 
@@ -107,9 +110,8 @@ Public Class Text80x25ColorClass
       ClearBuffer()
 
       CPU.Memory(AddressesE.VideoPage) = &H0%
-      CPU.PutWord(AddressesE.CursorPositions, Word:=&H0%)
-      CPU.PutWord(AddressesE.CursorScanLines, Word:=CURSOR_DEFAULT)
-      CursorBlink.Enabled = True
+      ResetCursor()
+      MCC.BlinkingOn = True
    End Sub
 
    'This procedure returns the screen size used by a video adapter.
@@ -124,7 +126,7 @@ Public Class Text80x25ColorClass
       Dim Position As New Integer
       Dim VideoPageAddress As Integer = AddressesE.Text80x25ColorPage0
 
-      If Count = &H0% OrElse Count > TEXT_80_X_25_LINE_COUNT Then
+      If Count = &H0% OrElse Count > MCC.RowCount() Then
          For Row As Integer = ScrollArea.ULCRow To ScrollArea.LRCRow
             For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
                CPU.PutWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute << &H8%)

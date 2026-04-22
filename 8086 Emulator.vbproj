@@ -168,7 +168,7 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="VGA320x200.vb" />
-    <Compile Include="VGAPalette.vb" />
+    <Compile Include="VGA.vb" />
     <Compile Include="Video Adapter.vb" />
   </ItemGroup>
   <ItemGroup>

@@ -45,16 +45,16 @@ Public Class DisassemblerClass
    Public Event HandleException(ExceptionO As Exception)
 
    'This procedure returns the specified bytes as a hexadecimal number.
-   Public Function BytesToHexadecimal(Bytes As List(Of Byte), Optional NoPrefix As Boolean = False, Optional Reverse As Boolean = True, Optional Signed As Boolean = False) As String
+   Public Function BytesToHexadecimal(Bytes() As Byte, Optional NoPrefix As Boolean = False, Optional Reverse As Boolean = True, Optional Signed As Boolean = False) As String
       Try
          Dim Hexadecimal As New StringBuilder()
 
          If Bytes Is Nothing OrElse Not Bytes.Any Then
             Hexadecimal.Append("?")
          Else
-            If Reverse Then Bytes.Reverse()
+            If Reverse Then Array.Reverse(Bytes)
 
-            Bytes.ForEach(Sub(ByteO As Byte) Hexadecimal.Append($"{ByteO:X2}"))
+            Array.ForEach(Bytes, Sub(ByteO As Byte) Hexadecimal.Append($"{ByteO:X2}"))
          End If
 
          If Not NoPrefix Then Hexadecimal = New StringBuilder($"{HEXADECIMAL_PREFIX}{Hexadecimal}")
@@ -69,7 +69,7 @@ Public Class DisassemblerClass
    End Function
 
    'This procedure disassembles the opcodes at the specified position in the specified code.
-   Public Overloads Function Disassemble(Code As List(Of Byte), ByRef Optional Position As Integer = &H0%) As String
+   Public Overloads Function Disassemble(Code() As Byte, ByRef Optional Position As Integer = &H0%) As String
       Try
          Dim Instruction As String = Nothing
          Dim Opcode As New Byte
@@ -158,8 +158,8 @@ Public Class DisassemblerClass
                      Case &H1% : Instruction &= $" {GetOperand(Code, Position, Operand, XP_REGISTERS)}, {XP_REGISTERS((Operand And &H38%) >> &H3%)}"
                      Case &H2% : Instruction &= $" {LH_REGISTERS((Operand And &H38%) >> &H3%)}, {GetOperand(Code, Position, Operand, LH_REGISTERS)}"
                      Case &H3% : Instruction &= $" {XP_REGISTERS((Operand And &H38%) >> &H3%)}, {GetOperand(Code, Position, Operand, XP_REGISTERS)}"
-                     Case &H4% : Instruction &= $" {LH_REGISTERS(ACCUMULATOR_REGISTER)}, {BytesToHexadecimal({Operand}.ToList())}"
-                     Case &H5% : Instruction &= $" {XP_REGISTERS(ACCUMULATOR_REGISTER)}, {BytesToHexadecimal({Operand, GetByte(Code, Position)}.ToList())}"
+                     Case &H4% : Instruction &= $" {LH_REGISTERS(ACCUMULATOR_REGISTER)}, {BytesToHexadecimal({Operand})}"
+                     Case &H5% : Instruction &= $" {XP_REGISTERS(ACCUMULATOR_REGISTER)}, {BytesToHexadecimal({Operand, GetByte(Code, Position)})}"
                   End Select
                Case &H6%, &HE%, &H16%, &H1E% : Instruction = $"PUSH {SG_REGISTERS((Opcode And &H18%) >> &H3%)}"
                Case &H7%, &H17%, &H1F% : Instruction = $"POP {SG_REGISTERS((Opcode And &H18%) >> &H3%)}"
@@ -303,7 +303,7 @@ Public Class DisassemblerClass
             End If
 
             If Instruction = Nothing Then
-               Instruction = $"DB {BytesToHexadecimal({Opcode}.ToList())}"
+               Instruction = $"DB {BytesToHexadecimal({Opcode})}"
                Position = PreviousPosition
             End If
 
@@ -319,9 +319,10 @@ Public Class DisassemblerClass
    End Function
 
    'This procedure returns the specified far address as a hexadecimal segment and offset word:word (0x0000:0000) representation.
-   Private Function FarAddressToHexadecimal(FarAddress As List(Of Byte)) As String
+   Private Function FarAddressToHexadecimal(FarAddress() As Byte) As String
       Try
-         Return If(FarAddress.Count < &H4%, Nothing, $"{BytesToHexadecimal({FarAddress(&H2%), FarAddress(&H3%)}.ToList())}:{BytesToHexadecimal({FarAddress(&H0%), FarAddress(&H1%)}.ToList(), NoPrefix:=True)}")
+         Return If(FarAddress.Count < &H4%, Nothing, $"{BytesToHexadecimal({FarAddress(&H2%), FarAddress(&H3%)})}:{BytesToHexadecimal({FarAddress(&H0%), FarAddress(&H1%)}, NoPrefix:=True)}")
+
       Catch ExceptionO As Exception
          RaiseEvent HandleException(ExceptionO)
       End Try
@@ -330,7 +331,7 @@ Public Class DisassemblerClass
    End Function
 
    'This procedure returns a byte from the specified code at the position specified.
-   Private Function GetByte(Code As List(Of Byte), ByRef Position As Integer) As Byte
+   Private Function GetByte(Code() As Byte, ByRef Position As Integer) As Byte
       Try
          Position += &H1%
          Return If(Position > Code.Count, Nothing, Code(Position - &H1%))
@@ -342,11 +343,11 @@ Public Class DisassemblerClass
    End Function
 
    'This procedure returns a string of bytes from the specified code at the position specified.
-   Public Function GetBytes(Code As List(Of Byte), ByRef Position As Integer, Length As Integer) As List(Of Byte)
+   Public Function GetBytes(Code() As Byte, ByRef Position As Integer, Length As Integer) As Byte()
       Try
-         Dim Bytes As New List(Of Byte)
+         Dim Bytes() As Byte = {}
 
-         If Position + Length <= Code.Count Then Bytes = Code.GetRange(Position, Length)
+         If Position + Length <= Code.Count Then Bytes = Code.ToList().GetRange(Position, Length).ToArray()
 
          Position += Length
 
@@ -359,7 +360,7 @@ Public Class DisassemblerClass
    End Function
 
    'This procedure returns the specified operand as a string literal.
-   Private Function GetOperand(Code As List(Of Byte), ByRef Position As Integer, Operand As Integer, Optional Registers As List(Of String) = Nothing) As String
+   Private Function GetOperand(Code() As Byte, ByRef Position As Integer, Operand As Integer, Optional Registers As List(Of String) = Nothing) As String
       Try
          Dim Literal As String = Nothing
 
@@ -386,7 +387,7 @@ Public Class DisassemblerClass
    End Function
 
    'This procedure returns the specified relative near address as a hexadecimal absolute word (0x0000) representation.
-   Private Function NearAddressToHexadecimal(NearAddress As List(Of Byte), Position As Integer) As String
+   Private Function NearAddressToHexadecimal(NearAddress() As Byte, Position As Integer) As String
       Try
          Return If(NearAddress.Count < &H2%, Nothing, $"{HEXADECIMAL_PREFIX}{((Position + ToInt32(BytesToHexadecimal(NearAddress, NoPrefix:=True), fromBase:=16) And &HFFFF%)):X4}")
       Catch ExceptionO As Exception
@@ -434,7 +435,7 @@ Public Class DisassemblerClass
    End Function
 
    'This procedure returns the specified relative short address as a hexadecimal absolute byte (0x00) representation.
-   Private Function ShortAddressToHexadecimal(ShortAddress As List(Of Byte), Position As Integer) As String
+   Private Function ShortAddressToHexadecimal(ShortAddress() As Byte, Position As Integer) As String
       Try
          Return If(ShortAddress.Count < &H1%, Nothing, $"{HEXADECIMAL_PREFIX}{((Position + ToSByte(BytesToHexadecimal(ShortAddress, NoPrefix:=True), fromBase:=16) And &HFF%)):X2}")
       Catch ExceptionO As Exception

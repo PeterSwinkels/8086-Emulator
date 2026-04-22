@@ -132,12 +132,22 @@ Public Module IOHandlerModule
                MCC.SelectRegister(DirectCast(Value, MCCClass.RegistersE))
             Case IOPortsE.MDA3B1, IOPortsE.MDAData
                MCC.Register(NewValue:=ToByte(Value))
-            Case IOPortsE.MDAColor
+            Case IOPortsE.MDAMode
+               If MCC.IsMDA Then
+                  Select Case Value
+                     Case &H3F%
+                        MCC.BlinkingOn = True
+                     Case &H40%
+                        MCC.BlinkingOn = False
+                  End Select
+               End If
+               Success = True
+            Case IOPortsE.MDAColor, IOPortsE.MDAStatus
                Success = True
             Case IOPortsE.VGAVideoDACPELAddress
-               VGA_PALETTE.SelectAddress(Value)
+               VGA.SelectAddress(Value)
             Case IOPortsE.VGAVideoDAC
-               VGA_PALETTE.WriteToDAC(Value)
+               VGA.WriteToDAC(Value)
             Case IOPortsE.CGAIndex
                Success = True
             Case IOPortsE.CGAData

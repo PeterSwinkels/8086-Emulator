@@ -10,6 +10,7 @@ Imports System.Drawing
 Imports System.Environment
 Imports System.Threading.Tasks
 Imports System.Windows.Forms
+Imports Emulator8086Program.CPU8086Class
 
 'This module contains the default interrupt handler.
 Public Module InterruptHandlerModule
@@ -18,8 +19,6 @@ Public Module InterruptHandlerModule
    Private Const CURSOR_MASK As Integer = &H1F1F%     'Defines the cursor end/start bits.
    Private Const VIDEO_MODE_MASK As Byte = &H7F%      'Defines the bits indicating a video mode.
 
-   Private ReadOnly BACKGROUND_COLORS() As Color = {Color.Black, Color.DarkBlue, Color.DarkGreen, Color.DarkCyan, Color.DarkRed, Color.Purple, Color.Brown, Color.White, Color.Gray, Color.Blue, Color.Green, Color.Cyan, Color.Red, Color.Pink, Color.Yellow, Color.White}   'Contains the background colors.
-
    'This procedure handles any pending hardware interrupts.
    Public Sub ExecuteHardwareInterrupts()
       Try
@@ -27,6 +26,11 @@ Public Module InterruptHandlerModule
 
          If Not Vector = &HFF% Then
             CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Vector)
+         End If
+
+         If CPU.DoSystemTimerTick Then
+            CPU.ExecuteInterrupt(OpcodesE.INT, CPU8086Class.SYSTEM_TIMER_TICK)
+            CPU.DoSystemTimerTick = False
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -171,7 +175,7 @@ Public Module InterruptHandlerModule
                   Case &HB%
                      Select Case CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH))
                         Case &H0%
-                           MCC.ActivePalette(0) = BACKGROUND_COLORS(CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL)) And &HF%)
+                           MCC.ActivePalette(0) = MCC.BACKGROUND_COLORS(CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL)) And &HF%)
                            MCC.SelectIntensity((CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL)) And MCCClass.INTENSITY_BIT) = MCCClass.INTENSITY_BIT)
                         Case &H1%
                            MCC.ColorSelect(CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL)) And &H1%)
@@ -198,6 +202,12 @@ Public Module InterruptHandlerModule
                            End If
 
                            CPU.Memory(Position) = CByte(Value)
+                        Case VideoModesE.VGA320x200
+                           x = CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX))
+                           y = CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX))
+                           AL = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
+                           Position = AddressesE.VGA320x200 + ((y * 320) + x)
+                           CPU.Memory(Position) = CByte(AL)
                      End Select
 
                      Success = True
@@ -211,15 +221,16 @@ Public Module InterruptHandlerModule
                      CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=VideoMode)
                      CPU.Registers(CPU8086Class.SubRegisters8BitE.BH, NewValue:=CPU.Memory(AddressesE.VideoPage))
                      Success = True
-                  Case &H1A%
-                     Select Case CurrentVideoMode
-                        Case VideoModesE.Text80x25Mono
-                           Success = True
-                     End Select
                   Case &H10%
                      Select Case CurrentVideoMode
                         Case VideoModesE.Text80x25Mono
                            Success = True
+                        Case VideoModesE.Text80x25Color
+                           Select Case CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
+                              Case &H3%
+                                 MCC.BlinkingOn = CBool(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL))
+                                 Success = True
+                           End Select
                      End Select
                   Case &H11%
                      Select Case CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL))
@@ -239,7 +250,26 @@ Public Module InterruptHandlerModule
                         Case VideoModesE.Text80x25Mono
                            Success = True
                      End Select
-                  Case &H4F%, &HFE%, &HFF%
+                  Case &H13%
+                     WriteString()
+                     Success = True
+                  Case &H1A%
+                     Success = True
+                  Case &H1B%
+                     Select Case CurrentVideoMode
+                        Case VideoModesE.Text80x25Mono
+                        Case Else
+                           If CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)) = &H0% Then
+                              CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&H1B%)
+                              Address = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.ES)) << &H4%)
+                              Position = CInt(CPU.Registers(CPU8086Class.Registers16BitE.DI))
+                              For Each [Byte] As Byte In VGA.GetDynamicFunctionality()
+                                 CPU.Memory(Address + (Position And &HFFFF%)) = [Byte]
+                              Next [Byte]
+                           End If
+                     End Select
+                     Success = True
+                  Case &H4F%, &HEF%, &HFE%, &HFF%
                      Success = True
                End Select
             Case &H11%

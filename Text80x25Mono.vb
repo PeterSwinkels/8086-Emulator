@@ -70,10 +70,21 @@ Public Class Text80x25MonoClass
             Attribute = Memory(Position + &H1%)
 
             If Attribute > &H0% AndAlso Not BLACK_ATTRIBUTES.Contains(Attribute) Then
-               Select Case (Attribute And NON_BLINK_ATTRIBUTES)
-                  Case BLACK_ON_GREEN, DARK_GREEN_ON_GREEN
-                     .FillRectangle(New SolidBrush(Color.Green), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
-               End Select
+               If MCC.BlinkingOn Then
+                  Select Case (Attribute And NON_BLINK_ATTRIBUTES)
+                     Case BLACK_ON_GREEN, DARK_GREEN_ON_GREEN
+                        .FillRectangle(New SolidBrush(Color.Green), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
+                  End Select
+               Else
+                  Select Case (Attribute And NON_BLINK_ATTRIBUTES)
+                     Case BLACK_ON_GREEN, DARK_GREEN_ON_GREEN
+                        .FillRectangle(New SolidBrush(If((Attribute And BLINK_BITMASK) = &H0%, Color.Green, Color.Lime)), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
+                     Case Else
+                        If (Attribute And BLINK_BITMASK) = BLINK_BITMASK Then
+                           .FillRectangle(New SolidBrush(Color.DarkGreen), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
+                        End If
+                  End Select
+               End If
             End If
 
             If Target.X < TEXT_SCREEN_SIZE.Width - CHARACTER_SIZE.Width Then
@@ -107,7 +118,7 @@ Public Class Text80x25MonoClass
                   CharacterFont = FONT_NORMAL
                End If
 
-               If ((Attribute And BLINK_BITMASK) = &H0%) OrElse BlinkCharactersVisible Then
+               If ((Attribute And BLINK_BITMASK) = &H0%) OrElse BlinkCharactersVisible OrElse Not MCC.BlinkingOn Then
                   .DrawString(Character, CharacterFont, CharacterColor, Target.X - CInt(CHARACTER_SIZE.Width / 4), Target.Y)
                End If
             End If
@@ -135,9 +146,8 @@ Public Class Text80x25MonoClass
       ClearBuffer()
 
       CPU.Memory(AddressesE.VideoPage) = &H0%
-      CPU.PutWord(AddressesE.CursorPositions, Word:=&H0%)
-      CPU.PutWord(AddressesE.CursorScanLines, Word:=CURSOR_DEFAULT)
-      CursorBlink.Enabled = True
+      ResetCursor()
+      MCC.BlinkingOn = True
    End Sub
 
    'This procedure returns the screen size used by a video adapter.
@@ -152,7 +162,7 @@ Public Class Text80x25MonoClass
       Dim Position As New Integer
       Dim VideoPageAddress As Integer = AddressesE.Text80x25MonoPage0
 
-      If Count = &H0% OrElse Count > TEXT_80_X_25_LINE_COUNT Then
+      If Count = &H0% OrElse Count > MCC.RowCount() Then
          For Row As Integer = ScrollArea.ULCRow To ScrollArea.LRCRow
             For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
                CPU.PutWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute << &H8%)
@@ -164,7 +174,7 @@ Public Class Text80x25MonoClass
                Case True
                   For Row As Integer = ScrollArea.ULCRow + &H1% To ScrollArea.LRCRow
                      For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
-                        If Row <= ScrollArea.LRCRow AndAlso Row < TEXT_80_X_25_LINE_COUNT Then
+                        If Row <= ScrollArea.LRCRow AndAlso Row < MCC.RowCount() Then
                            CharacterCell = CPU.GET_WORD(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
                            CPU.PutWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
                         Else

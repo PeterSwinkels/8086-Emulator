@@ -60,7 +60,7 @@ Public Module CoreModule
    Public ReadOnly PPI As New PPIClass                                                                                                                                                                                                                                                   'Contains the 8255 Programmable Peripheral Interface .
    Public ReadOnly SET_BIT As Func(Of Integer, Boolean, Integer, Integer) = Function(Value As Integer, Bit As Boolean, Index As Integer) If(Bit, Value Or (&H1% << Index), Value And ((&H1% << Index) Xor &HFFFF%))                                                                      'Returns the specified value with the specified bit set to the specified value.
    Public ReadOnly SYNCHRONIZER As New Object                                                                                                                                                                                                                                            'Contains the object used to synchronize threads.
-   Public ReadOnly VGA_PALETTE As New VGAPaletteClass                                                                                                                                                                                                                                    'Contains a reference to the VGA palette.
+   Public ReadOnly VGA As New VGAClass                                                                                                                                                                                                                                                   'Contains a reference to the VGA class.
 
    Private ReadOnly GET_MEMORY_VALUE As Func(Of Integer, String) = Function(Address As Integer) $"Byte = 0x{CPU.Memory(Address):X2}   Word = 0x{CPU.GET_WORD(Address):X4}   Characters = '{ESCAPE_BYTE(CPU.Memory(Address))}{ESCAPE_BYTE(CPU.Memory(Address + &H1%))}'{NewLine}"         'Returns the specified memory location's value.
    Private ReadOnly GET_OPERAND As Func(Of String, String) = Function(Input As String) (Input.Substring(Input.IndexOf(ASSIGNMENT_OPERATOR) + 1))                                                                                                                                         'Returns the specified input's operand.
@@ -234,9 +234,9 @@ Public Module CoreModule
 
                Select Case Opcode
                   Case CPU8086Class.OpcodesE.REPNE, CPU8086Class.OpcodesE.REPZ
-                     Code = Disassemble(CPU.Memory.ToList(), FlatCSIP, Count:=&H2%)
+                     Code = Disassemble(CPU.Memory, FlatCSIP, Count:=&H2%)
                   Case Else
-                     Code = Disassemble(CPU.Memory.ToList(), FlatCSIP, Count:=&H1%)
+                     Code = Disassemble(CPU.Memory, FlatCSIP, Count:=&H1%)
                End Select
 
                If Code IsNot Nothing Then
@@ -252,7 +252,7 @@ Public Module CoreModule
                End If
 
                If IS_SEGMENT_PREFIX(Opcode) Then
-                  SegmentPrefix = Disassemble(CPU.Memory.ToList(), FlatCSIP, Count:=&H1%)
+                  SegmentPrefix = Disassemble(CPU.Memory, FlatCSIP, Count:=&H1%)
                End If
             End If
 
@@ -278,7 +278,7 @@ Public Module CoreModule
    End Sub
 
    'This procedure disassembles the specified code and returns the resulting lines of code.
-   Private Function Disassemble(Code As List(Of Byte), Position As Integer, Optional Count As Integer? = Nothing) As String
+   Private Function Disassemble(Code() As Byte, Position As Integer, Optional Count As Integer? = Nothing) As String
       Try
          Dim Disassembly As New StringBuilder
          Dim EndPosition As New Integer
@@ -733,7 +733,7 @@ Public Module CoreModule
                            Address = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.IP)) And CPU8086Class.ADDRESS_MASK
                         End If
 
-                        Output.AppendText(If(Input.ToUpper().StartsWith("MD"), Disassemble(CPU.Memory.ToList(), CInt(Address), Count), GetMemoryDump(AllHexadecimal:=Not Input.ToUpper().StartsWith("MT"), CInt(Address), Count)))
+                        Output.AppendText(If(Input.ToUpper().StartsWith("MD"), Disassemble(CPU.Memory, CInt(Address), Count), GetMemoryDump(AllHexadecimal:=Not Input.ToUpper().StartsWith("MT"), CInt(Address), Count)))
                      Case "MA"
                         Parsed.Remainder = Input
                         Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=" "c, Ending:=" "c)

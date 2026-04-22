@@ -114,10 +114,7 @@ Public Class CGA320x200Class
       ClearBuffer()
 
       CPU.Memory(AddressesE.VideoPage) = &H0%
-      CPU.PutWord(AddressesE.CursorPositions, Word:=&H0%)
-      CPU.PutWord(AddressesE.CursorScanLines, Word:=CURSOR_DEFAULT)
-      CursorBlink.Enabled = False
-
+      ResetCursor()
       MCC.ColorSelect(&H1%)
    End Sub
 
@@ -135,7 +132,7 @@ Public Class CGA320x200Class
       Dim NewAddress As New Integer
       Dim Position As New Integer
 
-      If Count = &H0% OrElse Count > CGA_320_X_200_LINE_COUNT Then
+      If Count = &H0% OrElse Count > MCC.RowCount() Then
          VideoAdapter.ClearBuffer()
       Else
          For Scroll As Integer = &H1% To Count * (CGA_320_X_200_LINES_PER_CHARACTER \ &H2%)

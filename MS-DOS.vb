@@ -47,6 +47,8 @@ Public Module MSDOSModule
 
    'This enumeration lists addresses used inside a FCB block.
    Private Enum FCBE As Integer
+      ExtendedFCBFlag = -7  'Extended FCB flag.
+      Attribute = -1        'Attribute.
       Drive = &H0%          'Drive number.
       Filename = &H1%       'Filename.
       Extension = &H9%      'Extension.
@@ -108,6 +110,7 @@ Public Module MSDOSModule
    Private Const EXE_INITIAL_SS As Integer = &HE%                       'Defines where an executable's initial stack segment is stored.
    Private Const EXE_RELOCATION_ITEM_COUNT As Integer = &H6%            'Defines where an executable's number of relocation items is stored.
    Private Const EXE_RELOCATION_ITEM_TABLE As Integer = &H18%           'Defines where an executable's number of relocation item table offset is stored.
+   Private Const EXTENDED_FCB As Byte = &HFF%                           'Defines the extended FCB marker.
    Private Const FILE_ACCESS_RW_MASK As Integer = &H3%                  'Defines the read/write bits for file access.
    Private Const HIGHEST_ALLOCATABLE_ADDRESS As Integer = &HA0000%      'Defines the highest address that can be allocated.
    Private Const INT_20H As Integer = &H20CD%                           'Defines the INT 20h instruction.
@@ -238,13 +241,13 @@ Public Module MSDOSModule
                ExecuteHardwareInterrupts()
             End If
 
-            KeyCode = ReadCharacter()
+            KeyCode = ReadCharacter() And &HFF%
             Select Case KeyCode
                Case &H8%
                   If Buffer.Count > &H0% Then
-                     TeleType(&H8%)
-                     TeleType(&H20%)
-                     TeleType(&H8%)
+                     TeleType(TeletypeE.BS)
+                     TeleType(ToByte(" "c))
+                     TeleType(TeletypeE.BS)
                      Buffer.RemoveAt(Buffer.Count - &H1%)
                   End If
                Case &HD%
@@ -261,11 +264,11 @@ Public Module MSDOSModule
                            TeleType(ToByte(KeyCode))
                            Buffer.Add(ToByte(KeyCode))
                         Else
-                           TeleType(&H7%)
+                           TeleType(TeletypeE.BEL)
                         End If
                      End If
                   Else
-                     TeleType(&H7%)
+                     TeleType(TeletypeE.BEL)
                   End If
             End Select
          Loop
@@ -562,6 +565,29 @@ Public Module MSDOSModule
       End Try
    End Sub
 
+   'This procedure attempts to find files matching a given pattern using an FCB.
+   Private Sub FCBFindFile()
+      Try
+         Dim Attributes As New Integer?
+         Dim Extension As String = GetString(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) + FCBE.Extension, Length:=3).Trim(ToChar(&H0%)).Trim()
+         Dim FileName As String = GetString(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)), CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) + FCBE.Filename, Length:=8).Trim(ToChar(&H0%)).Trim()
+         Dim SearchPattern As String = $"{FileName}.{Extension}"
+
+         If CPU.Memory((CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + ((CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) + FCBE.ExtendedFCBFlag) And &HFFF%)) = EXTENDED_FCB Then
+            Attributes = CPU.Memory((CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + ((CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) + FCBE.Attribute) And &HFFF%))
+         End If
+
+         FileSystemItems = GetFileSystemItems(CurrentDirectory(), SearchPattern, Attributes)
+         If FileSystemItems.Any Then
+            WriteDTA(FileSystemItems.First.Name, Not FileSystemItems.First.IsFile)
+         Else
+            CPU.Registers(CPU8086Class.SubRegisters8BitE.AL, NewValue:=&HFF%)
+         End If
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
    'This procedure opens a file using an FCB.
    Private Sub FCBOpenFile()
       Try
@@ -608,7 +634,7 @@ Public Module MSDOSModule
          Dim ModifyDrive As Boolean = ((CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)) And ParsingControlBitsE.ModifyDrive) = ParsingControlBitsE.ModifyDrive)
          Dim WildcardPresent As Boolean = FilePattern.Contains("*"c)
 
-         If FilePattern.Substring(2, 1) = ":"c Then
+         If FilePattern.Chars(1) = ":"c Then
             FCBDrive = FilePattern.Substring(0, 2)
             FCBDriveValid = New DriveInfo(FCBDrive).IsReady
             FilePattern = FilePattern.Substring(2)
@@ -618,7 +644,10 @@ Public Module MSDOSModule
             FCBFileName.Append(New String("?"c, 8))
          Else
             For Index As Integer = 0 To 7
-               Character = FilePattern.ToString().Chars(Index)
+               If Index >= FilePattern.Length Then
+                  Exit For
+               End If
+               Character = FilePattern.Chars(Index)
                If $".\/{INVALID_CHARACTERS}".Contains(Character) Then
                   If Character = "."c Then IsPeriod = True
                   Exit For
@@ -805,6 +834,44 @@ Public Module MSDOSModule
       End Try
    End Sub
 
+   'This procedure attempts to force duplicate a file handle returns whether or not it succeeded.
+   Private Function ForceDuplicateFileHandle(ByRef Flags As Integer) As Boolean
+      Try
+         Dim SourceFileHandle As Tuple(Of FileStream, Integer) = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BX)))
+         Dim Success As Boolean = False
+         Dim TargetFileHandle As Tuple(Of FileStream, Integer) = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX)))
+
+         If SourceFileHandle IsNot Nothing Then
+            If TargetFileHandle IsNot Nothing Then
+               Try
+                  TargetFileHandle.Item1.Close()
+                  Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+                  Success = True
+               Catch MSDOSException As Exception
+                  CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
+                  Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+               End Try
+            Else
+               Success = True
+            End If
+
+            If Success Then
+               OpenFiles.Add(New Tuple(Of FileStream, Integer)(SourceFileHandle.Item1, CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX))))
+            End If
+
+         Else
+            CPU.Registers(CPU8086Class.Registers16BitE.AX, NewValue:=ERROR_INVALID_HANDLE)
+            Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+         End If
+
+         Return Success
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return False
+   End Function
+
    'This procedure attempts to free the specified allocated memory address and returns whether or not it succeeded.
    Private Function FreeAllocatedMemory(StartAddress As Integer) As Boolean
       Try
@@ -900,7 +967,7 @@ Public Module MSDOSModule
 
          If Attributes IsNot Nothing AndAlso Attributes.Value = VOLUME_ATTRIBUTE Then
             FileSystemItems = New List(Of FileSystemItemStr)({New FileSystemItemStr With {.Name = New DriveInfo(CurrentDirectory).VolumeLabel, .ShortName = "", .IsFile = False}})
-         Else
+         ElseIf Not SearchPattern = Nothing Then
             NewFileSystemItems = New List(Of FileSystemItemStr)
 
             NewFileSystemItems.Add(New FileSystemItemStr With {.Name = ".", .ShortName = "", .IsFile = False})
@@ -1034,11 +1101,16 @@ Public Module MSDOSModule
             End If
 
             Application.DoEvents()
-            KeyCode = LastBIOSKeyCode().Value And &HFF%
+            If LastBIOSKeyCode() IsNot Nothing Then
+               KeyCode = LastBIOSKeyCode().Value And &HFF%
+            End If
          Loop While (KeyCode = Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
 
          LastBIOSKeyCode(, Clear:=True)
          TeleType(CByte(KeyCode))
+         If KeyCode = CInt(TeletypeE.CR) Then TeleType(TeletypeE.LF)
+
+         Return KeyCode
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -1222,6 +1294,11 @@ Public Module MSDOSModule
                      Success = True
                   Case &H10%
                      Success = True
+                  Case &H11%
+                     FCBFindFile()
+                     Success = True
+                  Case &H12%
+                     ''--->>> Search for next entry using FCB.
                   Case &H13%
                      FCBDeleteFile()
                      Success = True
@@ -1244,6 +1321,9 @@ Public Module MSDOSModule
                      Address = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)) * &H4%
                      CPU.PutWord(Address + &H2%, CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)))
                      CPU.PutWord(Address, CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)))
+                     Success = True
+                  Case &H26%
+                     Array.Copy(CPU.Memory, ProcessIDs.Last() << &H4%, CPU.Memory, CInt(CPU.Registers(CPU8086Class.Registers16BitE.DX)) << &H4%, PSP_SIZE)
                      Success = True
                   Case &H27%
                      FCBRandomReadFile()
@@ -1365,6 +1445,9 @@ Public Module MSDOSModule
                                  Success = True
                            End Select
                      End Select
+                  Case &H46%
+                     ForceDuplicateFileHandle(Flags)
+                     Success = True
                   Case &H47%
                      GetCurrentPath(Flags)
                      Success = True
@@ -1550,7 +1633,7 @@ Public Module MSDOSModule
          End If
 
          If Allocations.FindIndex(Function(Allocation) Allocation.Item1 = CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) < 0 Then
-            Allocations.Add(Tuple.Create(CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%, ((Executable.Count >> &H4%) + &H1%) << &H4%))
+            Allocations.Add(Tuple.Create((CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) - (PSP_SIZE >> &H4%)) << &H4%, ((Executable.Count >> &H4%) + &H1%) << &H4%))
             ProcessSegments.Push(Allocations.Last.Item1)
          Else
             SyncLock Synchronizer
@@ -1563,6 +1646,7 @@ Public Module MSDOSModule
          If Success Then
             DTA = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)) << &H10%) Or PSP_COMMAND_TAIL
             ProcessIDs.Add(LoadAddress >> &H4%)
+            CPU.Stack(Push:=CInt(CPU.Registers(CPU8086Class.Registers16BitE.IP)) - PSP_SIZE)
          End If
 
          Return Success

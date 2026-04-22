@@ -34,7 +34,7 @@ Public Class VGA320x200Class
       With GraphicsO
          For y As Integer = 0 To HEIGHT - 1
             For x As Integer = 0 To WIDTH - 1
-               .FillRectangle(VGA_PALETTE.VGAPaintBrushes(Memory(AddressesE.VGA320x200 + ((y * WIDTH) + x))), x * SCALING, y * SCALING, SCALING, SCALING)
+               .FillRectangle(VGA.VGAPaintBrushes(Memory(AddressesE.VGA320x200 + ((y * WIDTH) + x))), x * SCALING, y * SCALING, SCALING, SCALING)
             Next x
          Next y
       End With
@@ -48,13 +48,12 @@ Public Class VGA320x200Class
    Public Sub Initialize() Implements VideoAdapterClass.Initialize
       ClearBuffer()
 
-      For Index As Integer = VGA_PALETTE.VGA_DEFAULT_PALETTE.GetLowerBound(0) To VGA_PALETTE.VGA_DEFAULT_PALETTE.GetUpperBound(0)
-         VGA_PALETTE.VGAPaintBrushes(Index) = New SolidBrush(Color.FromArgb(VGA_PALETTE.VGA_DEFAULT_PALETTE(Index) Or &HFF000000%))
+      For Index As Integer = VGA.VGA_DEFAULT_PALETTE.GetLowerBound(0) To VGA.VGA_DEFAULT_PALETTE.GetUpperBound(0)
+         VGA.VGAPaintBrushes(Index) = New SolidBrush(Color.FromArgb(VGA.VGA_DEFAULT_PALETTE(Index) Or &HFF000000%))
       Next Index
 
       CPU.Memory(AddressesE.VideoPage) = &H0%
-      CPU.PutWord(AddressesE.CursorPositions, Word:=&H0%)
-      CPU.PutWord(AddressesE.CursorScanLines, Word:=CURSOR_DEFAULT)
+      ResetCursor()
       CursorBlink.Enabled = False
    End Sub
 
@@ -71,7 +70,7 @@ Public Class VGA320x200Class
       Dim NewAddress As New Integer
       Dim Position As New Integer
 
-      If Count = &H0% OrElse Count > VGA_320_X_200_LINE_COUNT Then
+      If Count = &H0% OrElse Count > MCC.RowCount() Then
          VideoAdapter.ClearBuffer()
       Else
          For Scroll As Integer = &H1% To Count * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE

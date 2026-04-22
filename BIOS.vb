@@ -10,6 +10,39 @@ Imports System.Threading.Tasks
 
 'This module contains BIOS related procedures.
 Public Module BIOSModule
+   'This enumeration lists the flat addresses of BIOS data area locations.
+   Public Enum AddressesE As Integer
+      BIOS = &HF0000%                   'BIOS.
+      BIOSMemorySize = &H413%           'BIOS Memory size.
+      BIOSStack = &HF3000%              'BIOS stack segment.
+      CGA320x200 = &HB8000%             '320x200 CGA video buffer.
+      Characters = &HFFA6E%             'Character bitmaps.
+      Clock = &H46C%                    'Clock.
+      ClockRollover = &H470%            'Clock rollover flag.
+      ColumnCount = &H44A%              'Column count.
+      CRTControllerBasePOrt = &H463%    'CRT controller base port.
+      CursorPositions = &H450%          'Cursor positions.
+      CursorScanLines = &H460%          'Cursor scan line start/end.
+      EquipmentFlags = &H410%           'Equipment flags.
+      ExtendedCharacters = &HC0000%     'Extended character bitmaps.
+      KeyboardFlags = &H417%            'Keyboard flags.
+      Text80x25ColorPage0 = &HB8000%    '80x25 color text video buffer.
+      Text80x25MonoPage0 = &HB0000%     '80x25 monochrome text video buffer.
+      VGA320x200 = &HA0000%             '320x200 VGA video buffer.
+      VideoMode = &H449%                'Current video mode.
+      VideoModeOptions = &H487%         'Video mode options.
+      VideoPage = &H462%                'Current video page.
+   End Enum
+
+   'This enumeration lists the supported Teletype control characters
+   Public Enum TeletypeE As Byte
+      BEL = &H7%   'Bell.
+      BS = &H8%    'Backspace.
+      TAB = &H9%   'Tab.
+      LF = &HA%    'Line feed.
+      CR = &HD%    'Carriage return.
+   End Enum
+
    'This enumeration lists the video modes.
    Public Enum VideoModesE As Byte
       None = &HFF%             'None.
@@ -33,44 +66,10 @@ Public Module BIOSModule
       VGA640x480Mono = &H11%   '640x480 monochrome vga.
    End Enum
 
-   'This enumeration lists the flat addresses of BIOS data area locations.
-   Public Enum AddressesE As Integer
-      BIOS = &HF0000%                   'BIOS.
-      BIOSMemorySize = &H413%               'BIOS Memory size.
-      BIOSStack = &HF3000%              'BIOS stack segment.
-      CGA320x200 = &HB8000%             '320x200 CGA video buffer.
-      Characters = &HFFA6E%             'Character bitmaps.
-      Clock = &H46C%                    'Clock.
-      ClockRollover = &H470%            'Clock rollover flag.
-      ColumnCount = &H44A%              'Column count.
-      CRTControllerBasePOrt = &H463%    'CRT controller base port.
-      CursorPositions = &H450%          'Cursor positions.
-      CursorScanLines = &H460%          'Cursor scan line start/end.
-      EquipmentFlags = &H410%           'Equipment flags.
-      ExtendedCharacters = &HC0000%     'Extended character bitmaps.
-      KeyboardFlags = &H417%            'Keyboard flags.
-      Text80x25ColorPage0 = &HB8000%    '80x25 color text video buffer.
-      Text80x25MonoPage0 = &HB0000%     '80x25 monochrome text video buffer.
-      VGA320x200 = &HA0000%             '320x200 VGA video buffer.
-      VideoMode = &H449%                'Current video mode.
-      VideoModeOptions = &H487%         'Video mode options.
-      VideoPage = &H462%                'Current video page.
-   End Enum
-
-   'This enumeration lists the supported Teletype control characters
-   Public Enum TeletypeE As Byte
-      BEL = &H7%    'Bell.
-      BS = &H8%     'Backspace.
-      TAB = &H9%    'Tab.
-      LF = &HA%     'Line feed.
-      CR = &HD%     'Carriage return.
-   End Enum
-
    Public Const CGA_320_x_200_BUFFER_SIZE As Integer = &H4000%               'Defines the 320x200 CGA mode video memory's size.
    Public Const CGA_320_X_200_BYTES_PER_ROW As Integer = &H50%               'Defines the number of bytes per row used by 320x200 CGA mode 
    Public Const CGA_320_X_200_COLUMN_COUNT As Integer = &H28%                'Defines the number of columns used by 320x200 CGA mode. 
    Public Const CGA_320_X_200_LINES_PER_CHARACTER As Integer = &H8%          'Defines the number of lines per character used by 320x200 CGA mode 
-   Public Const CGA_320_X_200_LINE_COUNT As Integer = &H19%                  'Defines the number of lines used by 320x200 CGA mode 
    Public Const CGA_320_X_200_PIXELS_PER_BYTE As Integer = &H4%              'Defines the number of pixels per byte used by 320x200 CGA mode.
    Public Const EXTENDED_CHARACTERS_VECTOR As Integer = &H1F%                'Defines the extended character bitmap pointer's location.
    Public Const INITIAL_MODE_FLAGS_MDA As Integer = &H30%                    'Defines the initial video mode in the equipment flags as MDA.
@@ -81,11 +80,9 @@ Public Module BIOSModule
    Public Const TEXT_80_X_25_BYTES_PER_ROW As Integer = &HA0%                'Defines the number of bytes per row used by 80x25 monochrome text mode 
    Public Const TEXT_80_X_25_COLOR_BUFFER_SIZE As Integer = &HFA0%           'Defines the 80x25 color text mode video memory's size.
    Public Const TEXT_80_X_25_COLUMN_COUNT As Integer = &H50%                 'Defines the number of columns used by 80x25 monochrome text mode 
-   Public Const TEXT_80_X_25_LINE_COUNT As Integer = &H19%                   'Defines the number of lines used by 80x25 monochrome text mode 
    Public Const TEXT_80_X_25_MONO_BUFFER_SIZE As Integer = &HFA0%            'Defines the 80x25 monochrome text mode video memory's size.
    Public Const VGA_320_x_200_BUFFER_SIZE As Integer = &HFA00%               'Defines the 320x200 VGA mode video memory's size.
    Public Const VGA_320_X_200_BYTES_PER_ROW As Integer = &H140%              'Defines the number of bytes per row used by 320x200 VGA mode 
-   Public Const VGA_320_X_200_LINE_COUNT As Integer = &H19%                  'Defines the number of lines used by 320x200 VGA mode 
    Public Const VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE As Integer = &H8%    'Defines the number of per character side used by 320x200 VGA mode 
    Private Const BIOS_MEMORY_SIZE As Integer = &H280%                        'Defines the BIOS memory size in 1kb blocks.
    Private Const TICKS_PER_SECOND As Double = 18.2064814814815                'Defines the number of clock ticks per second.
@@ -124,6 +121,8 @@ Public Module BIOSModule
             Data.CopyTo(CPU.Memory, AddressesE.ExtendedCharacters)
             Data = File.ReadAllBytes("FONT.BIN")
             Data.CopyTo(CPU.Memory, AddressesE.Characters)
+
+            Array.Copy(VGA.STATIC_FUNCTIONALITY, &H0%, CPU.Memory, VGA.STATIC_FUNCTIONALITY_ADDRESS, VGA.STATIC_FUNCTIONALITY.Length)
          End If
 
          SwitchVideoAdapter()
@@ -145,12 +144,12 @@ Public Module BIOSModule
    End Sub
 
    'This procedure emulates character output in Teletype mode.
-   Public Sub TeleType(Character As Byte)
+   Public Sub TeleType(Character As Byte, Optional Attribute As Integer? = Nothing)
       Try
-         Dim ScrollArea As New VideoAdapterClass.ScreenAreaStr With {.ULCColumn = &H0%, .ULCRow = &H0%, .LRCColumn = TEXT_80_X_25_COLUMN_COUNT - &H1%, .LRCRow = TEXT_80_X_25_LINE_COUNT}
+         Dim ScrollArea As New VideoAdapterClass.ScreenAreaStr With {.ULCColumn = &H0%, .ULCRow = &H0%, .LRCColumn = TEXT_80_X_25_COLUMN_COUNT - &H1%, .LRCRow = MCC.RowCount()}
+         Dim ScrollAttribute As New Byte
          Dim VideoPage As Integer = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH))
          Dim VideoPageAddress As New Integer
-         Dim Attribute As New Integer
 
          CursorPositionUpdate()
 
@@ -167,7 +166,7 @@ Public Module BIOSModule
                   Case TeletypeE.CR
                      Cursor.X = &H0%
                   Case TeletypeE.LF
-                     If Cursor.Y < CGA_320_X_200_LINE_COUNT - &H1% Then
+                     If Cursor.Y < MCC.RowCount() - &H1% Then
                         Cursor.Y += &H1%
                      Else
                         VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
@@ -183,13 +182,13 @@ Public Module BIOSModule
                         End If
                      End If
                   Case Else
-                     VideoAdapter.DrawCharacter(Character, Attribute)
+                     VideoAdapter.DrawCharacter(Character, Attribute.Value)
 
-                     If Cursor.X < CGA_320_X_200_COLUMN_COUNT - &H1% Then
+                     If Cursor.X < MCC.RowCount() - &H1% Then
                         Cursor.X += &H1%
                      Else
                         Cursor.X = &H0%
-                        If Cursor.Y < CGA_320_X_200_LINE_COUNT - &H1% Then
+                        If Cursor.Y < MCC.RowCount() - &H1% Then
                            Cursor.Y += &H1%
                         Else
                            VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
@@ -207,9 +206,8 @@ Public Module BIOSModule
                      VideoPageAddress = AddressesE.Text80x25MonoPage0
                End Select
 
-               Attribute = CPU.Memory(VideoPageAddress + ((Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%)) + &H1%)
-               CPU.Registers(CPU8086Class.SubRegisters8BitE.BH, NewValue:=Attribute)
-               CursorBlink.Enabled = False
+               ScrollAttribute = CPU.Memory(VideoPageAddress + ((Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%)) + &H1%)
+               CPU.Registers(CPU8086Class.SubRegisters8BitE.BH, NewValue:=ScrollAttribute)
 
                Select Case DirectCast(Character, TeletypeE)
                   Case TeletypeE.BEL
@@ -219,7 +217,7 @@ Public Module BIOSModule
                   Case TeletypeE.CR
                      Cursor.X = &H0%
                   Case TeletypeE.LF
-                     If Cursor.Y < TEXT_80_X_25_LINE_COUNT - &H1% Then
+                     If Cursor.Y < MCC.RowCount() - &H1% Then
                         Cursor.Y += &H1%
                      Else
                         VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
@@ -228,7 +226,7 @@ Public Module BIOSModule
                      Cursor.X = ((((Cursor.X + &H1%) \ &H8%) + &H1%) * &H8%) - &H1%
                      If Cursor.X >= TEXT_80_X_25_COLUMN_COUNT - &H1% Then
                         Cursor.X = &H0%
-                        If Cursor.Y < TEXT_80_X_25_LINE_COUNT - &H1% Then
+                        If Cursor.Y < MCC.RowCount() - &H1% Then
                            Cursor.Y += &H1%
                         Else
                            VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
@@ -236,24 +234,27 @@ Public Module BIOSModule
                      End If
                   Case Else
                      CPU.Memory(VideoPageAddress + (Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%)) = Character
+                     If Attribute IsNot Nothing Then
+                        CPU.Memory(VideoPageAddress + (Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%) + &H1%) = CByte(Attribute.Value)
+                     End If
+
                      If Cursor.X < TEXT_80_X_25_COLUMN_COUNT - &H1% Then
                         Cursor.X += &H1%
                      Else
                         Cursor.X = &H0%
-                        If Cursor.Y < TEXT_80_X_25_LINE_COUNT - &H1% Then
+                        If Cursor.Y < MCC.RowCount() - &H1% Then
                            Cursor.Y += &H1%
                         Else
                            VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
                         End If
                      End If
                End Select
-
-               CPU.Memory(AddressesE.CursorPositions) = CByte(Cursor.X)
-               CPU.Memory(AddressesE.CursorPositions + &H1%) = CByte(Cursor.Y)
-               CPU.Registers(CPU8086Class.SubRegisters8BitE.BH, NewValue:=VideoPage)
-
-               CursorBlink.Enabled = True
          End Select
+
+         CPU.Memory(AddressesE.CursorPositions) = CByte(Cursor.X)
+         CPU.Memory(AddressesE.CursorPositions + &H1%) = CByte(Cursor.Y)
+         CursorPositionUpdate()
+         CPU.Registers(CPU8086Class.SubRegisters8BitE.BH, NewValue:=VideoPage)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -273,11 +274,61 @@ Public Module BIOSModule
          CPU.PutWord(AddressesE.Clock, ClockCounter And &HFFFF%)
          CPU.PutWord(AddressesE.Clock + &H2%, ClockCounter >> &H10%)
 
-         SyncLock Synchronizer
+         SyncLock SYNCHRONIZER
             CPU.DoSystemTimerTick = True
          End SyncLock
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
+   End Sub
+
+   'This procedure writes a string to the screen.
+   Public Sub WriteString()
+      Dim AL As Integer = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.AL)) And &H3%
+      Dim Attribute As New Byte
+      Dim Character As New Byte
+      Dim Column As Byte = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.DL))
+      Dim Count As Integer = CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX))
+      Dim HasAttributes As Boolean = ((AL = &H2% OrElse AL = &H3%))
+      Dim MoveCursor As Boolean = ((AL = &H1% OrElse AL = &H3%))
+      Dim Offset As Integer = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BP))
+      Dim PreviousColumn As New Byte
+      Dim PreviousRow As New Byte
+      Dim Row As Byte = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.DH))
+      Dim Segment As Integer = CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.ES))
+      Dim VideoPage As Integer = CInt(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH))
+
+      If Not HasAttributes Then
+         Attribute = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.BL))
+      End If
+      If Not MoveCursor Then
+         PreviousColumn = CPU.Memory(AddressesE.CursorPositions + &H1%)
+         PreviousRow = CPU.Memory(AddressesE.CursorPositions)
+      End If
+      If VideoPage >= MCC.VideoPageCount() Then
+         VideoPage = &H0%
+      End If
+
+      CPU.Memory(AddressesE.CursorPositions) = Column
+      CPU.Memory(AddressesE.CursorPositions + &H1%) = Row
+      CursorPositionUpdate()
+
+      Do While Count > &H0%
+         Character = CPU.Memory((Segment << &H4%) + (Offset And &HFFFF%))
+         If HasAttributes Then
+            Attribute = CPU.Memory((Segment << &H4%) + ((Offset + &H1%) And &HFFFF%))
+            Offset += &H2%
+         Else
+            Offset += &H1%
+         End If
+         TeleType(Character, Attribute)
+         Count -= &H1%
+      Loop
+
+      If Not MoveCursor Then
+         CPU.Memory(AddressesE.CursorPositions) = PreviousColumn
+         CPU.Memory(AddressesE.CursorPositions + &H1%) = PreviousRow
+         CursorPositionUpdate()
+      End If
    End Sub
 End Module
