@@ -4,7 +4,7 @@ Option Explicit On
 Option Infer Off
 Option Strict On
 
-Imports System
+Imports Emulator8086Program.CPU8086Class
 Imports System.Drawing
 
 'This class emulates VGA 320x200.
@@ -65,7 +65,7 @@ Public Class VGA320x200Class
    'This procedure scrolls the video adapter's buffer.
    Public Sub ScrollBuffer(Up As Boolean, ScrollArea As VideoAdapterClass.ScreenAreaStr, Count As Integer) Implements VideoAdapterClass.ScrollBuffer
       Dim Address As New Integer
-      Dim Attribute As Byte = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH))
+      Dim Attribute As Byte = CByte(CPU.Registers(SubRegisters8BitE.BH))
       Dim CharacterByte As New Byte
       Dim NewAddress As New Integer
       Dim Position As New Integer

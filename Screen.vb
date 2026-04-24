@@ -85,13 +85,12 @@ Public Class ScreenWindow
       Try
          Dim Scancode As Integer = (m.LParam.ToInt32 >> &H10%) And &HFF%
 
-         If m.Msg = WM_KEYDOWN Then
-            KeyScancode = CByte(Scancode)
-         End If
-
-         If m.Msg = WM_KEYUP Then
-            KeyScancode = CByte(Scancode Or &H80%)
-         End If
+         Select Case m.Msg
+            Case WM_KEYDOWN
+               KeyScancode = CByte(Scancode)
+            Case WM_KEYUP
+               KeyScancode = CByte(Scancode Or &H80%)
+         End Select
 
          MyBase.WndProc(m)
       Catch ExceptionO As Exception

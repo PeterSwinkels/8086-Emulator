@@ -4,6 +4,7 @@ Option Explicit On
 Option Infer Off
 Option Strict On
 
+Imports Emulator8086Program.CPU8086Class
 Imports System
 Imports System.Collections.Generic
 Imports System.Convert
@@ -50,7 +51,6 @@ Public Module CoreModule
    Public ScreenActive As Boolean = False               'Indicates whether or not the screen window is active.
    Public VideoAdapter As VideoAdapterClass = Nothing   'Contains a reference to the video adapter used.
 
-   Public ReadOnly CODE_PAGE_437() As Integer = {&H0%, &H263A%, &H263B%, &H2665%, &H2666%, &H2663%, &H2660%, &H2022%, &H25D8%, &H25CB%, &H25D9%, &H2642%, &H2640%, &H266A%, &H266B%, &H263C%, &H25BA%, &H25C4%, &H2195%, &H203C%, &HB6%, &HA7%, &H25AC%, &H21A8%, &H2191%, &H2193%, &H2192%, &H2190%, &H221F%, &H2194%, &H25B2%, &H25BC%, &H20%, &H21%, &H22%, &H23%, &H24%, &H25%, &H26%, &H27%, &H28%, &H29%, &H2A%, &H2B%, &H2C%, &H2D%, &H2E%, &H2F%, &H30%, &H31%, &H32%, &H33%, &H34%, &H35%, &H36%, &H37%, &H38%, &H39%, &H3A%, &H3B%, &H3C%, &H3D%, &H3E%, &H3F%, &H40%, &H41%, &H42%, &H43%, &H44%, &H45%, &H46%, &H47%, &H48%, &H49%, &H4A%, &H4B%, &H4C%, &H4D%, &H4E%, &H4F%, &H50%, &H51%, &H52%, &H53%, &H54%, &H55%, &H56%, &H57%, &H58%, &H59%, &H5A%, &H5B%, &H5C%, &H5D%, &H5E%, &H5F%, &H60%, &H61%, &H62%, &H63%, &H64%, &H65%, &H66%, &H67%, &H68%, &H69%, &H6A%, &H6B%, &H6C%, &H6D%, &H6E%, &H6F%, &H70%, &H71%, &H72%, &H73%, &H74%, &H75%, &H76%, &H77%, &H78%, &H79%, &H7A%, &H7B%, &H7C%, &H7D%, &H7E%, &H2302%, &HC7%, &HFC%, &HE9%, &HE2%, &HE4%, &HE0%, &HE5%, &HE7%, &HEA%, &HEB%, &HE8%, &HEF%, &HEE%, &HEC%, &HC4%, &HC5%, &HC9%, &HE6%, &HC6%, &HF4%, &HF6%, &HF2%, &HFB%, &HF9%, &HFF%, &HD6%, &HDC%, &HA2%, &HA3%, &HA5%, &H20A7%, &H192%, &HE1%, &HED%, &HF3%, &HFA%, &HF1%, &HD1%, &HAA%, &HBA%, &HBF%, &H2310%, &HAC%, &HBD%, &HBC%, &HA1%, &HAB%, &HBB%, &H2591%, &H2592%, &H2593%, &H2502%, &H2524%, &H2561%, &H2562%, &H2556%, &H2555%, &H2563%, &H2551%, &H2557%, &H255D%, &H255C%, &H255B%, &H2510%, &H2514%, &H2534%, &H252C%, &H251C%, &H2500%, &H253C%, &H255E%, &H255F%, &H255A%, &H2554%, &H2569%, &H2566%, &H2560%, &H2550%, &H256C%, &H2567%, &H2568%, &H2564%, &H2565%, &H2559%, &H2558%, &H2552%, &H2553%, &H256B%, &H256A%, &H2518%, &H250C%, &H2588%, &H2584%, &H258C%, &H2590%, &H2580%, &H3B1%, &HDF%, &H393%, &H3C0%, &H3A3%, &H3C3%, &HB5%, &H3C4%, &H3A6%, &H398%, &H3A9%, &H3B4%, &H221E%, &H3C6%, &H3B5%, &H2229%, &H2261%, &HB1%, &H2265%, &H2264%, &H2320%, &H2321%, &HF7%, &H2248%, &HB0%, &H2219%, &HB7%, &H221A%, &H207F%, &HB2%, &H25A0%, &HA0%}  'Contains the code page 437 to unicode mappings.
    Public ReadOnly CPU_EVENT As New StringBuilder                                                                                                                                                                                                                                        'Contains CPU event specific text.
    Public ReadOnly ESCAPE_BYTE As Func(Of Byte, String) = Function([Byte] As Byte) If([Byte] >= ToByte(" "c) AndAlso [Byte] <= ToByte("~"c), If([Byte] = ESCAPE_CHARACTER, New String(ToChar(ESCAPE_CHARACTER), count:=2), ToChar([Byte])), $"{ToChar(ESCAPE_CHARACTER)}{[Byte]:X2}")    'Returns the specified as either a character or escape sequence.
    Public ReadOnly MCC As New MCCClass                                                                                                                                                                                                                                                   'Contains the 6845 Motorola CRT Controller.
@@ -66,7 +66,7 @@ Public Module CoreModule
    Private ReadOnly GET_OPERAND As Func(Of String, String) = Function(Input As String) (Input.Substring(Input.IndexOf(ASSIGNMENT_OPERATOR) + 1))                                                                                                                                         'Returns the specified input's operand.
    Private ReadOnly IS_CHARACTER_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(CHARACTER_OPERAND_DELIMITER) AndAlso Operand.Trim().EndsWith(CHARACTER_OPERAND_DELIMITER) AndAlso Operand.Trim().Length = 3)                               'Indicates whether the specified operand is a character.
    Private ReadOnly IS_MEMORY_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(MEMORY_OPERAND_START) AndAlso Operand.Trim().EndsWith(MEMORY_OPERAND_END))                                                                                    'Indicates whether the specified operand is a memory location.
-   Private ReadOnly IS_SEGMENT_PREFIX As Func(Of CPU8086Class.OpcodesE, Boolean) = Function(Opcode As CPU8086Class.OpcodesE) {CPU8086Class.OpcodesE.CS, CPU8086Class.OpcodesE.DS, CPU8086Class.OpcodesE.ES, CPU8086Class.OpcodesE.SS}.Contains(Opcode)                                   'Indicates whether the specified opcode is a segment prefix.
+   Private ReadOnly IS_SEGMENT_PREFIX As Func(Of OpcodesE, Boolean) = Function(Opcode As OpcodesE) {OpcodesE.CS, OpcodesE.DS, OpcodesE.ES, OpcodesE.SS}.Contains(Opcode)                                                                                                                 'Indicates whether the specified opcode is a segment prefix.
    Private ReadOnly IS_STRING_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(STRING_OPERAND_DELIMITER) AndAlso Operand.Trim().EndsWith(STRING_OPERAND_DELIMITER))                                                                          'Indicates whether the specified operand is a string.
    Private ReadOnly IS_VALUES_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(VALUES_OPERAND_START) AndAlso Operand.Trim().EndsWith(VALUES_OPERAND_END))                                                                                    'Indicates whether the specified operand is an array of values.
    Private ReadOnly REMOVE_DELIMITERS As Func(Of String, String) = Function(Operand As String) (Operand.Substring(1, Operand.Length - 2))                                                                                                                                                'Returns the specified operand with its first and last character removed.
@@ -124,11 +124,11 @@ Public Module CoreModule
                      Output.AppendText($"{Address:X8}   {Input,-25} -> {String.Join(Nothing, (From Opcode In Opcodes Select Opcode.ToString("X2")).ToArray())}{NewLine}")
                      Array.Copy(Opcodes.ToArray(), 0, CPU.Memory, Address, Opcodes.Count)
                      PreviousAddress = Address
-                     Address = (Address + Opcodes.Count) And CPU8086Class.ADDRESS_MASK
+                     Address = (Address + Opcodes.Count) And ADDRESS_MASK
                   End If
             End Select
          ElseIf StartAddress IsNot Nothing Then
-            Address = CInt(StartAddress) And CPU8086Class.ADDRESS_MASK
+            Address = CInt(StartAddress) And ADDRESS_MASK
             PreviousAddress = Address
             AssemblyModeOn = True
             Output.AppendText($"Assembler started at 0x{Address:X8}.{NewLine}")
@@ -196,8 +196,8 @@ Public Module CoreModule
       Try
          Dim Address As New Integer?
          Dim FlatCSIP As Integer = CPU.GET_FLAT_CS_IP()
-         Dim Opcode As New CPU8086Class.OpcodesE
-         Dim Override As New CPU8086Class.SegmentRegistersE?
+         Dim Opcode As New OpcodesE
+         Dim Override As New SegmentRegistersE?
          Dim ParsedAddress As New Integer
          Static Code As String = Nothing
          Static CheckForAddress As Boolean = False
@@ -206,34 +206,34 @@ Public Module CoreModule
          SyncLock SYNCHRONIZER
             If CheckForAddress Then
                If Code IsNot Nothing AndAlso Code.Contains(MEMORY_OPERAND_START) AndAlso Code.Contains(MEMORY_OPERAND_END) Then
-                  Address = CPU.AddressFromOperand(CPU8086Class.MemoryOperandsE.LAST).FlatAddress
+                  Address = CPU.AddressFromOperand(MemoryOperandsE.LAST).FlatAddress
 
                   If Address Is Nothing AndAlso Integer.TryParse(ParseElement(Code, $"{MEMORY_OPERAND_START}{Disassembler.HEXADECIMAL_PREFIX}", MEMORY_OPERAND_END).Element, NumberStyles.HexNumber, CultureInfo.InvariantCulture, ParsedAddress) Then
                      Override = CPU.SegmentOverride(, Preserve:=True)
-                     Address = (CInt(CPU.Registers(If(Override Is Nothing, CPU8086Class.SegmentRegistersE.DS, Override))) << &H4%) + ParsedAddress
+                     Address = (CInt(CPU.Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override))) << &H4%) + ParsedAddress
                   End If
 
                   GenerateAddressContent(Address)
                ElseIf Code IsNot Nothing AndAlso (Code.Contains("LODSB") OrElse Code.Contains("LODSW")) Then
-                  Address = AddressFromOperand("[DS:SI]") + (If(CBool(CPU.Registers(CPU8086Class.FlagRegistersE.DF)), 1, -1))
+                  Address = AddressFromOperand("[DS:SI]") + (If(CBool(CPU.Registers(FlagRegistersE.DF)), 1, -1))
                   GenerateAddressContent(Address)
                ElseIf Code IsNot Nothing AndAlso {"SCASB", "SCASW", "STOSB", "STOSW"}.Any(Function(OpcodeText As String) Code.Contains(OpcodeText)) Then
-                  Address = AddressFromOperand("[ES:DI]") + (If(CBool(CPU.Registers(CPU8086Class.FlagRegistersE.DF)), 1, -1))
+                  Address = AddressFromOperand("[ES:DI]") + (If(CBool(CPU.Registers(FlagRegistersE.DF)), 1, -1))
                   GenerateAddressContent(Address)
                ElseIf Code IsNot Nothing AndAlso {"CMPSB", "CMPSW", "MOVSB", "MOVSW"}.Any(Function(OpcodeText As String) Code.Contains(OpcodeText)) Then
-                  Address = AddressFromOperand("[DS:SI]") + (If(CBool(CPU.Registers(CPU8086Class.FlagRegistersE.DF)), 1, -1))
+                  Address = AddressFromOperand("[DS:SI]") + (If(CBool(CPU.Registers(FlagRegistersE.DF)), 1, -1))
                   GenerateAddressContent(Address, AddNewLine:=False)
 
-                  Address = AddressFromOperand("[ES:DI]") + (If(CBool(CPU.Registers(CPU8086Class.FlagRegistersE.DF)), 1, -1))
+                  Address = AddressFromOperand("[ES:DI]") + (If(CBool(CPU.Registers(FlagRegistersE.DF)), 1, -1))
                   GenerateAddressContent(Address)
                Else
                   CPU_EVENT.Append($"{NewLine}")
                End If
             Else
-               Opcode = DirectCast(CPU.Memory(FlatCSIP), CPU8086Class.OpcodesE)
+               Opcode = DirectCast(CPU.Memory(FlatCSIP), OpcodesE)
 
                Select Case Opcode
-                  Case CPU8086Class.OpcodesE.REPNE, CPU8086Class.OpcodesE.REPZ
+                  Case OpcodesE.REPNE, OpcodesE.REPZ
                      Code = Disassemble(CPU.Memory, FlatCSIP, Count:=&H2%)
                   Case Else
                      Code = Disassemble(CPU.Memory, FlatCSIP, Count:=&H1%)
@@ -361,7 +361,7 @@ Public Module CoreModule
          If Address Is Nothing Then
             CPU_EVENT.Append($"{MEMORY_OPERAND_START}0x???{MEMORY_OPERAND_END} = ???{NewLine}")
          Else
-            Address = Address And CPU8086Class.ADDRESS_MASK
+            Address = Address And ADDRESS_MASK
             CPU_EVENT.Append($"{MEMORY_OPERAND_START}0x{Address:X8}{MEMORY_OPERAND_END} = {GET_MEMORY_VALUE(CInt(Address))}")
          End If
 
@@ -411,7 +411,7 @@ Public Module CoreModule
          If Offset + Count >= CPU.Memory.Length Then Count = CPU.Memory.Length - Offset
 
          With Dump
-            If Offset > CPU8086Class.ADDRESS_MASK Then
+            If Offset > ADDRESS_MASK Then
                .Append($"Address is out of range.{NewLine}{NewLine}")
             Else
                If AllHexadecimal Then
@@ -436,21 +436,21 @@ Public Module CoreModule
       Try
          Is8Bit = True
 
-         For Each Register As CPU8086Class.FlagRegistersE In [Enum].GetValues(GetType(CPU8086Class.FlagRegistersE))
+         For Each Register As FlagRegistersE In [Enum].GetValues(GetType(FlagRegistersE))
             If Register.ToString() = Name Then Return Register
          Next Register
 
-         For Each Register As CPU8086Class.SubRegisters8BitE In [Enum].GetValues(GetType(CPU8086Class.SubRegisters8BitE))
+         For Each Register As SubRegisters8BitE In [Enum].GetValues(GetType(SubRegisters8BitE))
             If Register.ToString() = Name Then Return Register
          Next Register
 
          Is8Bit = False
 
-         For Each Register As CPU8086Class.Registers16BitE In [Enum].GetValues(GetType(CPU8086Class.Registers16BitE))
+         For Each Register As Registers16BitE In [Enum].GetValues(GetType(Registers16BitE))
             If Register.ToString() = Name Then Return Register
          Next Register
 
-         For Each Register As CPU8086Class.SegmentRegistersE In [Enum].GetValues(GetType(CPU8086Class.SegmentRegistersE))
+         For Each Register As SegmentRegistersE In [Enum].GetValues(GetType(SegmentRegistersE))
             If Register.ToString() = Name Then Return Register
          Next Register
       Catch ExceptionO As Exception
@@ -466,17 +466,17 @@ Public Module CoreModule
          Dim Values As New StringBuilder
 
          With Values
-            For Each Register As CPU8086Class.Registers16BitE In [Enum].GetValues(GetType(CPU8086Class.Registers16BitE))
+            For Each Register As Registers16BitE In [Enum].GetValues(GetType(Registers16BitE))
                .Append($"{Register} = {CInt(CPU.Registers(Register)):X4} ")
             Next Register
             .Append(NewLine)
 
-            For Each Register As CPU8086Class.SegmentRegistersE In [Enum].GetValues(GetType(CPU8086Class.SegmentRegistersE))
+            For Each Register As SegmentRegistersE In [Enum].GetValues(GetType(SegmentRegistersE))
                .Append($"{Register} = {CInt(CPU.Registers(Register)):X4} ")
             Next Register
             .Append(NewLine)
 
-            For Each Flag As CPU8086Class.FlagRegistersE In [Enum].GetValues(GetType(CPU8086Class.FlagRegistersE))
+            For Each Flag As FlagRegistersE In [Enum].GetValues(GetType(FlagRegistersE))
                If Flag >= &H0% AndAlso Flag <= &HF% Then .Append($"{Flag} = {Abs(CInt(CPU.Registers(Flag)))} ")
             Next Flag
 
@@ -492,11 +492,11 @@ Public Module CoreModule
    'This procedure returns the emulated CPU's stack contents.
    Private Function GetStack() As String
       Try
-         Dim SS As Integer = CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.SS))
+         Dim SS As Integer = CInt(CPU.Registers(SegmentRegistersE.SS))
          Dim Stack As New StringBuilder
 
          With Stack
-            For Offset As Integer = CInt(CPU.Registers(CPU8086Class.Registers16BitE.BP)) To CInt(CPU.Registers(CPU8086Class.Registers16BitE.SP)) + &H2% Step &H2%
+            For Offset As Integer = CInt(CPU.Registers(Registers16BitE.BP)) To CInt(CPU.Registers(Registers16BitE.SP)) + &H2% Step &H2%
                Stack.Append($"{CPU.GET_WORD((SS << &H4%) + Offset):X4}{NewLine}")
             Next Offset
 
@@ -515,7 +515,7 @@ Public Module CoreModule
          Dim StringV As New StringBuilder
 
          For Position As Integer = &H0% To Length - &H1%
-            StringV.Append(ToChar(CPU.Memory((((Segment << &H4%) + Offset) + Position) And CPU8086Class.ADDRESS_MASK)))
+            StringV.Append(ToChar(CPU.Memory((((Segment << &H4%) + Offset) + Position) And ADDRESS_MASK)))
          Next Position
 
          Return StringV.ToString()
@@ -532,8 +532,8 @@ Public Module CoreModule
          Dim Position As Integer = (Segment << &H4%) + Offset
          Dim StringZ As New StringBuilder
 
-         Do Until CPU.Memory(Position And CPU8086Class.ADDRESS_MASK) = &H0%
-            StringZ.Append(ToChar(CPU.Memory(Position And CPU8086Class.ADDRESS_MASK)))
+         Do Until CPU.Memory(Position And ADDRESS_MASK) = &H0%
+            StringZ.Append(ToChar(CPU.Memory(Position And ADDRESS_MASK)))
             Position += &H1%
          Loop
 
@@ -651,11 +651,11 @@ Public Module CoreModule
                         End If
                         Output.AppendText(NewLine)
                      Case "ECXZ"
-                        Do Until CInt(CPU.Registers(CPU8086Class.Registers16BitE.CX)) = &H0%
+                        Do Until CInt(CPU.Registers(Registers16BitE.CX)) = &H0%
                            Application.DoEvents()
 
                            If Not CPU.ExecuteOpcode() Then
-                              CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Vector:=CPU8086Class.INVALID_OPCODE)
+                              CPU.ExecuteInterrupt(OpcodesE.INT, Vector:=INVALID_OPCODE)
                            End If
                         Loop
 
@@ -689,10 +689,10 @@ Public Module CoreModule
                            If AH Is Nothing Then
                               Output.AppendText($"Invalid function number.{NewLine}")
                            Else
-                              CPU.Registers(CPU8086Class.SubRegisters8BitE.AH, NewValue:=AH)
+                              CPU.Registers(SubRegisters8BitE.AH, NewValue:=AH)
 
                               If CPU.Clock.Status = TaskStatus.Running Then
-                                 CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Interrupt)
+                                 CPU.ExecuteInterrupt(OpcodesE.INT, Interrupt)
                               Else
                                  CPU_Interrupt(CInt(Interrupt), CInt(AH))
                               End If
@@ -712,13 +712,13 @@ Public Module CoreModule
                            End Select
                         End If
                      Case "IRET"
-                        CPU.ExecuteOpcode(CPU8086Class.OpcodesE.IRET)
+                        CPU.ExecuteOpcode(OpcodesE.IRET)
                      Case "L"
-                        Address = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.DS)) << &H4%) + (CInt(CPU.Registers(CPU8086Class.Registers16BitE.DI))) And CPU8086Class.ADDRESS_MASK
+                        Address = (CInt(CPU.Registers(SegmentRegistersE.DS)) << &H4%) + (CInt(CPU.Registers(Registers16BitE.DI))) And ADDRESS_MASK
                         FileName = If(Operands Is Nothing, RequestFileName("Load binary."), Operands)
                         If Not FileName = Nothing Then Success = LoadBinary(FileName, CInt(Address))
                      Case "LOADFIX"
-                        CPU.Registers(CPU8086Class.SegmentRegistersE.CS, NewValue:=LOADFIX_ADDRESS)
+                        CPU.Registers(SegmentRegistersE.CS, NewValue:=LOADFIX_ADDRESS)
                      Case "M", "MD", "MT"
                         Parsed.Remainder = Input
 
@@ -730,7 +730,7 @@ Public Module CoreModule
 
                         If Address Is Nothing Then
                            Output.AppendText($"Invalid or no address specified. CS:IP used instead.{NewLine}")
-                           Address = (CInt(CPU.Registers(CPU8086Class.SegmentRegistersE.CS)) << &H4%) + CInt(CPU.Registers(CPU8086Class.Registers16BitE.IP)) And CPU8086Class.ADDRESS_MASK
+                           Address = (CInt(CPU.Registers(SegmentRegistersE.CS)) << &H4%) + CInt(CPU.Registers(Registers16BitE.IP)) And ADDRESS_MASK
                         End If
 
                         Output.AppendText(If(Input.ToUpper().StartsWith("MD"), Disassemble(CPU.Memory, CInt(Address), Count), GetMemoryDump(AllHexadecimal:=Not Input.ToUpper().StartsWith("MT"), CInt(Address), Count)))
@@ -743,8 +743,8 @@ Public Module CoreModule
                            Output.AppendText($"Invalid or no address specified. CS:IP used instead.{NewLine}")
                            Address = CPU.GET_FLAT_CS_IP()
                         Else
-                           CPU.Registers(CPU8086Class.SegmentRegistersE.CS, NewValue:=(Address >> &H4%))
-                           CPU.Registers(CPU8086Class.Registers16BitE.IP, NewValue:=Address - (Address And &HFFF0%))
+                           CPU.Registers(SegmentRegistersE.CS, NewValue:=(Address >> &H4%))
+                           CPU.Registers(Registers16BitE.IP, NewValue:=Address - (Address And &HFFF0%))
                         End If
 
                         Assemble(, StartAddress:=Address)
@@ -808,19 +808,20 @@ Public Module CoreModule
                         End If
                      Case "SCR"
                         If Operands Is Nothing Then
-                           If ScreenWindow.Visible Then
-                              ScreenWindow.Close()
-                           Else
-                              ScreenWindow.Show()
-                           End If
+                           Output.AppendText($"SCR = {If(ScreenWindow.Visible, "ON", "OFF")}.{NewLine}")
                         Else
-                           If Operands = "+" Then
-                              If ScreenWindow.Visible Then ScreenWindow.WindowState = FormWindowState.Normal
-                           ElseIf Operands = "-" Then
-                              If ScreenWindow.Visible Then ScreenWindow.WindowState = FormWindowState.Minimized
-                           Else
-                              Output.AppendText($"Invalid operand.{NewLine}")
-                           End If
+                           Select Case Operands.Trim().ToUpper()
+                              Case "+"
+                                 If ScreenWindow.Visible Then ScreenWindow.WindowState = FormWindowState.Normal
+                              Case "-"
+                                 If ScreenWindow.Visible Then ScreenWindow.WindowState = FormWindowState.Minimized
+                              Case "OFF"
+                                 ScreenWindow.Close()
+                              Case "ON"
+                                 ScreenWindow.Show()
+                              Case Else
+                                 Output.AppendText($"Invalid operand.{NewLine}")
+                           End Select
                         End If
                      Case "ST"
                         Output.AppendText(GetStack())
@@ -828,7 +829,7 @@ Public Module CoreModule
                         CPU_Trace()
 
                         If Not CPU.ExecuteOpcode() Then
-                           CPU.ExecuteInterrupt(CPU8086Class.OpcodesE.INT, Vector:=CPU8086Class.INVALID_OPCODE)
+                           CPU.ExecuteInterrupt(OpcodesE.INT, Vector:=INVALID_OPCODE)
                         End If
 
                         CPU_Trace()
@@ -992,10 +993,20 @@ Public Module CoreModule
          Dim PreviousPath As String = Directory.GetCurrentDirectory()
          Dim ResetPath As Boolean = True
          Dim Script As New List(Of String)(File.ReadAllLines(FileName))
+         Dim ScriptLine As Integer = -1
 
-         If Script.First().Trim().ToUpper() = SCRIPT_HEADER Then
+         For Line As Integer = 0 To Script.Count - 1
+            If Not Script(Line).Trim().StartsWith(SCRIPT_COMMENT) Then
+               If (Script(Line).Trim().ToUpper() = SCRIPT_HEADER) Then
+                  ScriptLine = Line
+               End If
+               Exit For
+            End If
+         Next Line
+
+         If ScriptLine >= 0 Then
             Output.AppendText($"Running script ""{FileName}"".{NewLine}")
-            Script.RemoveAt(0)
+            Script.RemoveAt(ScriptLine)
             Directory.SetCurrentDirectory(Path.GetDirectoryName(FileName))
             For Each Line As String In Script
                If AssemblyModeOn Then

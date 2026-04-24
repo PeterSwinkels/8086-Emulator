@@ -96,6 +96,8 @@ Public Module IOHandlerModule
                Value = If(MCC.IsMDA, MCC.SelectedRegister, &HFF%)
             Case IOPortsE.MDAStatus
                Value = If(MCC.IsMDA, MCC.MDAStatus(), &HFF%)
+            Case IOPortsE.CGAStatus
+               Value = If(MCC.IsMDA, &HFF%, MCC.CGAStatus())
             Case IOPortsE.CGA3D0 To IOPortsE.CGAPresetLightPenLatch
                Value = &HFF%
             Case IOPortsE.Joystick, IOPortsE.Reserved1 To IOPortsE.Reserved2, IOPortsE.Reserved3 To IOPortsE.Reserved4, IOPortsE.Reserved5 To IOPortsE.Reserved6, IOPortsE.Reserved7, IOPortsE.Reserved8 To IOPortsE.Reserved9, IOPortsE.Reserved10 To IOPortsE.Reserved11, IOPortsE.Reserved12 To IOPortsE.Reserved13, IOPortsE.Reserved14 To IOPortsE.Reserved15, IOPortsE.Reserved16 To IOPortsE.Reserved17, IOPortsE.Reserved18 To IOPortsE.Reserved19

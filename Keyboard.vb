@@ -13,23 +13,38 @@ Imports System.Windows.Forms
 'This module contains the keyboard related procedures.
 Public Module KeyboardModule
    'The Microsoft Windows API constants and functions used by this module.
+   Private Const VK_CAPITAL As Integer = &H14%
+   Private Const VK_INSERT As Integer = &H2D%
+   Private Const VK_LCONTROL As Integer = &HA2%
+   Private Const VK_LMENU As Integer = &HA4%
    Private Const VK_LSHIFT As Integer = &HA0%
+   Private Const VK_MENU As Integer = &H12%
+   Private Const VK_NUMLOCK As Integer = &H90%
    Private Const VK_RSHIFT As Integer = &HA1%
+   Private Const VK_SCROLL As Integer = &H91%
 
    <DllImport("User32.dll", CharSet:=CharSet.Unicode, SetLastError:=True)>
-   Private Function GetKeyState(ByVal nVirtKey As Integer) As Short
+   Private Function GetAsyncKeyState(ByVal nVirtKey As Integer) As Short
    End Function
 
    'This enumeration defines the keyboard flags.
    Private Enum KeyboardFlagsE As Integer
-      RightShift = &H1%    'Indicates whether or not the right shift key is pressed.
-      LeftShift = &H2%     'Indicates whether or not the left shift key is pressed.
-      CTRL = &H4%          'Indicates whether or not the CTRL key is pressed.
-      ALT = &H8%           'Indicates whether or not the ALT key is pressed.
-      ScrollLock = &H10%   'Indicates whether or not scroll-lock is active.
-      NumLock = &H20%      'Indicates whether or not num-lock is active.
-      CapsLock = &H40%     'Indicates whether or not caps-lock is active.
-      Insert = &H80%       'Indicates whether or not insert is active.
+      RightShift = &H1%      'Indicates whether or not the right shift key is pressed.
+      LeftShift = &H2%       'Indicates whether or not the left shift key is pressed.
+      CTRL = &H4%            'Indicates whether or not the CTRL key is pressed.
+      ALT = &H8%             'Indicates whether or not the ALT key is pressed.
+      ScrollLockOn = &H10%   'Indicates whether or not scroll-lock is active.
+      NumLockOn = &H20%      'Indicates whether or not num-lock is active.
+      CapsLockOn = &H40%     'Indicates whether or not caps-lock is active.
+      InsertOn = &H80%       'Indicates whether or not insert is active.
+      LeftCTRL = &H100%      'Indicates whether or not the left CTRL key is pressed.
+      LeftALT = &H200%       'Indicates whether or not the left ALT key is pressed.
+      SystemKey = &H400%     'Indicates whether or not the system key is being pressed.
+      SuspendKey = &H800%    'Unused.
+      ScrollLock = &H1000%   'Indicates whether or not the scroll-lock key is pressed.
+      NumLock = &H2000%      'Indicates whether or not the num-lock key is pressed.
+      CapsLock = &H4000%     'Indicates whether or not the caps-lock key is pressed.
+      Insert = &H8000%       'Indicates whether or not the insert key is pressed.
    End Enum
 
    Private Const ASCII_0 As Integer = 48                                        'Defines the ASCII code for the zero ("0") character.
@@ -235,16 +250,23 @@ Public Module KeyboardModule
          Dim Flags As Integer = Nothing
 
          With My.Computer.Keyboard
-            If .CapsLock Then Flags = Flags Or KeyboardFlagsE.CapsLock
-            If .NumLock Then Flags = Flags Or KeyboardFlagsE.NumLock
-            If .ScrollLock Then Flags = Flags Or KeyboardFlagsE.ScrollLock
+            If .CapsLock Then Flags = Flags Or KeyboardFlagsE.CapsLockOn
+            If .NumLock Then Flags = Flags Or KeyboardFlagsE.NumLockOn
+            If .ScrollLock Then Flags = Flags Or KeyboardFlagsE.ScrollLockOn
             If VirtualKeyIsDown(VK_RSHIFT) Then Flags = Flags Or KeyboardFlagsE.RightShift
             If VirtualKeyIsDown(VK_LSHIFT) Then Flags = Flags Or KeyboardFlagsE.LeftShift
             If .CtrlKeyDown Then Flags = Flags Or KeyboardFlagsE.CTRL
             If .AltKeyDown Then Flags = Flags Or KeyboardFlagsE.ALT
+            If Not (GetAsyncKeyState(VK_LCONTROL) And &H8000%) = &H0% Then Flags = Flags Or KeyboardFlagsE.LeftCTRL
+            If Not (GetAsyncKeyState(VK_LMENU) And &H8000%) = &H0% Then Flags = Flags Or KeyboardFlagsE.LeftALT
+            If (GetAsyncKeyState(VK_MENU) And &H8000%) <> 0 Then Flags = Flags Or KeyboardFlagsE.SystemKey
+            If Not (GetAsyncKeyState(VK_SCROLL) And &H8000%) = &H0% Then Flags = Flags Or KeyboardFlagsE.ScrollLock
+            If Not (GetAsyncKeyState(VK_NUMLOCK) And &H8000%) = &H0% Then Flags = Flags Or KeyboardFlagsE.NumLock
+            If Not (GetAsyncKeyState(VK_CAPITAL) And &H8000%) = &H0% Then Flags = Flags Or KeyboardFlagsE.CapsLock
+            If Not (GetAsyncKeyState(VK_INSERT) And &H8000%) = &H0% Then Flags = Flags Or KeyboardFlagsE.Insert
          End With
 
-         If InsertActive Then Flags = Flags Or KeyboardFlagsE.Insert
+         If InsertActive Then Flags = Flags Or KeyboardFlagsE.InsertOn
 
          Return Flags
       Catch ExceptionO As Exception
@@ -314,7 +336,7 @@ Public Module KeyboardModule
    'This procedure indicates whether or not the specified virtual key is down.
    Private Function VirtualKeyIsDown(VirtualKey As Integer) As Boolean
       Try
-         Return CBool(GetKeyState(VirtualKey) And &H80%)
+         Return CBool(GetAsyncKeyState(VirtualKey) And &H80%)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

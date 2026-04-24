@@ -222,6 +222,11 @@ Public Class MCCClass
       Return Success
    End Function
 
+   'This procedure returns the color graphics display adapter status port's current value.
+   Public Function CGAStatus() As Byte
+      Return CByte(If(CYCLE_CLOCK.ElapsedMilliseconds Mod FRAME_DURATION >= (FRAME_DURATION - RETRACE_DURATION), &H8%, &H1%))
+   End Function
+
    'This procedure returns the number of video pages for the current video mode.
    Public Function VideoPageCount() As Byte
       Dim Count As Byte = Nothing

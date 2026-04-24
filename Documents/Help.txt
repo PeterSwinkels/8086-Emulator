@@ -37,7 +37,7 @@ R                             Display all registers and their values.
 RESET                         Resets the CPU.
 S                             Causes the emulated CPU to stop executing code.
 SCO                           Save the console output to a file.
-SCR [+/-]                     Turns the screen output/keyboard input window on or off.
+SCR [off|on+|-]               Turns the screen output/keyboard input window on or off.
                               The "+" and "-" options restore or minimize the window if it is visible.
 ST                            Displays all word values from SS:SP to SS:BP.
 T                             Executes and displays a single instruction.

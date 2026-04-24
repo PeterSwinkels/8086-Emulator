@@ -4,6 +4,7 @@ Option Explicit On
 Option Infer Off
 Option Strict On
 
+Imports Emulator8086Program.CPU8086Class
 Imports System
 Imports System.Convert
 Imports System.Drawing
@@ -121,7 +122,7 @@ Public Class Text80x25ColorClass
 
    'This procedure scrolls the video adapter's buffer.
    Public Sub ScrollBuffer(Up As Boolean, ScrollArea As VideoAdapterClass.ScreenAreaStr, Count As Integer) Implements VideoAdapterClass.ScrollBuffer
-      Dim Attribute As Integer = CByte(CPU.Registers(CPU8086Class.SubRegisters8BitE.BH))
+      Dim Attribute As Integer = CByte(CPU.Registers(SubRegisters8BitE.BH))
       Dim CharacterCell As New Integer
       Dim Position As New Integer
       Dim VideoPageAddress As Integer = AddressesE.Text80x25ColorPage0
