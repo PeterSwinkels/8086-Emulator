@@ -150,15 +150,21 @@ Public Module BIOSModule
       Try
          Dim ScrollArea As New VideoAdapterClass.ScreenAreaStr With {.ULCColumn = &H0%, .ULCRow = &H0%, .LRCColumn = MCC.ColumnCount() - &H1%, .LRCRow = MCC.RowCount()}
          Dim ScrollAttribute As New Byte
-         Dim VideoPage As Integer = CInt(CPU.Registers(SubRegisters8BitE.BH))
+         Dim VideoPage As Integer = CPU.Registers(SubRegisters8BitE.BH)
          Dim VideoPageAddress As New Integer
 
          CursorPositionUpdate()
 
          Select Case CurrentVideoMode
-            Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B
-               VideoPageAddress = AddressesE.CGA320x200
-               Attribute = CInt(CPU.Registers(SubRegisters8BitE.BL))
+            Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B, VideoModesE.VGA320x200
+               Select Case CurrentVideoMode
+                  Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B
+                     VideoPageAddress = AddressesE.CGA320x200
+                  Case VideoModesE.VGA320x200
+                     VideoPageAddress = AddressesE.VGA320x200
+               End Select
+
+               Attribute = CPU.Registers(SubRegisters8BitE.BL)
 
                Select Case DirectCast(Character, TeletypeE)
                   Case TeletypeE.BEL
@@ -286,19 +292,19 @@ Public Module BIOSModule
 
    'This procedure writes a string to the screen.
    Public Sub WriteString()
-      Dim AL As Integer = CInt(CPU.Registers(SubRegisters8BitE.AL)) And &H3%
+      Dim AL As Integer = CPU.Registers(SubRegisters8BitE.AL) And &H3%
       Dim Attribute As New Byte
       Dim Character As New Byte
       Dim Column As Byte = CByte(CPU.Registers(SubRegisters8BitE.DL))
-      Dim Count As Integer = CInt(CPU.Registers(Registers16BitE.CX))
+      Dim Count As Integer = CPU.Registers(Registers16BitE.CX)
       Dim HasAttributes As Boolean = ((AL = &H2% OrElse AL = &H3%))
       Dim MoveCursor As Boolean = ((AL = &H1% OrElse AL = &H3%))
-      Dim Offset As Integer = CInt(CPU.Registers(Registers16BitE.BP))
+      Dim Offset As Integer = CPU.Registers(Registers16BitE.BP)
       Dim PreviousColumn As New Byte
       Dim PreviousRow As New Byte
       Dim Row As Byte = CByte(CPU.Registers(SubRegisters8BitE.DH))
-      Dim Segment As Integer = CInt(CPU.Registers(SegmentRegistersE.ES))
-      Dim VideoPage As Integer = CInt(CPU.Registers(SubRegisters8BitE.BH))
+      Dim Segment As Integer = CPU.Registers(SegmentRegistersE.ES)
+      Dim VideoPage As Integer = CPU.Registers(SubRegisters8BitE.BH)
 
       If Not HasAttributes Then
          Attribute = CByte(CPU.Registers(SubRegisters8BitE.BL))

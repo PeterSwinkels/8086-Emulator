@@ -1709,9 +1709,9 @@ Public Class CPU8086Class
    End Sub
 
    'This procedure sets and/or returns the specified register's value.
-   Public Function Registers(Register As Object, Optional NewValue As Object = Nothing) As Object
+   Public Function Registers(Register As Object, Optional NewValue As Object = Nothing) As Integer
       Dim Index As New Integer
-      Dim Value As New Object
+      Dim Value As New Integer
       Static FlagsRegister As Integer = &H0%
       Static Registers16Bit(Registers16BitE.AX To Registers16BitE.IP) As Integer
       Static SegmentRegisters(SegmentRegistersE.ES To SegmentRegistersE.DS) As Integer
@@ -1734,7 +1734,7 @@ Public Class CPU8086Class
 
             FlagsRegister = FlagsRegister Or (&H1% << DirectCast(FlagRegistersE.F1, Integer))
 
-            Value = CBool(FlagsRegister And (&H1% << Index))
+            Value = CInt(CBool(FlagsRegister And (&H1% << Index)))
          End If
       ElseIf TypeOf Register Is Registers16BitE Then
          Index = DirectCast(Register, Integer)

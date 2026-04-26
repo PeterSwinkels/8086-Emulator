@@ -11,7 +11,7 @@ Imports System.Runtime.InteropServices
 'This class contains the PC-Speaker.
 Public Class PCSpeakerClass
    Private Const PIT_CLOCK As Double = 1193182.0   'Defines the PIT's frequency.
-   Private Const VOLUME As Short = &H2000S         'Defines the tone's frequency.
+   Private Const VOLUME As Short = 200S '' &H2000S         'Defines the tone's frequency.
 
    Public Enabled As Boolean = False                             'Indicates whether or not the pc-speaker is enabled.
    Private AudioCallbackDelegate As SDL_AudioCallback = Nothing   'Contains the delegate used to play tones.

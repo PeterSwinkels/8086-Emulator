@@ -27,18 +27,20 @@ Public Module CoreModule
       Public Remainder As String   'Defines the command's remainder yet to be parsed.
    End Structure
 
-   Private Const ASSIGNMENT_OPERATOR As Char = "="c              'Defines the assignment operator for operands.
-   Private Const CHARACTER_OPERAND_DELIMITER As Char = "'"c      'Defines a character operand's delimiter.
-   Private Const DEFAULT_DISASSEMBLY_COUNT As Integer = &H10%    'Defines the default number of bytes disassembled.
-   Private Const DEFAULT_MEMORY_DUMP_COUNT As Integer = &H100%   'Defines the default memory size.
-   Private Const ESCAPE_CHARACTER As Byte = &H2F%                'Defines the escape character used in output.
-   Private Const MEMORY_OPERAND_END As Char = "]"c               'Defines a memory operand's first character.
-   Private Const MEMORY_OPERAND_START As Char = "["c             'Defines a memory operand's last character.
-   Private Const SCRIPT_COMMENT As Char = "#"c                   'Defines a script comment.
-   Private Const SCRIPT_HEADER As String = "[SCRIPT]"            'Defines the script file header.
-   Private Const STRING_OPERAND_DELIMITER As Char = """"c        'Defines a string operand's delimiter.
-   Private Const VALUES_OPERAND_END As Char = "}"c               'Defines a values operand's end.
-   Private Const VALUES_OPERAND_START As Char = "{"c             'Defines a values operand's start.
+   Private Const ASSIGNMENT_OPERATOR As Char = "="c                                    'Defines the assignment operator for operands.
+   Private Const CHARACTER_OPERAND_DELIMITER As Char = "'"c                            'Defines a character operand's delimiter.
+   Private Const DEFAULT_DISASSEMBLY_COUNT As Integer = &H10%                          'Defines the default number of bytes disassembled.
+   Private Const DEFAULT_MEMORY_DUMP_COUNT As Integer = &H100%                         'Defines the default memory size.
+   Private Const ESCAPE_CHARACTER As Byte = &H2F%                                      'Defines the escape character used in output.
+   Private Const EXECUTABLE_FILTER As String = "Executable (*.com;*.exe)|*.com;*.exe"  'Defines the file dialog filter for executable files.
+   Private Const MEMORY_OPERAND_END As Char = "]"c                                     'Defines a memory operand's first character.
+   Private Const MEMORY_OPERAND_START As Char = "["c                                   'Defines a memory operand's last character.
+   Private Const SCRIPT_COMMENT As Char = "#"c                                         'Defines a script comment.
+   Private Const SCRIPT_FILTER As String = "Scripts (*.txt)|*.txt"                     'Defines the file dialog filter for script files.
+   Private Const SCRIPT_HEADER As String = "[SCRIPT]"                                  'Defines the script file header.
+   Private Const STRING_OPERAND_DELIMITER As Char = """"c                              'Defines a string operand's delimiter.
+   Private Const VALUES_OPERAND_END As Char = "}"c                                     'Defines a values operand's end.
+   Private Const VALUES_OPERAND_START As Char = "{"c                                   'Defines a values operand's start.
 
    Public WithEvents CPU As New CPU8086Class                  'Contains a reference to the CPU 8086 class.
    Public WithEvents ScreenRefresh As Forms.Timer             'Contains a reference to the screen refresh timer class.
@@ -210,7 +212,7 @@ Public Module CoreModule
 
                   If Address Is Nothing AndAlso Integer.TryParse(ParseElement(Code, $"{MEMORY_OPERAND_START}{Disassembler.HEXADECIMAL_PREFIX}", MEMORY_OPERAND_END).Element, NumberStyles.HexNumber, CultureInfo.InvariantCulture, ParsedAddress) Then
                      Override = CPU.SegmentOverride(, Preserve:=True)
-                     Address = (CInt(CPU.Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override))) << &H4%) + ParsedAddress
+                     Address = (CPU.Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + ParsedAddress
                   End If
 
                   GenerateAddressContent(Address)
@@ -390,7 +392,7 @@ Public Module CoreModule
                Literal = Buffer
             Else
                Register = GetRegisterByName(Element.Trim().ToUpper())
-               If Register IsNot Nothing Then Literal = CInt(CPU.Registers(Register))
+               If Register IsNot Nothing Then Literal = CPU.Registers(Register)
             End If
          End If
 
@@ -467,17 +469,17 @@ Public Module CoreModule
 
          With Values
             For Each Register As Registers16BitE In [Enum].GetValues(GetType(Registers16BitE))
-               .Append($"{Register} = {CInt(CPU.Registers(Register)):X4} ")
+               .Append($"{Register} = {CPU.Registers(Register):X4} ")
             Next Register
             .Append(NewLine)
 
             For Each Register As SegmentRegistersE In [Enum].GetValues(GetType(SegmentRegistersE))
-               .Append($"{Register} = {CInt(CPU.Registers(Register)):X4} ")
+               .Append($"{Register} = {CPU.Registers(Register):X4} ")
             Next Register
             .Append(NewLine)
 
             For Each Flag As FlagRegistersE In [Enum].GetValues(GetType(FlagRegistersE))
-               If Flag >= &H0% AndAlso Flag <= &HF% Then .Append($"{Flag} = {Abs(CInt(CPU.Registers(Flag)))} ")
+               If Flag >= &H0% AndAlso Flag <= &HF% Then .Append($"{Flag} = {Abs(CPU.Registers(Flag))} ")
             Next Flag
 
             Return .ToString()
@@ -492,11 +494,11 @@ Public Module CoreModule
    'This procedure returns the emulated CPU's stack contents.
    Private Function GetStack() As String
       Try
-         Dim SS As Integer = CInt(CPU.Registers(SegmentRegistersE.SS))
+         Dim SS As Integer = CPU.Registers(SegmentRegistersE.SS)
          Dim Stack As New StringBuilder
 
          With Stack
-            For Offset As Integer = CInt(CPU.Registers(Registers16BitE.BP)) To CInt(CPU.Registers(Registers16BitE.SP)) + &H2% Step &H2%
+            For Offset As Integer = CPU.Registers(Registers16BitE.BP) To CPU.Registers(Registers16BitE.SP) + &H2% Step &H2%
                Stack.Append($"{CPU.GET_WORD((SS << &H4%) + Offset):X4}{NewLine}")
             Next Offset
 
@@ -615,14 +617,14 @@ Public Module CoreModule
                End If
 
                If Register IsNot Nothing Then
-                  Output.AppendText($"{Register} = {If(Is8Bit, $"{CInt(CPU.Registers(Register)):X2}", $"{CInt(CPU.Registers(Register)):X4}") }{NewLine}")
+                  Output.AppendText($"{Register} = {If(Is8Bit, $"{CPU.Registers(Register):X2}", $"{CPU.Registers(Register):X4}") }{NewLine}")
                ElseIf IS_MEMORY_OPERAND(Input) Then
                   Address = AddressFromOperand(Input)
                   Output.AppendText(If(Address Is Nothing, $"Invalid address.{NewLine}", GET_MEMORY_VALUE(CInt(Address))))
                Else
                   Select Case Command
                      Case "$"
-                        FileName = If(Operands Is Nothing, RequestFileName("Run script."), Operands)
+                        FileName = If(Operands Is Nothing, RequestFileName("Run script.",, SCRIPT_FILTER), Operands)
                         If Not FileName = Nothing Then RunCommandScript(FileName)
                      Case "?"
                         Output.AppendText($"{My.Resources.Help}{NewLine}")
@@ -651,7 +653,7 @@ Public Module CoreModule
                         End If
                         Output.AppendText(NewLine)
                      Case "ECXZ"
-                        Do Until CInt(CPU.Registers(Registers16BitE.CX)) = &H0%
+                        Do Until CPU.Registers(Registers16BitE.CX) = &H0%
                            Application.DoEvents()
 
                            If Not CPU.ExecuteOpcode() Then
@@ -661,7 +663,7 @@ Public Module CoreModule
 
                         Output.AppendText($"CX = 0{NewLine}")
                      Case "EXE"
-                        FileName = If(Operands Is Nothing, RequestFileName("Load Executable."), Operands)
+                        FileName = If(Operands Is Nothing, RequestFileName("Load Executable.",, EXECUTABLE_FILTER, UseCurrentDiretory:=True), Operands)
                         If Not FileName = Nothing Then Success = LoadMSDOSProgram(FileName)
                      Case "HLT"
                         If Operands Is Nothing Then
@@ -714,7 +716,7 @@ Public Module CoreModule
                      Case "IRET"
                         CPU.ExecuteOpcode(OpcodesE.IRET)
                      Case "L"
-                        Address = (CInt(CPU.Registers(SegmentRegistersE.DS)) << &H4%) + (CInt(CPU.Registers(Registers16BitE.DI))) And ADDRESS_MASK
+                        Address = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + (CPU.Registers(Registers16BitE.DI)) And ADDRESS_MASK
                         FileName = If(Operands Is Nothing, RequestFileName("Load binary."), Operands)
                         If Not FileName = Nothing Then Success = LoadBinary(FileName, CInt(Address))
                      Case "LOADFIX"
@@ -730,7 +732,7 @@ Public Module CoreModule
 
                         If Address Is Nothing Then
                            Output.AppendText($"Invalid or no address specified. CS:IP used instead.{NewLine}")
-                           Address = (CInt(CPU.Registers(SegmentRegistersE.CS)) << &H4%) + CInt(CPU.Registers(Registers16BitE.IP)) And ADDRESS_MASK
+                           Address = (CPU.Registers(SegmentRegistersE.CS) << &H4%) + CPU.Registers(Registers16BitE.IP) And ADDRESS_MASK
                         End If
 
                         Output.AppendText(If(Input.ToUpper().StartsWith("MD"), Disassemble(CPU.Memory, CInt(Address), Count), GetMemoryDump(AllHexadecimal:=Not Input.ToUpper().StartsWith("MT"), CInt(Address), Count)))
@@ -969,14 +971,16 @@ Public Module CoreModule
    End Function
 
    'This procedure displays a file dialog requesting the user to specify a file and returns the user's selection.
-   Private Function RequestFileName(Title As String, Optional Save As Boolean = False) As String
+   Private Function RequestFileName(Title As String, Optional Save As Boolean = False, Optional Filter As String = Nothing, Optional UseCurrentDiretory As Boolean = False) As String
       Try
          If Save Then
-            With New SaveFileDialog With {.Title = Title}
+            With New SaveFileDialog With {.Filter = Filter, .Title = Title}
+               If UseCurrentDiretory Then .InitialDirectory = CurrentDirectory()
                If .ShowDialog() = DialogResult.OK Then Return .FileName
             End With
          Else
-            With New OpenFileDialog With {.Title = Title}
+            With New OpenFileDialog With {.Filter = Filter, .Title = Title}
+               If UseCurrentDiretory Then .InitialDirectory = CurrentDirectory()
                If .ShowDialog() = DialogResult.OK Then Return .FileName
             End With
          End If
@@ -986,6 +990,7 @@ Public Module CoreModule
 
       Return Nothing
    End Function
+
 
    'This procedure runs the commands in the specified script file.
    Public Sub RunCommandScript(FileName As String)

@@ -240,7 +240,7 @@ Public Module MSDOSModule
    'This procedure performs buffered keyboard input.
    Private Sub BufferedKeyboardInput()
       Try
-         Dim Address As Integer = (CInt(CPU.Registers(SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(Registers16BitE.DX))
+         Dim Address As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
          Dim Buffer As New List(Of Byte)
          Dim Maximum As Integer = CPU.Memory(Address)
          Dim KeyCode As New Integer
@@ -290,7 +290,7 @@ Public Module MSDOSModule
    Private Sub ChangeDirectory(ByRef Flags As Integer)
       Try
          Dim Items As New List(Of FileSystemItemStr)(If(FileSystemItems.Any, FileSystemItems, GetFileSystemItems(CurrentDirectory(), "*.*")))
-         Dim NewDirectory As String = GetStringZ(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX))).Trim({ToChar(&H0%)})
+         Dim NewDirectory As String = GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)})
 
          If NewDirectory.StartsWith(".\") Then NewDirectory = NewDirectory.Substring(2)
 
@@ -326,7 +326,7 @@ Public Module MSDOSModule
    'This procedure changes the current drive.
    Private Sub ChangeDrive()
       Try
-         Directory.SetCurrentDirectory($"{ToChar(CInt(CPU.Registers(SubRegisters8BitE.DL)) + ToByte("A"c))}:")
+         Directory.SetCurrentDirectory($"{ToChar(CPU.Registers(SubRegisters8BitE.DL) + ToByte("A"c))}:")
       Catch
       End Try
    End Sub
@@ -334,7 +334,7 @@ Public Module MSDOSModule
    'This procedure attempts to close the specified file handle and returns whether or not it succeeded.
    Private Function CloseFileHandle(ByRef Flags As Integer) As Boolean
       Try
-         Dim OpenFileToBeClosed As Tuple(Of FileStream, Integer) = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(Registers16BitE.BX)))
+         Dim OpenFileToBeClosed As Tuple(Of FileStream, Integer) = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CPU.Registers(Registers16BitE.BX))
          Dim Success As Boolean = False
 
          If OpenFileToBeClosed IsNot Nothing Then
@@ -361,7 +361,7 @@ Public Module MSDOSModule
    'This procedure creates a directory.
    Private Sub CreateDirectory(ByRef Flags As Integer)
       Try
-         Dim PathName As String = GetStringZ(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX))).Trim({ToChar(&H0%)})
+         Dim PathName As String = GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)})
 
          Try
             If INVALID_CHARACTERS.Intersect(PathName).Count > 0 OrElse PathName.Count(Function(Character) Character = "."c) > 1 Then
@@ -382,7 +382,7 @@ Public Module MSDOSModule
    'This procedure creates a file.
    Private Sub CreateFile(ByRef Flags As Integer)
       Try
-         Dim FileName As String = GetStringZ(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX))).Trim({ToChar(&H0%)})
+         Dim FileName As String = GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)})
          Dim FileStreamO As FileStream = Nothing
          Dim NextHandle As New Integer?
 
@@ -422,8 +422,8 @@ Public Module MSDOSModule
          CPU.PutWord(Address + PSP_INT_24H, CPU.GET_WORD(&H91%))
          CPU.PutWord(Address + PSP_INT_24H + &H2%, CPU.GET_WORD(&H90%))
          CPU.PutWord(Address + PSP_PARENT, Address >> &H4%)
-         CPU.PutWord(Address + PSP_SSSP, CInt(CPU.Registers(Registers16BitE.SP)))
-         CPU.PutWord(Address + PSP_SSSP + &H2%, CInt(CPU.Registers(SegmentRegistersE.SS)))
+         CPU.PutWord(Address + PSP_SSSP, CPU.Registers(Registers16BitE.SP))
+         CPU.PutWord(Address + PSP_SSSP + &H2%, CPU.Registers(SegmentRegistersE.SS))
          CPU.PutWord(Address + PSP_ENVIRONMENT_SEGMENT, ENVIRONMENT_SEGMENT)
          CPU.PutWord(Address + PSP_PREVIOUS_PSP, &HFFFF%)
          CPU.PutWord(Address + PSP_PREVIOUS_PSP + &H2%, &HFFFF%)
@@ -438,7 +438,7 @@ Public Module MSDOSModule
    'This procedure deletes a directory.
    Private Sub DeleteDirectory(ByRef Flags As Integer)
       Try
-         Dim PathName As String = GetStringZ(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX))).Trim({ToChar(&H0%)})
+         Dim PathName As String = GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)})
 
          Try
             Directory.Delete(PathName)
@@ -457,7 +457,7 @@ Public Module MSDOSModule
    Private Sub DeleteFile(ByRef Flags As Integer)
       Try
          Try
-            File.Delete(GetStringZ(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX))).Trim({ToChar(&H0%)}))
+            File.Delete(GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)}))
             Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
          Catch MSDOSException As Exception
             CPU.Registers(Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
@@ -472,11 +472,11 @@ Public Module MSDOSModule
    Private Sub ExecuteProgram(ByRef Flags As Integer)
       Try
          Dim Address As New Integer?
-         Dim FileName As String = GetStringZ(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX))).Trim({ToChar(&H0%)})
+         Dim FileName As String = GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)})
          Dim Size As Integer = &HFFFF%
 
          Try
-            Select Case CInt(CPU.Registers(SubRegisters8BitE.AL))
+            Select Case CPU.Registers(SubRegisters8BitE.AL)
                Case &H0%
                   Address = AllocateMemory(Size)
                   Size = LargestFreeMemoryBlock() >> &H4%
@@ -489,9 +489,9 @@ Public Module MSDOSModule
                      CPU.Registers(SegmentRegistersE.CS, NewValue:=CInt(Address) >> &H4%)
 
                      If LoadMSDOSProgram(FileName) Then
-                        CPU.Stack(Push:=CInt(CPU.Registers(FlagRegistersE.All)))
-                        CPU.Stack(Push:=CInt(CPU.Registers(SegmentRegistersE.CS)))
-                        CPU.Stack(Push:=CInt(CPU.Registers(Registers16BitE.IP)))
+                        CPU.Stack(Push:=CPU.Registers(FlagRegistersE.All))
+                        CPU.Stack(Push:=CPU.Registers(SegmentRegistersE.CS))
+                        CPU.Stack(Push:=CPU.Registers(Registers16BitE.IP))
 
                         Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
                      Else
@@ -512,9 +512,9 @@ Public Module MSDOSModule
    'This procedure creates a file using an FCB.
    Private Sub FCBCreateFile()
       Try
-         Dim Offset As Integer = (CInt(CPU.Registers(SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(Registers16BitE.DX))
-         Dim Extension As String = GetString(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX)) + FCBE.Extension, Length:=3).Trim()
-         Dim FileName As String = GetString(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX)) + FCBE.Filename, Length:=8).Trim()
+         Dim Offset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
+         Dim Extension As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim()
+         Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim()
          Dim FilePath As String = $"{FileName}.{Extension}"
 
          Try
@@ -542,9 +542,9 @@ Public Module MSDOSModule
    'This procedure deletes a file using an FCB.
    Private Sub FCBDeleteFile()
       Try
-         Dim Offset As Integer = (CInt(CPU.Registers(SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(Registers16BitE.DX))
-         Dim Extension As String = GetString(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX)) + FCBE.Extension, Length:=3).Trim()
-         Dim FileName As String = GetString(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX)) + FCBE.Filename, Length:=8).Trim()
+         Dim Offset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
+         Dim Extension As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim()
+         Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim()
          Dim FilePath As String = Nothing
 
          If $"{FileName}.{Extension}".Contains("*"c) OrElse $"{FileName}.{Extension}".Contains("?"c) Then
@@ -578,12 +578,12 @@ Public Module MSDOSModule
    Private Sub FCBFindFile()
       Try
          Dim Attributes As New Integer?
-         Dim Extension As String = GetString(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX)) + FCBE.Extension, Length:=3).Trim(ToChar(&H0%)).Trim()
-         Dim FileName As String = GetString(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX)) + FCBE.Filename, Length:=8).Trim(ToChar(&H0%)).Trim()
+         Dim Extension As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim(ToChar(&H0%)).Trim()
+         Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim(ToChar(&H0%)).Trim()
          Dim SearchPattern As String = $"{FileName}.{Extension}"
 
-         If CPU.Memory((CInt(CPU.Registers(SegmentRegistersE.DS)) << &H4%) + ((CInt(CPU.Registers(Registers16BitE.DX)) + FCBE.ExtendedFCBFlag) And &HFFF%)) = EXTENDED_FCB Then
-            Attributes = CPU.Memory((CInt(CPU.Registers(SegmentRegistersE.DS)) << &H4%) + ((CInt(CPU.Registers(Registers16BitE.DX)) + FCBE.Attribute) And &HFFF%))
+         If CPU.Memory((CPU.Registers(SegmentRegistersE.DS) << &H4%) + ((CPU.Registers(Registers16BitE.DX) + FCBE.ExtendedFCBFlag) And &HFFF%)) = EXTENDED_FCB Then
+            Attributes = CPU.Memory((CPU.Registers(SegmentRegistersE.DS) << &H4%) + ((CPU.Registers(Registers16BitE.DX) + FCBE.Attribute) And &HFFF%))
          End If
 
          FileSystemItems = GetFileSystemItems(CurrentDirectory(), SearchPattern, Attributes)
@@ -600,9 +600,9 @@ Public Module MSDOSModule
    'This procedure opens a file using an FCB.
    Private Sub FCBOpenFile()
       Try
-         Dim Offset As Integer = (CInt(CPU.Registers(SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(Registers16BitE.DX))
-         Dim Extension As String = GetString(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX)) + FCBE.Extension, Length:=3).Trim()
-         Dim FileName As String = GetString(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX)) + FCBE.Filename, Length:=8).Trim()
+         Dim Offset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
+         Dim Extension As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim()
+         Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim()
          Dim FilePath As String = Nothing
          Dim FileSize As New Long
 
@@ -632,15 +632,15 @@ Public Module MSDOSModule
    Private Sub FCBParseFilename()
       Try
          Dim Character As New Char
-         Dim SI As Integer = CInt(CPU.Registers(Registers16BitE.SI))
-         Dim FilePattern As String = GetStringZ(CInt(CPU.Registers(SegmentRegistersE.DS)), SI).Trim({ToChar(&H0%)}).Trim()
-         Dim FCBAddress As Integer = (CInt(CPU.Registers(SegmentRegistersE.ES)) << &H4%) + CInt(CPU.Registers(Registers16BitE.DI))
+         Dim SI As Integer = CPU.Registers(Registers16BitE.SI)
+         Dim FilePattern As String = GetStringZ(CPU.Registers(SegmentRegistersE.DS), SI).Trim({ToChar(&H0%)}).Trim()
+         Dim FCBAddress As Integer = (CPU.Registers(SegmentRegistersE.ES) << &H4%) + CPU.Registers(Registers16BitE.DI)
          Dim FCBDrive As String = Nothing
          Dim FCBDriveValid As Boolean = True
          Dim FCBExtension As New StringBuilder
          Dim FCBFileName As New StringBuilder
          Dim IsPeriod As Boolean = False
-         Dim ModifyDrive As Boolean = ((CInt(CPU.Registers(SubRegisters8BitE.AL)) And ParsingControlBitsE.ModifyDrive) = ParsingControlBitsE.ModifyDrive)
+         Dim ModifyDrive As Boolean = ((CPU.Registers(SubRegisters8BitE.AL) And ParsingControlBitsE.ModifyDrive) = ParsingControlBitsE.ModifyDrive)
          Dim WildcardPresent As Boolean = FilePattern.Contains("*"c)
 
          If FilePattern.Chars(1) = ":"c Then
@@ -709,10 +709,10 @@ Public Module MSDOSModule
    Private Sub FCBRandomReadFile()
       Try
          Dim Buffer() As Byte = {}
-         Dim Count As Integer = CInt(CPU.Registers(Registers16BitE.CX))
-         Dim Extension As String = GetString(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX)) + FCBE.Extension, Length:=3).Trim()
-         Dim FileName As String = GetString(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX)) + FCBE.Filename, Length:=8).Trim()
-         Dim Offset As Integer = (CInt(CPU.Registers(SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(Registers16BitE.DX))
+         Dim Count As Integer = CPU.Registers(Registers16BitE.CX)
+         Dim Extension As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim()
+         Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim()
+         Dim Offset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
          Dim CurrentBlock As Integer = CPU.GET_WORD(Offset + FCBE.CurrentBlock)
          Dim DTAOffset As Integer = ((DTA And &HFFFF0000%) >> &HC%) + (DTA And &HFFFF%)
          Dim RecordSize As Integer = CPU.GET_WORD(Offset + FCBE.RecordSize)
@@ -745,9 +745,9 @@ Public Module MSDOSModule
    Private Sub FCBSequentialReadFile()
       Try
          Dim Buffer() As Byte = {}
-         Dim Extension As String = GetString(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX)) + FCBE.Extension, Length:=3).Trim()
-         Dim FileName As String = GetString(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX)) + FCBE.Filename, Length:=8).Trim()
-         Dim Offset As Integer = (CInt(CPU.Registers(SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(Registers16BitE.DX))
+         Dim Extension As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim()
+         Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim()
+         Dim Offset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
          Dim CurrentBlock As Integer = CPU.GET_WORD(Offset + FCBE.CurrentBlock)
          Dim DTAOffset As Integer = ((DTA And &HFFFF0000%) >> &HC%) + (DTA And &HFFFF%)
          Dim RecordSize As Integer = CPU.GET_WORD(Offset + FCBE.RecordSize)
@@ -779,9 +779,9 @@ Public Module MSDOSModule
    'This procedure writes to a file using an FCB block.
    Private Sub FCBWriteFile()
       Try
-         Dim Extension As String = GetString(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX)) + FCBE.Extension, Length:=3).Trim()
-         Dim FileName As String = GetString(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX)) + FCBE.Filename, Length:=8).Trim()
-         Dim Offset As Integer = (CInt(CPU.Registers(SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(Registers16BitE.DX))
+         Dim Extension As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim()
+         Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim()
+         Dim Offset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
          Dim CurrentBlock As Integer = CPU.GET_WORD(Offset + FCBE.CurrentBlock)
          Dim DTAOffset As Integer = ((DTA And &HFFFF0000%) >> &HC%) + (DTA And &HFFFF%)
          Dim RecordSize As Integer = CPU.GET_WORD(Offset + FCBE.RecordSize)
@@ -814,8 +814,8 @@ Public Module MSDOSModule
 
          Try
             If IsFirst Then
-               SearchPattern = GetStringZ(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX))).Trim({ToChar(&H0%)})
-               Attributes = CInt(CPU.Registers(Registers16BitE.CX))
+               SearchPattern = GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)})
+               Attributes = CPU.Registers(Registers16BitE.CX)
 
                FileSystemItems = GetFileSystemItems(CurrentDirectory(), SearchPattern, Attributes)
 
@@ -846,9 +846,9 @@ Public Module MSDOSModule
    'This procedure attempts to force duplicate a file handle returns whether or not it succeeded.
    Private Function ForceDuplicateFileHandle(ByRef Flags As Integer) As Boolean
       Try
-         Dim SourceFileHandle As Tuple(Of FileStream, Integer) = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(Registers16BitE.BX)))
+         Dim SourceFileHandle As Tuple(Of FileStream, Integer) = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CPU.Registers(Registers16BitE.BX))
          Dim Success As Boolean = False
-         Dim TargetFileHandle As Tuple(Of FileStream, Integer) = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(Registers16BitE.CX)))
+         Dim TargetFileHandle As Tuple(Of FileStream, Integer) = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CPU.Registers(Registers16BitE.CX))
 
          If SourceFileHandle IsNot Nothing Then
             If TargetFileHandle IsNot Nothing Then
@@ -865,7 +865,7 @@ Public Module MSDOSModule
             End If
 
             If Success Then
-               OpenFiles.Add(New Tuple(Of FileStream, Integer)(SourceFileHandle.Item1, CInt(CPU.Registers(Registers16BitE.CX))))
+               OpenFiles.Add(New Tuple(Of FileStream, Integer)(SourceFileHandle.Item1, CPU.Registers(Registers16BitE.CX)))
             End If
 
          Else
@@ -900,11 +900,11 @@ Public Module MSDOSModule
    'This procedure retrieves the current path.
    Private Sub GetCurrentPath(ByRef Flags As Integer)
       Try
-         Dim DriveNumber As Integer = CInt(CPU.Registers(SubRegisters8BitE.DL))
+         Dim DriveNumber As Integer = CPU.Registers(SubRegisters8BitE.DL)
          Dim PreviousCurrentDirectory As String = Directory.GetCurrentDirectory()
 
          Try
-            WriteStringToMemory($"{String.Join("\"c, MSDOSCurrentDirectory)}{ToChar(&H0%)}".ToUpper(), (CInt(CPU.Registers(SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(Registers16BitE.SI)))
+            WriteStringToMemory($"{String.Join("\"c, MSDOSCurrentDirectory)}{ToChar(&H0%)}".ToUpper(), (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.SI))
             Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
          Catch MSDOSException As Exception
             CPU.Registers(Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
@@ -953,7 +953,7 @@ Public Module MSDOSModule
                CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_INVALID_HANDLE)
                Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
             Case Else
-               OpenFileToBeChecked = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(Registers16BitE.BX)))
+               OpenFileToBeChecked = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CPU.Registers(Registers16BitE.BX))
 
                Try
                   CPU.Registers(Registers16BitE.CX, NewValue:=TIME_TO_MSDOS_TIME(File.GetLastWriteTime(OpenFileToBeChecked.Item1.Name)))
@@ -1006,7 +1006,7 @@ Public Module MSDOSModule
    Private Sub GetFreeDiskSpace(ByRef Flags As Integer)
       Try
          Dim BytesPerSector As New Integer
-         Dim Drive As Integer = CInt(CPU.Registers(SubRegisters8BitE.DL))
+         Dim Drive As Integer = CPU.Registers(SubRegisters8BitE.DL)
          Dim DriveLetter As Char = If(Drive = &H0%, CurrentDirectory.ToCharArray.First, ToChar(Drive + ToInt32("@"c)))
          Dim DriveInformation As New DriveInfo(DriveLetter)
          Dim FreeClusterCount As New Integer
@@ -1224,7 +1224,7 @@ Public Module MSDOSModule
                      TeleType(CByte(CPU.Registers(SubRegisters8BitE.DL)))
                      Success = True
                   Case &H6%
-                     Select Case CInt(CPU.Registers(SubRegisters8BitE.DL))
+                     Select Case CPU.Registers(SubRegisters8BitE.DL)
                         Case &H0% To &HFE%
                            TeleType(CByte(CPU.Registers(SubRegisters8BitE.DL)))
                         Case &HFF%
@@ -1274,7 +1274,7 @@ Public Module MSDOSModule
                      CPU.Registers(SubRegisters8BitE.AL, NewValue:=ReadCharacter())
                      Success = True
                   Case &H9%
-                     Position = (CInt(CPU.Registers(SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(Registers16BitE.DX))
+                     Position = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
                      Do Until ToChar(CPU.Memory(Position And ADDRESS_MASK)) = "$"c
                         TeleType(CPU.Memory(Position And ADDRESS_MASK))
                         Position += &H1%
@@ -1289,9 +1289,9 @@ Public Module MSDOSModule
                      Success = True
                   Case &HC%
                      LastBIOSKeyCode(, Clear:=True)
-                     Select Case CInt(CPU.Registers(SubRegisters8BitE.AL))
+                     Select Case CPU.Registers(SubRegisters8BitE.AL)
                         Case &H1%, &H6%, &H7%, &H8%, &HA%
-                           Success = HandleMSDOSInterrupt(Vector:=&H21%, AH:=CInt(CPU.Registers(SubRegisters8BitE.AL)), Flags:=Flags)
+                           Success = HandleMSDOSInterrupt(Vector:=&H21%, AH:=CPU.Registers(SubRegisters8BitE.AL), Flags:=Flags)
                      End Select
                   Case &HD%
                      Success = True
@@ -1324,15 +1324,15 @@ Public Module MSDOSModule
                      CPU.Registers(SubRegisters8BitE.AL, NewValue:=ToByte(Path.GetPathRoot(Directory.GetCurrentDirectory()).ToUpper().ToCharArray.First()) - ToByte("A"c))
                      Success = True
                   Case &H1A%
-                     DTA = (CInt(CPU.Registers(SegmentRegistersE.DS)) << &H10%) + CInt(CPU.Registers(Registers16BitE.DX))
+                     DTA = (CPU.Registers(SegmentRegistersE.DS) << &H10%) + CPU.Registers(Registers16BitE.DX)
                      Success = True
                   Case &H25%
-                     Address = CInt(CPU.Registers(SubRegisters8BitE.AL)) * &H4%
-                     CPU.PutWord(Address + &H2%, CInt(CPU.Registers(SegmentRegistersE.DS)))
-                     CPU.PutWord(Address, CInt(CPU.Registers(Registers16BitE.DX)))
+                     Address = CPU.Registers(SubRegisters8BitE.AL) * &H4%
+                     CPU.PutWord(Address + &H2%, CPU.Registers(SegmentRegistersE.DS))
+                     CPU.PutWord(Address, CPU.Registers(Registers16BitE.DX))
                      Success = True
                   Case &H26%
-                     Array.Copy(CPU.Memory, ProcessIDs.Last() << &H4%, CPU.Memory, CInt(CPU.Registers(Registers16BitE.DX)) << &H4%, PSP_SIZE)
+                     Array.Copy(CPU.Memory, ProcessIDs.Last() << &H4%, CPU.Memory, CPU.Registers(Registers16BitE.DX) << &H4%, PSP_SIZE)
                      Success = True
                   Case &H27%
                      FCBRandomReadFile()
@@ -1360,7 +1360,7 @@ Public Module MSDOSModule
                      CPU.Registers(Registers16BitE.BX, NewValue:=MS_DOS)
                      Success = True
                   Case &H33%
-                     Select Case CInt(CPU.Registers(SubRegisters8BitE.AL))
+                     Select Case CPU.Registers(SubRegisters8BitE.AL)
                         Case &H0%
                            CPU.Registers(SubRegisters8BitE.DL, NewValue:=Abs(CInt(CTRLBreakCheck)))
                         Case &H1%
@@ -1373,7 +1373,7 @@ Public Module MSDOSModule
 
                      Success = True
                   Case &H35%
-                     Address = CInt(CPU.Registers(SubRegisters8BitE.AL)) * &H4%
+                     Address = CPU.Registers(SubRegisters8BitE.AL) * &H4%
                      CPU.Registers(SegmentRegistersE.ES, NewValue:=CPU.GET_WORD(Address + &H2%))
                      CPU.Registers(Registers16BitE.BX, NewValue:=CPU.GET_WORD(Address))
                      Success = True
@@ -1381,7 +1381,7 @@ Public Module MSDOSModule
                      GetFreeDiskSpace(Flags)
                      Success = True
                   Case &H37%
-                     Select Case CInt(CPU.Registers(SubRegisters8BitE.AL))
+                     Select Case CPU.Registers(SubRegisters8BitE.AL)
                         Case &H0%
                            CPU.Registers(SubRegisters8BitE.DL, NewValue:=ToByte(SwitchCharacter))
                         Case &H1%
@@ -1395,7 +1395,7 @@ Public Module MSDOSModule
                      End Select
                      Success = True
                   Case &H38%
-                     Select Case CInt(CPU.Registers(SubRegisters8BitE.AL))
+                     Select Case CPU.Registers(SubRegisters8BitE.AL)
                         Case &H0%
                            WriteCountryInformation()
                            Success = True
@@ -1434,7 +1434,7 @@ Public Module MSDOSModule
                      ManageFileSystemItemAttributes(Flags)
                      Success = True
                   Case &H44%
-                     Select Case CInt(CPU.Registers(SubRegisters8BitE.AL))
+                     Select Case CPU.Registers(SubRegisters8BitE.AL)
                         Case &H0%
                            Select Case DirectCast(CPU.Registers(Registers16BitE.BX), STDFileHandlesE)
                               Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
@@ -1461,7 +1461,7 @@ Public Module MSDOSModule
                      GetCurrentPath(Flags)
                      Success = True
                   Case &H48%
-                     Result = AllocateMemory(CInt(CPU.Registers(Registers16BitE.BX)) << &H4%)
+                     Result = AllocateMemory(CPU.Registers(Registers16BitE.BX) << &H4%)
                      CPU.Registers(Registers16BitE.BX, NewValue:=(LargestFreeMemoryBlock() >> &H4%))
                      Flags = SET_BIT(Flags, (Result Is Nothing), CARRY_FLAG_INDEX)
 
@@ -1473,7 +1473,7 @@ Public Module MSDOSModule
 
                      Success = True
                   Case &H49%
-                     If FreeAllocatedMemory(CInt(CPU.Registers(SegmentRegistersE.ES)) << &H4%) Then
+                     If FreeAllocatedMemory(CPU.Registers(SegmentRegistersE.ES) << &H4%) Then
                         CPU.Registers(Registers16BitE.AX, NewValue:=&H0%)
                         Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
                      Else
@@ -1482,7 +1482,7 @@ Public Module MSDOSModule
                      End If
                      Success = True
                   Case &H4A%
-                     Result = ModifyAllocatedMemory(CInt(CPU.Registers(SegmentRegistersE.ES)) << &H4%, CInt(CPU.Registers(Registers16BitE.BX)) << &H4%)
+                     Result = ModifyAllocatedMemory(CPU.Registers(SegmentRegistersE.ES) << &H4%, CPU.Registers(Registers16BitE.BX) << &H4%)
                      Flags = SET_BIT(Flags, (Result IsNot Nothing), CARRY_FLAG_INDEX)
 
                      If Result IsNot Nothing Then
@@ -1499,7 +1499,7 @@ Public Module MSDOSModule
                      FindFile(Flags)
                      Success = True
                   Case &H50%
-                     ProcessIDs(ProcessIDs.Count - 1) = CInt(CPU.Registers(Registers16BitE.BX))
+                     ProcessIDs(ProcessIDs.Count - 1) = CPU.Registers(Registers16BitE.BX)
                      Success = True
                   Case &H51%, &H62%
                      CPU.Registers(Registers16BitE.BX, NewValue:=ProcessIDs.Last)
@@ -1508,13 +1508,13 @@ Public Module MSDOSModule
                      RenameFile(Flags)
                      Success = True
                   Case &H57%
-                     Select Case CInt(CPU.Registers(SubRegisters8BitE.AL))
+                     Select Case CPU.Registers(SubRegisters8BitE.AL)
                         Case &H0%
                            GetFileDateTime(Flags)
                            Success = True
                      End Select
                   Case &H58%
-                     Select Case CInt(CPU.Registers(SubRegisters8BitE.AL))
+                     Select Case CPU.Registers(SubRegisters8BitE.AL)
                         Case &H0%
                            CPU.Registers(Registers16BitE.AX, MemoryAllocationStrategy)
                            Success = True
@@ -1620,7 +1620,7 @@ Public Module MSDOSModule
    Public Function LoadMSDOSProgram(FileName As String) As Boolean
       Try
          Dim Executable As New List(Of Byte)(File.ReadAllBytes(FileName))
-         Dim LoadAddress As Integer = CInt(CPU.Registers(SegmentRegistersE.CS)) << &H4%
+         Dim LoadAddress As Integer = CPU.Registers(SegmentRegistersE.CS) << &H4%
          Dim Success As Boolean = True
 
          If Executable.Count >= &H2% AndAlso Executable.GetRange(&H0%, EXE_MZ_SIGNATURE.Length).SequenceEqual(EXE_MZ_SIGNATURE) Then
@@ -1638,22 +1638,22 @@ Public Module MSDOSModule
             CPU.Registers(Registers16BitE.CX, NewValue:=Executable.Count)
             CPU.Registers(Registers16BitE.DX, NewValue:=&H0%)
             CPU.Registers(Registers16BitE.BX, NewValue:=&H0%)
-            CPU.Registers(SegmentRegistersE.DS, NewValue:=CInt(CPU.Registers(SegmentRegistersE.CS)))
-            CPU.Registers(SegmentRegistersE.ES, NewValue:=CInt(CPU.Registers(SegmentRegistersE.DS)))
+            CPU.Registers(SegmentRegistersE.DS, NewValue:=CPU.Registers(SegmentRegistersE.CS))
+            CPU.Registers(SegmentRegistersE.ES, NewValue:=CPU.Registers(SegmentRegistersE.DS))
             CPU.Registers(Registers16BitE.IP, NewValue:=PSP_SIZE)
             CPU.Registers(Registers16BitE.BP, NewValue:=&H0%)
             CPU.Registers(SegmentRegistersE.SS, NewValue:=CPU.Registers(SegmentRegistersE.CS))
             CPU.Registers(Registers16BitE.SP, NewValue:=&HFFFF%)
-            CPU.PutWord((CInt(CPU.Registers(SegmentRegistersE.SS)) << &H4%) + CInt(CPU.Registers(Registers16BitE.SP)), CInt(CPU.Registers(SegmentRegistersE.CS)))
-            CPU.PutWord((CInt(CPU.Registers(SegmentRegistersE.SS)) << &H4%) + CInt(CPU.Registers(Registers16BitE.SP)) + &H2%, &H0%)
+            CPU.PutWord((CPU.Registers(SegmentRegistersE.SS) << &H4%) + CPU.Registers(Registers16BitE.SP), CPU.Registers(SegmentRegistersE.CS))
+            CPU.PutWord((CPU.Registers(SegmentRegistersE.SS) << &H4%) + CPU.Registers(Registers16BitE.SP) + &H2%, &H0%)
 
             CreatePSP(LoadAddress)
 
             Executable.CopyTo(CPU.Memory, LoadAddress + PSP_SIZE)
          End If
 
-         If Allocations.FindIndex(Function(Allocation) Allocation.Item1 = CInt(CPU.Registers(SegmentRegistersE.DS)) << &H4%) < 0 Then
-            Allocations.Add(Tuple.Create((CInt(CPU.Registers(SegmentRegistersE.DS)) - (PSP_SIZE >> &H4%)) << &H4%, ((Executable.Count >> &H4%) + &H1%) << &H4%))
+         If Allocations.FindIndex(Function(Allocation) Allocation.Item1 = CPU.Registers(SegmentRegistersE.DS) << &H4%) < 0 Then
+            Allocations.Add(Tuple.Create((CPU.Registers(SegmentRegistersE.DS) - (PSP_SIZE >> &H4%)) << &H4%, ((Executable.Count >> &H4%) + &H1%) << &H4%))
             ProcessSegments.Push(Allocations.Last.Item1)
          Else
             SyncLock SYNCHRONIZER
@@ -1664,9 +1664,9 @@ Public Module MSDOSModule
          End If
 
          If Success Then
-            DTA = (CInt(CPU.Registers(SegmentRegistersE.CS)) << &H10%) Or PSP_COMMAND_TAIL
+            DTA = (CPU.Registers(SegmentRegistersE.CS) << &H10%) Or PSP_COMMAND_TAIL
             ProcessIDs.Add(LoadAddress >> &H4%)
-            CPU.Stack(Push:=CInt(CPU.Registers(Registers16BitE.IP)) - PSP_SIZE)
+            CPU.Stack(Push:=CPU.Registers(Registers16BitE.IP) - PSP_SIZE)
          End If
 
          Return Success
@@ -1746,10 +1746,10 @@ Public Module MSDOSModule
    'This procedure gets/sets a file system item's attributes.
    Private Sub ManageFileSystemItemAttributes(ByRef Flags As Integer)
       Try
-         Dim FileSystemItemName As String = GetStringZ(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX))).Trim({ToChar(&H0%)})
+         Dim FileSystemItemName As String = GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)})
 
          Try
-            Select Case CInt(CPU.Registers(SubRegisters8BitE.AL))
+            Select Case CPU.Registers(SubRegisters8BitE.AL)
                Case &H0%
                   CPU.Registers(Registers16BitE.CX, File.GetAttributes(FileSystemItemName))
                   Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
@@ -1799,11 +1799,11 @@ Public Module MSDOSModule
    Private Sub OpenFile(ByRef Flags As Integer)
       Try
          Dim FileAccessO As New FileAccess
-         Dim FileName As String = GetStringZ(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX))).Trim({ToChar(&H0%)})
+         Dim FileName As String = GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)})
          Dim FileStreamO As FileStream = Nothing
          Dim NextHandle As New Integer?
 
-         Select Case CInt(CPU.Registers(SubRegisters8BitE.AL)) And FILE_ACCESS_RW_MASK
+         Select Case CPU.Registers(SubRegisters8BitE.AL) And FILE_ACCESS_RW_MASK
             Case &H0%
                FileAccessO = FileAccess.Read
             Case &H1%
@@ -1878,7 +1878,7 @@ Public Module MSDOSModule
    Private Sub ReadFile(ByRef Flags As Integer)
       Try
          Dim Bytes() As Byte = {}
-         Dim Count As Integer = CInt(CPU.Registers(Registers16BitE.CX))
+         Dim Count As Integer = CPU.Registers(Registers16BitE.CX)
          Dim OpenFileToBeRead As Tuple(Of FileStream, Integer) = Nothing
 
          ReDim Bytes(&H0% To Count - &H1%)
@@ -1892,13 +1892,13 @@ Public Module MSDOSModule
                CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_ACCESS_DENIED)
                Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
             Case Else
-               OpenFileToBeRead = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(Registers16BitE.BX)))
+               OpenFileToBeRead = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CPU.Registers(Registers16BitE.BX))
 
                Try
                   Count = OpenFileToBeRead.Item1.Read(Bytes, offset:=&H0%, Count)
                   CPU.Registers(Registers16BitE.AX, NewValue:=Count)
                   ReDim Preserve Bytes(&H0% To Count - &H1%)
-                  WriteBytesToMemory(Bytes, (CInt(CPU.Registers(SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(Registers16BitE.DX)))
+                  WriteBytesToMemory(Bytes, (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX))
                   Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
                Catch MSDOSException As Exception
                   CPU.Registers(Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
@@ -1913,8 +1913,8 @@ Public Module MSDOSModule
    'This procedure renames a file.
    Private Sub RenameFile(ByRef Flags As Integer)
       Try
-         Dim NewName As String = GetStringZ(CInt(CPU.Registers(SegmentRegistersE.ES)), CInt(CPU.Registers(Registers16BitE.DI))).Trim({ToChar(&H0%)})
-         Dim OldName As String = GetStringZ(CInt(CPU.Registers(SegmentRegistersE.DS)), CInt(CPU.Registers(Registers16BitE.DX))).Trim({ToChar(&H0%)})
+         Dim NewName As String = GetStringZ(CPU.Registers(SegmentRegistersE.ES), CPU.Registers(Registers16BitE.DI)).Trim({ToChar(&H0%)})
+         Dim OldName As String = GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)})
 
          If INVALID_CHARACTERS.Intersect(NewName).Count > 0 OrElse NewName.Count(Function(Character) Character = "."c) > 1 Then
             Throw New ArgumentException
@@ -1947,9 +1947,9 @@ Public Module MSDOSModule
                CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_ACCESS_DENIED)
                Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
             Case Else
-               OpenFileToBeSought = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(Registers16BitE.BX)))
+               OpenFileToBeSought = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CPU.Registers(Registers16BitE.BX))
                Try
-                  OpenFileToBeSought.Item1.Seek((CInt(CPU.Registers(Registers16BitE.CX)) << &H10%) Or CInt(CPU.Registers(Registers16BitE.DX)), DirectCast(CPU.Registers(SubRegisters8BitE.AL), SeekOrigin))
+                  OpenFileToBeSought.Item1.Seek((CPU.Registers(Registers16BitE.CX) << &H10%) Or CPU.Registers(Registers16BitE.DX), DirectCast(CPU.Registers(SubRegisters8BitE.AL), SeekOrigin))
                   CPU.Registers(Registers16BitE.AX, NewValue:=OpenFileToBeSought.Item1.Position And &HFFFF%)
                   CPU.Registers(Registers16BitE.DX, NewValue:=OpenFileToBeSought.Item1.Position >> &H10%)
                   Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
@@ -2001,7 +2001,7 @@ Public Module MSDOSModule
    'This procedure writes country information to [DS:DX] in memory.
    Private Sub WriteCountryInformation()
       Try
-         Dim Address As Integer = (CInt(CPU.Registers(SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(Registers16BitE.DX))
+         Dim Address As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
 
          For Offset As Integer = Address To Address + COUNTRY_INFORMATION_BUFFER_SIZE
             CPU.Memory(Address) = &H0%
@@ -2045,14 +2045,14 @@ Public Module MSDOSModule
       Try
          Dim Buffer As New StringBuilder
          Dim Bytes() As Byte = {}
-         Dim Count As Integer = CInt(CPU.Registers(Registers16BitE.CX))
+         Dim Count As Integer = CPU.Registers(Registers16BitE.CX)
          Dim OpenFileToBeWritten As Tuple(Of FileStream, Integer) = Nothing
          Dim Position As New Integer
          Dim STDHandle As STDFileHandlesE = DirectCast(CPU.Registers(Registers16BitE.BX), STDFileHandlesE)
 
          Select Case STDHandle
             Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
-               Position = (CInt(CPU.Registers(SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(Registers16BitE.DX))
+               Position = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
                Select Case STDHandle
                   Case STDFileHandlesE.STDAUX
                      SyncLock SYNCHRONIZER
@@ -2083,8 +2083,8 @@ Public Module MSDOSModule
 
                CPU.Registers(Registers16BitE.AX, NewValue:=Count)
             Case Else
-               OpenFileToBeWritten = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CInt(CPU.Registers(Registers16BitE.BX)))
-               Bytes = CPU.Memory.ToList.GetRange((CInt(CPU.Registers(SegmentRegistersE.DS)) << &H4%) + CInt(CPU.Registers(Registers16BitE.DX)), Count).ToArray()
+               OpenFileToBeWritten = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CPU.Registers(Registers16BitE.BX))
+               Bytes = CPU.Memory.ToList.GetRange((CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX), Count).ToArray()
 
                Try
                   OpenFileToBeWritten.Item1.Write(Bytes, offset:=&H0%, Count)

@@ -5,6 +5,7 @@ Option Infer Off
 Option Strict On
 
 Imports Emulator8086Program.CPU8086Class
+Imports System
 Imports System.Drawing
 
 'This class emulates VGA 320x200.
@@ -42,6 +43,29 @@ Public Class VGA320x200Class
 
    'This procedure draws the specified character.
    Public Sub DrawCharacter(Index As Integer, Attribute As Integer) Implements VideoAdapterClass.DrawCharacter
+      Dim BitSet(&H0% To &H7%) As Boolean
+      Dim Character(&H0% To &H7%) As Byte
+      Dim Position As New Integer
+      Dim RemainingBits As New Integer
+      Dim y As Integer = Cursor.Y * &H8%
+
+      Array.Copy(CPU.Memory, If(Index < &H80%, AddressesE.Characters, AddressesE.ExtendedCharacters) + (Index * &H8%), Character, &H0%, Character.Length)
+
+      For Each ScanLine As Byte In Character
+         RemainingBits = ScanLine
+         For Bit As Integer = &H7% To &H0% Step -&H1%
+            BitSet(Bit) = CBool(RemainingBits And &H1%)
+            RemainingBits = RemainingBits >> &H1%
+         Next Bit
+
+         Position = AddressesE.VGA320x200 + (y * VGA_320_X_200_BYTES_PER_ROW) + (Cursor.X * &H8%)
+
+         For Bit As Integer = &H0% To &H7%
+            CPU.Memory(Position) = CByte(Attribute * Math.Abs(CInt(BitSet(Bit))))
+            Position += &H1%
+         Next Bit
+         y += 1
+      Next ScanLine
    End Sub
 
    'This procedure initializes the video adapter.
