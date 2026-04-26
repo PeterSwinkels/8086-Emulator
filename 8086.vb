@@ -537,8 +537,11 @@ Public Class CPU8086Class
    End Function
 
    'This procedure adjusts the flags register based on the specified values.
-   Private Sub AdjustFlags(Optional OldValue? As Integer = Nothing, Optional Operand As Integer = Nothing, Optional NewValue As Integer = Nothing, Optional Is8Bit As Boolean = True, Optional Subtraction As Boolean = True, Optional PreserveCarryFlag As Boolean = False, Optional ResetCFOF As Boolean = False)
+   Private Sub AdjustFlags(Optional OldValue As Integer = Nothing, Optional Operand As Integer = Nothing, Optional NewValue As Integer = Nothing, Optional Is8Bit As Boolean = True, Optional Subtraction As Boolean = True, Optional PreserveCarryFlag As Boolean = False, Optional ResetCFOF As Boolean = False)
       Dim BitMask As Integer = If(Is8Bit, &HFF%, &HFFFF%)
+      Dim OldValueSign As New Boolean
+      Dim OperandSign As New Boolean
+      Dim NewValueSign As New Boolean
       Dim SignMask As Integer = If(Is8Bit, &H80%, &H8000%)
 
       Registers(FlagRegistersE.PF, NewValue:=(BitCount(NewValue And &HFF%) Mod &H2%) = &H0%)
@@ -548,10 +551,26 @@ Public Class CPU8086Class
       If ResetCFOF Then
          Registers(FlagRegistersE.OF, NewValue:=False)
       Else
+         OldValueSign = (OldValue And SignMask) = SignMask
+         OperandSign = (Operand And SignMask) = SignMask
+         NewValueSign = (NewValue And SignMask) = SignMask
+
          If Subtraction Then
-            Registers(FlagRegistersE.OF, NewValue:=((NewValue < &H0%) AndAlso (Abs(NewValue) >= SignMask)))
+            If (Not OldValueSign) AndAlso OperandSign Then
+               Registers(FlagRegistersE.OF, NewValue:=NewValueSign)
+            ElseIf OldValueSign AndAlso (Not OperandSign) Then
+               Registers(FlagRegistersE.OF, NewValue:=Not NewValueSign)
+            ElseIf OldValueSign = OperandSign Then
+               Registers(FlagRegistersE.OF, NewValue:=False)
+            End If
          Else
-            Registers(FlagRegistersE.OF, NewValue:=((NewValue >= &H0%) AndAlso ((NewValue And BitMask) >= SignMask)))
+            If (Not OldValueSign) AndAlso (Not OperandSign) Then
+               Registers(FlagRegistersE.OF, NewValue:=NewValueSign)
+            ElseIf OldValueSign AndAlso OperandSign Then
+               Registers(FlagRegistersE.OF, NewValue:=Not NewValueSign)
+            ElseIf Not OldValueSign = OperandSign Then
+               Registers(FlagRegistersE.OF, NewValue:=False)
+            End If
          End If
       End If
 
@@ -563,12 +582,10 @@ Public Class CPU8086Class
          End If
       End If
 
-      If OldValue IsNot Nothing Then
-         If Subtraction Then
-            Registers(FlagRegistersE.AF, NewValue:=(Not (OldValue And &H8%) = &H8%) AndAlso (NewValue And &H8%) = &H8%)
-         Else
-            Registers(FlagRegistersE.AF, NewValue:=(Not (OldValue And &H10%) = &H10%) AndAlso (NewValue And &H10%) = &H10%)
-         End If
+      If Subtraction Then
+         Registers(FlagRegistersE.AF, NewValue:=(Not (OldValue And &H8%) = &H8%) AndAlso (NewValue And &H8%) = &H8%)
+      Else
+         Registers(FlagRegistersE.AF, NewValue:=(Not (OldValue And &H10%) = &H10%) AndAlso (NewValue And &H10%) = &H10%)
       End If
    End Sub
 
