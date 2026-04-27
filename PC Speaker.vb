@@ -66,32 +66,44 @@ Public Class PCSpeakerClass
 
    'This procedure turns the pc-speaker on.
    Public Sub Start()
-      Dim Desired As SDL_AudioSpec = Nothing
-      Dim Obtained As SDL_AudioSpec = Nothing
+      Try
+         Dim Desired As SDL_AudioSpec = Nothing
+         Dim Obtained As SDL_AudioSpec = Nothing
 
-      If DeviceID = &H0UI Then
-         If SDL_Init(SDL_INIT_AUDIO) >= &H0% Then
-            AudioCallbackDelegate = AddressOf AudioCallback
+         If DeviceID = &H0UI Then
+            If SDL_Init(SDL_INIT_AUDIO) >= &H0% Then
+               AudioCallbackDelegate = AddressOf AudioCallback
 
-            Desired = New SDL_AudioSpec() With {.callback = AudioCallbackDelegate, .channels = &H1%, .format = AUDIO_S16SYS, .freq = SampleRate, .samples = &H200%}
-            Obtained = New SDL_AudioSpec()
-            DeviceID = SDL_OpenAudioDevice(Nothing, &H0%, Desired, Obtained, &H0%)
-            If Not DeviceID = &H0UI Then
-               SampleRate = Obtained.freq
-               SDL_PauseAudioDevice(DeviceID, &H0%)
+               Desired = New SDL_AudioSpec() With {.callback = AudioCallbackDelegate, .channels = &H1%, .format = AUDIO_S16SYS, .freq = SampleRate, .samples = &H200%}
+               Obtained = New SDL_AudioSpec()
+               DeviceID = SDL_OpenAudioDevice(Nothing, &H0%, Desired, Obtained, &H0%)
+               If Not DeviceID = &H0UI Then
+                  SampleRate = Obtained.freq
+                  SDL_PauseAudioDevice(DeviceID, &H0%)
+               End If
             End If
          End If
-      End If
+      Catch ExceptionO As Exception
+         SyncLock SYNCHRONIZER
+            CPU_EVENT.Append($"{ExceptionO.Message}{Environment.NewLine}")
+         End SyncLock
+      End Try
    End Sub
 
    'This procedure turns the pc-speaker off.
    Public Sub [Stop]()
-      If Not DeviceID = &H0UI Then
-         SDL_PauseAudioDevice(DeviceID, &H1%)
-         SDL_CloseAudioDevice(DeviceID)
-         DeviceID = &H0UI
-      End If
+      Try
+         If Not DeviceID = &H0UI Then
+            SDL_PauseAudioDevice(DeviceID, &H1%)
+            SDL_CloseAudioDevice(DeviceID)
+            DeviceID = &H0UI
+         End If
 
-      SDL_Quit()
+         SDL_Quit()
+      Catch ExceptionO As Exception
+         SyncLock SYNCHRONIZER
+            CPU_EVENT.Append($"{ExceptionO.Message}{Environment.NewLine}")
+         End SyncLock
+      End Try
    End Sub
 End Class

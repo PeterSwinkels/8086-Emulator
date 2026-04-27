@@ -50,6 +50,9 @@ Public Module CoreModule
    Public AssemblyModeOn As Boolean = False             'Indicates whether input is interpreted as assembly language.
    Public CurrentVideoMode As New VideoModesE           'Contains the current video mode.
    Public Output As TextBox = Nothing                   'Contains a reference to an output.
+   Public PIC As New PICClass                           'Contains a reference to the 8259 Programmable Interrupt Controller.
+   Public PIT As New PITClass                           'Contains a reference to the 8253 Programmable Interval Timer class.
+   Public PPI As New PPIClass                           'Contains the 8255 Programmable Peripheral Interface .
    Public ScreenActive As Boolean = False               'Indicates whether or not the screen window is active.
    Public VideoAdapter As VideoAdapterClass = Nothing   'Contains a reference to the video adapter used.
 
@@ -57,9 +60,6 @@ Public Module CoreModule
    Public ReadOnly ESCAPE_BYTE As Func(Of Byte, String) = Function([Byte] As Byte) If([Byte] >= ToByte(" "c) AndAlso [Byte] <= ToByte("~"c), If([Byte] = ESCAPE_CHARACTER, New String(ToChar(ESCAPE_CHARACTER), count:=2), ToChar([Byte])), $"{ToChar(ESCAPE_CHARACTER)}{[Byte]:X2}")    'Returns the specified as either a character or escape sequence.
    Public ReadOnly MCC As New MCCClass                                                                                                                                                                                                                                                   'Contains the 6845 Motorola CRT Controller.
    Public ReadOnly PC_SPEAKER As New PCSpeakerClass                                                                                                                                                                                                                                      'Contains a reference to the PC-Speaker class.
-   Public ReadOnly PIC As New PICClass                                                                                                                                                                                                                                                   'Contains a reference to the 8259 Programmable Interrupt Controller.
-   Public ReadOnly PIT As New PITClass                                                                                                                                                                                                                                                   'Contains a reference to the 8253 Programmable Interval Timer class.
-   Public ReadOnly PPI As New PPIClass                                                                                                                                                                                                                                                   'Contains the 8255 Programmable Peripheral Interface .
    Public ReadOnly SET_BIT As Func(Of Integer, Boolean, Integer, Integer) = Function(Value As Integer, Bit As Boolean, Index As Integer) If(Bit, Value Or (&H1% << Index), Value And ((&H1% << Index) Xor &HFFFF%))                                                                      'Returns the specified value with the specified bit set to the specified value.
    Public ReadOnly SYNCHRONIZER As New Object                                                                                                                                                                                                                                            'Contains the object used to synchronize threads.
    Public ReadOnly VGA As New VGAClass                                                                                                                                                                                                                                                   'Contains a reference to the VGA class.
@@ -790,8 +790,16 @@ Public Module CoreModule
                      Case "RESET"
                         LastBIOSKeyCode(, Clear:=True)
 
+                        PC_SPEAKER.SetFrequency(Nothing)
+                        PC_SPEAKER.Enabled = False
+
+                        PIC = New PICClass
+                        PIT = New PITClass
+                        PPI = New PPIClass
+
                         CPU.ClockToken.Cancel()
                         CPU = New CPU8086Class
+
                         CursorPositionUpdate()
                         LoadBIOS()
                         LoadMSDOS()

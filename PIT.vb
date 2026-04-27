@@ -122,7 +122,7 @@ Public Class PITClass
 
          If Format = FormatsE.None Then
             .Latched = True
-            .LatchedValue = .Value
+            .LatchedValue = (.Value And &HFFFF%)
             .LatchedLSBRead = False
          Else
             .Mode = DirectCast((NewValue And MODE_MASK) >> &H1%, ModesE)
@@ -145,14 +145,14 @@ Public Class PITClass
                   Value = CByte(.LatchedValue And &HFF%)
                   .Latched = False
                Case FormatsE.MSB
-                  Value = CByte(.LatchedValue >> &H8%)
+                  Value = CByte((.LatchedValue And &HFF00%) >> &H8%)
                   .Latched = False
                Case FormatsE.LSBMSB
                   If Not .LatchedLSBRead Then
                      Value = CByte(.LatchedValue And &HFF%)
                      .LatchedLSBRead = True
                   Else
-                     Value = CByte(.LatchedValue >> &H8%)
+                     Value = CByte((.LatchedValue And &HFF00%) >> &H8%)
                      .LatchedLSBRead = False
                      .Latched = False
                   End If

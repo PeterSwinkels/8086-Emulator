@@ -650,7 +650,10 @@ Public Class CPU8086Class
             If Tracing Then RaiseEvent Trace()
 
             SyncLock SYNCHRONIZER
+               ''If CBool(Registers(FlagRegistersE.IF)) Then '' Causes freezing.
                Vector = PIC.GetInterruptVector()
+               '' End If
+
                If Not Vector = &HFF% Then
                   ExecuteInterrupt(OpcodesE.INT, Vector)
                End If
@@ -1278,6 +1281,7 @@ Public Class CPU8086Class
             Registers(Registers16BitE.IP, NewValue:=Stack())
             Registers(SegmentRegistersE.CS, NewValue:=Stack())
             Registers(FlagRegistersE.All, NewValue:=Stack())
+            PIC.WriteCommand(&H20%)
          Case OpcodesE.INT, OpcodesE.INT3, OpcodesE.INTO
             ExecuteInterrupt(Opcode)
          Case OpcodesE.LAHF

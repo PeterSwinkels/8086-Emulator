@@ -118,10 +118,15 @@ Public Module BIOSModule
             Address = EXTENDED_CHARACTERS_VECTOR * &H4%
             CPU.PutWord(Address + &H2%, AddressesE.ExtendedCharacters >> &H4%)
             CPU.PutWord(Address, AddressesE.ExtendedCharacters And &HFFFF%)
-            Data = File.ReadAllBytes("EXTFONT.BIN")
-            Data.CopyTo(CPU.Memory, AddressesE.ExtendedCharacters)
-            Data = File.ReadAllBytes("FONT.BIN")
-            Data.CopyTo(CPU.Memory, AddressesE.Characters)
+
+            Try
+               Data = File.ReadAllBytes("EXTFONT.BIN")
+               Data.CopyTo(CPU.Memory, AddressesE.ExtendedCharacters)
+               Data = File.ReadAllBytes("FONT.BIN")
+               Data.CopyTo(CPU.Memory, AddressesE.Characters)
+            Catch ExceptionO As Exception
+               DisplayException(ExceptionO.Message)
+            End Try
 
             Array.Copy(VGA.STATIC_FUNCTIONALITY, &H0%, CPU.Memory, VGA.STATIC_FUNCTIONALITY_ADDRESS, VGA.STATIC_FUNCTIONALITY.Length)
          End If
@@ -292,51 +297,55 @@ Public Module BIOSModule
 
    'This procedure writes a string to the screen.
    Public Sub WriteString()
-      Dim AL As Integer = CPU.Registers(SubRegisters8BitE.AL) And &H3%
-      Dim Attribute As New Byte
-      Dim Character As New Byte
-      Dim Column As Byte = CByte(CPU.Registers(SubRegisters8BitE.DL))
-      Dim Count As Integer = CPU.Registers(Registers16BitE.CX)
-      Dim HasAttributes As Boolean = ((AL = &H2% OrElse AL = &H3%))
-      Dim MoveCursor As Boolean = ((AL = &H1% OrElse AL = &H3%))
-      Dim Offset As Integer = CPU.Registers(Registers16BitE.BP)
-      Dim PreviousColumn As New Byte
-      Dim PreviousRow As New Byte
-      Dim Row As Byte = CByte(CPU.Registers(SubRegisters8BitE.DH))
-      Dim Segment As Integer = CPU.Registers(SegmentRegistersE.ES)
-      Dim VideoPage As Integer = CPU.Registers(SubRegisters8BitE.BH)
+      Try
+         Dim AL As Integer = CPU.Registers(SubRegisters8BitE.AL) And &H3%
+         Dim Attribute As New Byte
+         Dim Character As New Byte
+         Dim Column As Byte = CByte(CPU.Registers(SubRegisters8BitE.DL))
+         Dim Count As Integer = CPU.Registers(Registers16BitE.CX)
+         Dim HasAttributes As Boolean = ((AL = &H2% OrElse AL = &H3%))
+         Dim MoveCursor As Boolean = ((AL = &H1% OrElse AL = &H3%))
+         Dim Offset As Integer = CPU.Registers(Registers16BitE.BP)
+         Dim PreviousColumn As New Byte
+         Dim PreviousRow As New Byte
+         Dim Row As Byte = CByte(CPU.Registers(SubRegisters8BitE.DH))
+         Dim Segment As Integer = CPU.Registers(SegmentRegistersE.ES)
+         Dim VideoPage As Integer = CPU.Registers(SubRegisters8BitE.BH)
 
-      If Not HasAttributes Then
-         Attribute = CByte(CPU.Registers(SubRegisters8BitE.BL))
-      End If
-      If Not MoveCursor Then
-         PreviousColumn = CPU.Memory(AddressesE.CursorPositions + &H1%)
-         PreviousRow = CPU.Memory(AddressesE.CursorPositions)
-      End If
-      If VideoPage >= MCC.VideoPageCount() Then
-         VideoPage = &H0%
-      End If
-
-      CPU.Memory(AddressesE.CursorPositions) = Column
-      CPU.Memory(AddressesE.CursorPositions + &H1%) = Row
-      CursorPositionUpdate()
-
-      Do While Count > &H0%
-         Character = CPU.Memory((Segment << &H4%) + (Offset And &HFFFF%))
-         If HasAttributes Then
-            Attribute = CPU.Memory((Segment << &H4%) + ((Offset + &H1%) And &HFFFF%))
-            Offset += &H2%
-         Else
-            Offset += &H1%
+         If Not HasAttributes Then
+            Attribute = CByte(CPU.Registers(SubRegisters8BitE.BL))
          End If
-         TeleType(Character, Attribute)
-         Count -= &H1%
-      Loop
+         If Not MoveCursor Then
+            PreviousColumn = CPU.Memory(AddressesE.CursorPositions + &H1%)
+            PreviousRow = CPU.Memory(AddressesE.CursorPositions)
+         End If
+         If VideoPage >= MCC.VideoPageCount() Then
+            VideoPage = &H0%
+         End If
 
-      If Not MoveCursor Then
-         CPU.Memory(AddressesE.CursorPositions) = PreviousColumn
-         CPU.Memory(AddressesE.CursorPositions + &H1%) = PreviousRow
+         CPU.Memory(AddressesE.CursorPositions) = Column
+         CPU.Memory(AddressesE.CursorPositions + &H1%) = Row
          CursorPositionUpdate()
-      End If
+
+         Do While Count > &H0%
+            Character = CPU.Memory((Segment << &H4%) + (Offset And &HFFFF%))
+            If HasAttributes Then
+               Attribute = CPU.Memory((Segment << &H4%) + ((Offset + &H1%) And &HFFFF%))
+               Offset += &H2%
+            Else
+               Offset += &H1%
+            End If
+            TeleType(Character, Attribute)
+            Count -= &H1%
+         Loop
+
+         If Not MoveCursor Then
+            CPU.Memory(AddressesE.CursorPositions) = PreviousColumn
+            CPU.Memory(AddressesE.CursorPositions + &H1%) = PreviousRow
+            CursorPositionUpdate()
+         End If
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
    End Sub
 End Module
