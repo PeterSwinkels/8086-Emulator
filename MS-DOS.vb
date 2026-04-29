@@ -165,6 +165,7 @@ Public Module MSDOSModule
    Private ProcessIDs As New List(Of Integer)                        'Contains the list process's ids.
    Private ProcessSegments As New Stack(Of Integer)                  'Contains the segments allocated to processes.
    Private SwitchCharacter As Char = "-"c                            'Contains the switch character.
+   Private Verify As Boolean = False                                 'Contains the verify flag.
 
    Private WithEvents PrinterDocumentO As New PrintDocument   'Contains the document with output to STDPRN to be printed.
 
@@ -981,6 +982,7 @@ Public Module MSDOSModule
 
             NewFileSystemItems.Add(New FileSystemItemStr With {.Name = ".", .ShortName = "", .IsFile = False})
             NewFileSystemItems.Add(New FileSystemItemStr With {.Name = "..", .ShortName = "", .IsFile = False})
+
             For Each Item As String In Directory.GetDirectories(SearchPath, Path.GetFileName(SearchPattern))
                NewFileSystemItems.Add(New FileSystemItemStr With {.Name = Item, .ShortName = "", .IsFile = False})
             Next Item
@@ -1372,6 +1374,11 @@ Public Module MSDOSModule
                      End Select
 
                      Success = True
+                  Case &H34%
+                     CPU.Registers(SegmentRegistersE.ES, NewValue:=LOWEST_EXECUTABLE_ADDRESS - &H1%)
+                     CPU.Registers(Registers16BitE.BX, NewValue:=&H0%)
+                     CPU.Memory((CPU.Registers(SegmentRegistersE.ES) << &H4%) + CPU.Registers(Registers16BitE.BX)) = &H0%
+                     Success = True
                   Case &H35%
                      Address = CPU.Registers(SubRegisters8BitE.AL) * &H4%
                      CPU.Registers(SegmentRegistersE.ES, NewValue:=CPU.GET_WORD(Address + &H2%))
@@ -1504,6 +1511,9 @@ Public Module MSDOSModule
                   Case &H51%, &H62%
                      CPU.Registers(Registers16BitE.BX, NewValue:=ProcessIDs.Last)
                      Success = True
+                  Case &H54%
+                     CPU.Registers(SubRegisters8BitE.AL, NewValue:=Abs(CInt(Verify)))
+                     Success = True
                   Case &H56%
                      RenameFile(Flags)
                      Success = True
@@ -1511,6 +1521,9 @@ Public Module MSDOSModule
                      Select Case CPU.Registers(SubRegisters8BitE.AL)
                         Case &H0%
                            GetFileDateTime(Flags)
+                           Success = True
+                        Case &H1%
+                           SetFileDateTime(Flags)
                            Success = True
                      End Select
                   Case &H58%
@@ -1528,6 +1541,8 @@ Public Module MSDOSModule
             Case &H28%
                Success = True
             Case &H2A%
+               Success = True
+            Case &H2F%
                Success = True
          End Select
 
@@ -1579,9 +1594,6 @@ Public Module MSDOSModule
    'This procedure loads "MS-DOS" into memory.
    Public Sub LoadMSDOS()
       Try
-         Dim CurrentPath As String = CurrentDirectory()
-         Dim Items As New List(Of FileSystemItemStr)
-
          Allocations.Clear()
          AvailableDevices = True
          BootDrive = ToInt32(CurrentDirectory.ToCharArray.First()) - ToInt32("A"c)
@@ -1593,22 +1605,11 @@ Public Module MSDOSModule
          ProcessIDs = New List(Of Integer)
          ProcessSegments.Clear()
          SwitchCharacter = "-"c
+         Verify = False
+
          WriteStringToMemory(EnvironmentText, ENVIRONMENT_SEGMENT << &H4%)
 
-         MSDOSCurrentDirectory = New List(Of String)
-
-         If CurrentPath.Contains(":"c) Then CurrentPath = CurrentPath.Substring(CurrentPath.IndexOf("\"c))
-         If Not CurrentPath.EndsWith("\"c) Then CurrentPath = $"{CurrentPath}\"
-
-         Directory.SetCurrentDirectory("\")
-
-         For Each Parent As String In CurrentPath.Split("\"c)
-            If Not Parent = Nothing Then
-               Items = GetFileSystemItems(CurrentDirectory(), "*.*")
-               Directory.SetCurrentDirectory($".\{Parent}")
-               MSDOSCurrentDirectory.Add(GetShortName(Items, CurrentDirectory()))
-            End If
-         Next Parent
+         UpdateMSDOSPath
 
          CPU.Registers(SegmentRegistersE.CS, NewValue:=LOWEST_EXECUTABLE_ADDRESS)
       Catch ExceptionO As Exception
@@ -1795,6 +1796,25 @@ Public Module MSDOSModule
       Return Nothing
    End Function
 
+   'This procedure returns the specified MS-DOS date and time as a date object.
+   Private Function MSDOSDateTimeToDate(CX As Integer, DX As Integer) As Date
+      Try
+         Dim Day As Integer = DX And &H1F%
+         Dim Minutes As Integer = (CX >> &H5%) And &H3F%
+         Dim Hours As Integer = (CX >> &HB%) And &H1F%
+         Dim Month As Integer = (DX >> &H5%) And &HF%
+         Dim Seconds As Integer = (CX And &H1F) * &H2%
+         Dim Year As Integer = ((DX >> &H9%) And &H7F%) + 1980
+
+         Return New Date(Year, Month, Day, Hours, Minutes, Seconds)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return Nothing
+   End Function
+
+
    'This procedure opens a file.
    Private Sub OpenFile(ByRef Flags As Integer)
       Try
@@ -1963,6 +1983,32 @@ Public Module MSDOSModule
       End Try
    End Sub
 
+   'This procedure sets a file's date and time.
+   Private Sub SetFileDateTime(ByRef Flags As Integer)
+      Try
+         Dim OpenFileToBeChecked As Tuple(Of FileStream, Integer) = Nothing
+
+         Select Case DirectCast(CPU.Registers(Registers16BitE.BX), STDFileHandlesE)
+            Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
+               CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_INVALID_HANDLE)
+               Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+            Case Else
+               OpenFileToBeChecked = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CPU.Registers(Registers16BitE.BX))
+
+               Try
+                  File.SetLastWriteTime(OpenFileToBeChecked.Item1.Name, MSDOSDateTimeToDate(CPU.Registers(Registers16BitE.CX), CPU.Registers(Registers16BitE.DX)))
+                  Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+               Catch MSDOSException As Exception
+                  CPU.Registers(Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
+                  Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+               End Try
+         End Select
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+
    'This procedure converts the specified size to the number of bytes/sector, sectors/cluster and clusters/drive.
    Private Sub SizeToBCS(Size As Long, ByRef BytesPerSector As Integer, ByRef ClusterCount As Integer, ByRef SectorsPerCluster As Integer)
       Try
@@ -1993,6 +2039,31 @@ Public Module MSDOSModule
          SyncLock SYNCHRONIZER
             CPU_EVENT.Append(Message)
          End SyncLock
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure updates the current path for the emulated MS-DOS environment.
+   Public Sub UpdateMSDOSPath()
+      Try
+         Dim CurrentPath As String = CurrentDirectory()
+         Dim Items As New List(Of FileSystemItemStr)
+
+         MSDOSCurrentDirectory = New List(Of String)
+
+         If CurrentPath.Contains(":"c) Then CurrentPath = CurrentPath.Substring(CurrentPath.IndexOf("\"c))
+         If Not CurrentPath.EndsWith("\"c) Then CurrentPath = $"{CurrentPath}\"
+
+         Directory.SetCurrentDirectory("\")
+
+         For Each Parent As String In CurrentPath.Split("\"c)
+            If Not Parent = Nothing Then
+               Items = GetFileSystemItems(CurrentDirectory(), "*.*")
+               Directory.SetCurrentDirectory($".\{Parent}")
+               MSDOSCurrentDirectory.Add(GetShortName(Items, CurrentDirectory()))
+            End If
+         Next Parent
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

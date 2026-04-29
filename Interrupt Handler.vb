@@ -269,6 +269,11 @@ Public Module InterruptHandlerModule
                            End If
                      End Select
                      Success = True
+                  Case &H1C%
+                     Select Case CurrentVideoMode
+                        Case VideoModesE.Text80x25Mono
+                           Success = True
+                     End Select
                   Case &H4F%, &HEF%, &HFE%, &HFF%
                      Success = True
                End Select

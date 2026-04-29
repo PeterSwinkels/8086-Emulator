@@ -638,9 +638,10 @@ Public Module CoreModule
                         Output.Clear()
                      Case "CD"
                         If Operands Is Nothing Then
-                           Output.AppendText(CurrentDirectory())
+                           Output.AppendText($"{CurrentDirectory()}{NewLine}")
                         Else
                            CurrentDirectory = Operands
+                           UpdateMSDOSPath()
                         End If
                      Case "E"
                         If CPU.Clock.Status = TaskStatus.Running Then
