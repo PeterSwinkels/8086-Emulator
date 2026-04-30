@@ -416,12 +416,12 @@ Public Module MSDOSModule
          CPU.PutWord(Address + PSP_INT_20H, INT_20H)
          CPU.PutWord(Address + PSP_MEMORY_TOP, PSP_MEMORY_TOP_ADDRESS)
          CPU.PutWord(Address + PSP_BYTES_AVAILABLE, &HFEF0%)
-         CPU.PutWord(Address + PSP_INT_22H, CPU.GET_WORD(&H8A%))
-         CPU.PutWord(Address + PSP_INT_22H + &H2%, CPU.GET_WORD(&H88%))
-         CPU.PutWord(Address + PSP_INT_23H, CPU.GET_WORD(&H8E%))
-         CPU.PutWord(Address + PSP_INT_23H + &H2%, CPU.GET_WORD(&H8C%))
-         CPU.PutWord(Address + PSP_INT_24H, CPU.GET_WORD(&H91%))
-         CPU.PutWord(Address + PSP_INT_24H + &H2%, CPU.GET_WORD(&H90%))
+         CPU.PutWord(Address + PSP_INT_22H, CPU.GetWord(&H8A%))
+         CPU.PutWord(Address + PSP_INT_22H + &H2%, CPU.GetWord(&H88%))
+         CPU.PutWord(Address + PSP_INT_23H, CPU.GetWord(&H8E%))
+         CPU.PutWord(Address + PSP_INT_23H + &H2%, CPU.GetWord(&H8C%))
+         CPU.PutWord(Address + PSP_INT_24H, CPU.GetWord(&H91%))
+         CPU.PutWord(Address + PSP_INT_24H + &H2%, CPU.GetWord(&H90%))
          CPU.PutWord(Address + PSP_PARENT, Address >> &H4%)
          CPU.PutWord(Address + PSP_SSSP, CPU.Registers(Registers16BitE.SP))
          CPU.PutWord(Address + PSP_SSSP + &H2%, CPU.Registers(SegmentRegistersE.SS))
@@ -714,9 +714,9 @@ Public Module MSDOSModule
          Dim Extension As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim()
          Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim()
          Dim Offset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
-         Dim CurrentBlock As Integer = CPU.GET_WORD(Offset + FCBE.CurrentBlock)
+         Dim CurrentBlock As Integer = CPU.GetWord(Offset + FCBE.CurrentBlock)
          Dim DTAOffset As Integer = ((DTA And &HFFFF0000%) >> &HC%) + (DTA And &HFFFF%)
-         Dim RecordSize As Integer = CPU.GET_WORD(Offset + FCBE.RecordSize)
+         Dim RecordSize As Integer = CPU.GetWord(Offset + FCBE.RecordSize)
 
          FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
 
@@ -749,9 +749,9 @@ Public Module MSDOSModule
          Dim Extension As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim()
          Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim()
          Dim Offset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
-         Dim CurrentBlock As Integer = CPU.GET_WORD(Offset + FCBE.CurrentBlock)
+         Dim CurrentBlock As Integer = CPU.GetWord(Offset + FCBE.CurrentBlock)
          Dim DTAOffset As Integer = ((DTA And &HFFFF0000%) >> &HC%) + (DTA And &HFFFF%)
-         Dim RecordSize As Integer = CPU.GET_WORD(Offset + FCBE.RecordSize)
+         Dim RecordSize As Integer = CPU.GetWord(Offset + FCBE.RecordSize)
 
          FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
 
@@ -783,9 +783,9 @@ Public Module MSDOSModule
          Dim Extension As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim()
          Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim()
          Dim Offset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
-         Dim CurrentBlock As Integer = CPU.GET_WORD(Offset + FCBE.CurrentBlock)
+         Dim CurrentBlock As Integer = CPU.GetWord(Offset + FCBE.CurrentBlock)
          Dim DTAOffset As Integer = ((DTA And &HFFFF0000%) >> &HC%) + (DTA And &HFFFF%)
-         Dim RecordSize As Integer = CPU.GET_WORD(Offset + FCBE.RecordSize)
+         Dim RecordSize As Integer = CPU.GetWord(Offset + FCBE.RecordSize)
          Dim Buffer() As Byte = CPU.Memory.ToList.GetRange(DTAOffset, RecordSize).ToArray()
 
          FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
@@ -921,7 +921,7 @@ Public Module MSDOSModule
    'This procedure returns the current time.
    Private Sub GetCurrentTime()
       Try
-         Dim Counter As Integer = (CPU.GET_WORD(AddressesE.Clock + &H2%) << &H10%) Or (CPU.GET_WORD(AddressesE.Clock))
+         Dim Counter As Integer = (CPU.GetWord(AddressesE.Clock + &H2%) << &H10%) Or (CPU.GetWord(AddressesE.Clock))
          Dim Hour As New Integer
          Dim Hundredth As New Integer
          Dim Minute As New Integer
@@ -1381,8 +1381,8 @@ Public Module MSDOSModule
                      Success = True
                   Case &H35%
                      Address = CPU.Registers(SubRegisters8BitE.AL) * &H4%
-                     CPU.Registers(SegmentRegistersE.ES, NewValue:=CPU.GET_WORD(Address + &H2%))
-                     CPU.Registers(Registers16BitE.BX, NewValue:=CPU.GET_WORD(Address))
+                     CPU.Registers(SegmentRegistersE.ES, NewValue:=CPU.GetWord(Address + &H2%))
+                     CPU.Registers(Registers16BitE.BX, NewValue:=CPU.GetWord(Address))
                      Success = True
                   Case &H36%
                      GetFreeDiskSpace(Flags)

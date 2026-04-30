@@ -64,14 +64,13 @@ Public Module CoreModule
    Public ReadOnly SYNCHRONIZER As New Object                                                                                                                                                                                                                                            'Contains the object used to synchronize threads.
    Public ReadOnly VGA As New VGAClass                                                                                                                                                                                                                                                   'Contains a reference to the VGA class.
 
-   Private ReadOnly GET_MEMORY_VALUE As Func(Of Integer, String) = Function(Address As Integer) $"Byte = 0x{CPU.Memory(Address):X2}   Word = 0x{CPU.GET_WORD(Address):X4}   Characters = '{ESCAPE_BYTE(CPU.Memory(Address))}{ESCAPE_BYTE(CPU.Memory(Address + &H1%))}'{NewLine}"         'Returns the specified memory location's value.
-   Private ReadOnly GET_OPERAND As Func(Of String, String) = Function(Input As String) (Input.Substring(Input.IndexOf(ASSIGNMENT_OPERATOR) + 1))                                                                                                                                         'Returns the specified input's operand.
-   Private ReadOnly IS_CHARACTER_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(CHARACTER_OPERAND_DELIMITER) AndAlso Operand.Trim().EndsWith(CHARACTER_OPERAND_DELIMITER) AndAlso Operand.Trim().Length = 3)                               'Indicates whether the specified operand is a character.
-   Private ReadOnly IS_MEMORY_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(MEMORY_OPERAND_START) AndAlso Operand.Trim().EndsWith(MEMORY_OPERAND_END))                                                                                    'Indicates whether the specified operand is a memory location.
-   Private ReadOnly IS_SEGMENT_PREFIX As Func(Of OpcodesE, Boolean) = Function(Opcode As OpcodesE) {OpcodesE.CS, OpcodesE.DS, OpcodesE.ES, OpcodesE.SS}.Contains(Opcode)                                                                                                                 'Indicates whether the specified opcode is a segment prefix.
-   Private ReadOnly IS_STRING_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(STRING_OPERAND_DELIMITER) AndAlso Operand.Trim().EndsWith(STRING_OPERAND_DELIMITER))                                                                          'Indicates whether the specified operand is a string.
-   Private ReadOnly IS_VALUES_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(VALUES_OPERAND_START) AndAlso Operand.Trim().EndsWith(VALUES_OPERAND_END))                                                                                    'Indicates whether the specified operand is an array of values.
-   Private ReadOnly REMOVE_DELIMITERS As Func(Of String, String) = Function(Operand As String) (Operand.Substring(1, Operand.Length - 2))                                                                                                                                                'Returns the specified operand with its first and last character removed.
+   Private ReadOnly GET_OPERAND As Func(Of String, String) = Function(Input As String) (Input.Substring(Input.IndexOf(ASSIGNMENT_OPERATOR) + 1))                                                                                                            'Returns the specified input's operand.
+   Private ReadOnly IS_CHARACTER_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(CHARACTER_OPERAND_DELIMITER) AndAlso Operand.Trim().EndsWith(CHARACTER_OPERAND_DELIMITER) AndAlso Operand.Trim().Length = 3)  'Indicates whether the specified operand is a character.
+   Private ReadOnly IS_MEMORY_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(MEMORY_OPERAND_START) AndAlso Operand.Trim().EndsWith(MEMORY_OPERAND_END))                                                       'Indicates whether the specified operand is a memory location.
+   Private ReadOnly IS_SEGMENT_PREFIX As Func(Of OpcodesE, Boolean) = Function(Opcode As OpcodesE) {OpcodesE.CS, OpcodesE.DS, OpcodesE.ES, OpcodesE.SS}.Contains(Opcode)                                                                                    'Indicates whether the specified opcode is a segment prefix.
+   Private ReadOnly IS_STRING_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(STRING_OPERAND_DELIMITER) AndAlso Operand.Trim().EndsWith(STRING_OPERAND_DELIMITER))                                             'Indicates whether the specified operand is a string.
+   Private ReadOnly IS_VALUES_OPERAND As Func(Of String, Boolean) = Function(Operand As String) (Operand.Trim().StartsWith(VALUES_OPERAND_START) AndAlso Operand.Trim().EndsWith(VALUES_OPERAND_END))                                                       'Indicates whether the specified operand is an array of values.
+   Private ReadOnly REMOVE_DELIMITERS As Func(Of String, String) = Function(Operand As String) (Operand.Substring(1, Operand.Length - 2))                                                                                                                   'Returns the specified operand with its first and last character removed.
 
    'This procedure translates the specified memory operands to a flat memory address and returns the result.
    Private Function AddressFromOperand(Operand As String) As Integer?
@@ -211,22 +210,22 @@ Public Module CoreModule
                   Address = CPU.AddressFromOperand(MemoryOperandsE.LAST).FlatAddress
 
                   If Address Is Nothing AndAlso Integer.TryParse(ParseElement(Code, $"{MEMORY_OPERAND_START}{Disassembler.HEXADECIMAL_PREFIX}", MEMORY_OPERAND_END).Element, NumberStyles.HexNumber, CultureInfo.InvariantCulture, ParsedAddress) Then
-                     Override = CPU.SegmentOverride(, Preserve:=True)
+                     Override = CPU.SegmentOverride() '', Preserve:=True)
                      Address = (CPU.Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + ParsedAddress
                   End If
 
                   GenerateAddressContent(Address)
                ElseIf Code IsNot Nothing AndAlso (Code.Contains("LODSB") OrElse Code.Contains("LODSW")) Then
-                  Address = AddressFromOperand("[DS:SI]") + (If(CBool(CPU.Registers(FlagRegistersE.DF)), 1, -1))
+                  Address = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + ((CPU.Registers(Registers16BitE.SI) + If(CBool(CPU.Registers(FlagRegistersE.DF)), 1, -1)) And &HFFFF%)
                   GenerateAddressContent(Address)
                ElseIf Code IsNot Nothing AndAlso {"SCASB", "SCASW", "STOSB", "STOSW"}.Any(Function(OpcodeText As String) Code.Contains(OpcodeText)) Then
-                  Address = AddressFromOperand("[ES:DI]") + (If(CBool(CPU.Registers(FlagRegistersE.DF)), 1, -1))
+                  Address = (CPU.Registers(SegmentRegistersE.ES) << &H4%) + ((CPU.Registers(Registers16BitE.DI) + If(CBool(CPU.Registers(FlagRegistersE.DF)), 1, -1)) And &HFFFF%)
                   GenerateAddressContent(Address)
                ElseIf Code IsNot Nothing AndAlso {"CMPSB", "CMPSW", "MOVSB", "MOVSW"}.Any(Function(OpcodeText As String) Code.Contains(OpcodeText)) Then
-                  Address = AddressFromOperand("[DS:SI]") + (If(CBool(CPU.Registers(FlagRegistersE.DF)), 1, -1))
+                  Address = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + ((CPU.Registers(Registers16BitE.SI) + If(CBool(CPU.Registers(FlagRegistersE.DF)), 1, -1)) And &HFFFF%)
                   GenerateAddressContent(Address, AddNewLine:=False)
 
-                  Address = AddressFromOperand("[ES:DI]") + (If(CBool(CPU.Registers(FlagRegistersE.DF)), 1, -1))
+                  Address = (CPU.Registers(SegmentRegistersE.ES) << &H4%) + ((CPU.Registers(Registers16BitE.DI) + If(CBool(CPU.Registers(FlagRegistersE.DF)), 1, -1)) And &HFFFF%)
                   GenerateAddressContent(Address)
                Else
                   CPU_EVENT.Append($"{NewLine}")
@@ -364,7 +363,7 @@ Public Module CoreModule
             CPU_EVENT.Append($"{MEMORY_OPERAND_START}0x???{MEMORY_OPERAND_END} = ???{NewLine}")
          Else
             Address = Address And ADDRESS_MASK
-            CPU_EVENT.Append($"{MEMORY_OPERAND_START}0x{Address:X8}{MEMORY_OPERAND_END} = {GET_MEMORY_VALUE(CInt(Address))}")
+            CPU_EVENT.Append($"{MEMORY_OPERAND_START}0x{Address:X8}{MEMORY_OPERAND_END} = {GetMemoryValue(CInt(Address))}")
          End If
 
          If AddNewLine Then CPU_EVENT.Append(NewLine)
@@ -387,7 +386,7 @@ Public Module CoreModule
                Literal = ToByte(Element.Chars(1))
             ElseIf IS_MEMORY_OPERAND(Element) Then
                Address = AddressFromOperand(Element.Trim())
-               If Address IsNot Nothing Then Literal = If(Is8Bit, CPU.Memory(CInt(Address)), CPU.GET_WORD(CInt(Address)))
+               If Address IsNot Nothing Then Literal = If(Is8Bit, CPU.Memory(CInt(Address)), CPU.GetWord(CInt(Address)))
             ElseIf Integer.TryParse(Element, NumberStyles.HexNumber, Nothing, Buffer) Then
                Literal = Buffer
             Else
@@ -431,6 +430,13 @@ Public Module CoreModule
       End Try
 
       Return Nothing
+   End Function
+
+   'This procedure returns the specified memory location's value.
+   Private Function GetMemoryValue(Address As Integer) As String
+      Dim Word As Integer = CPU.GetWord(Address)
+
+      Return $"Byte = 0x{CPU.Memory(Address):X2}   Word = 0x{CPU.GetWord(Address):X4}   Characters = '{ESCAPE_BYTE(CByte((Word And &HFF00%) >> &H8%))}{ESCAPE_BYTE(CByte(Word And &HFF%))}'{NewLine}"
    End Function
 
    'This procedure returns the emulated CPU register with the specified name.
@@ -499,7 +505,7 @@ Public Module CoreModule
 
          With Stack
             For Offset As Integer = CPU.Registers(Registers16BitE.BP) To CPU.Registers(Registers16BitE.SP) + &H2% Step &H2%
-               Stack.Append($"{CPU.GET_WORD((SS << &H4%) + Offset):X4}{NewLine}")
+               Stack.Append($"{CPU.GetWord((SS << &H4%) + Offset):X4}{NewLine}")
             Next Offset
 
             Return .ToString()
@@ -620,7 +626,7 @@ Public Module CoreModule
                   Output.AppendText($"{Register} = {If(Is8Bit, $"{CPU.Registers(Register):X2}", $"{CPU.Registers(Register):X4}") }{NewLine}")
                ElseIf IS_MEMORY_OPERAND(Input) Then
                   Address = AddressFromOperand(Input)
-                  Output.AppendText(If(Address Is Nothing, $"Invalid address.{NewLine}", GET_MEMORY_VALUE(CInt(Address))))
+                  Output.AppendText(If(Address Is Nothing, $"Invalid address.{NewLine}", GetMemoryValue(CInt(Address))))
                Else
                   Select Case Command
                      Case "$"

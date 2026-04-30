@@ -105,7 +105,7 @@ Public Class CGA320x200Class
          y += 1
 
          If Invert AndAlso Background > &H0% Then
-            CPU.PutWord(Position - &H1%, CPU.GET_WORD(Position - &H1%) Xor &HFFFF%)
+            CPU.PutWord(Position - &H1%, CPU.GetWord(Position - &H1%) Xor &HFFFF%)
          End If
       Next ScanLine
    End Sub

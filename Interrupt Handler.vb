@@ -44,7 +44,7 @@ Public Module InterruptHandlerModule
          Dim Attribute As New Byte
          Dim Character As New Byte
          Dim Count As New Integer
-         Dim Flags As Integer = CPU.GET_WORD((CPU.Registers((SegmentRegistersE.SS)) << &H4%) + CPU.Registers(Registers16BitE.SP) + &H4%)
+         Dim Flags As Integer = CPU.GetWord((CPU.Registers((SegmentRegistersE.SS)) << &H4%) + CPU.Registers(Registers16BitE.SP) + &H4%)
          Dim Mask As New Byte
          Dim Pixel As New Integer
          Dim PixelColor As New Byte
@@ -112,8 +112,8 @@ Public Module InterruptHandlerModule
                   Case &H3%
                      VideoPage = CByte(CPU.Registers(SubRegisters8BitE.BH))
                      If VideoPage < MAXIMUM_VIDEO_PAGE_COUNT Then
-                        CPU.Registers(Registers16BitE.CX, NewValue:=CPU.GET_WORD(AddressesE.CursorScanLines))
-                        CPU.Registers(Registers16BitE.DX, NewValue:=CPU.GET_WORD(AddressesE.CursorPositions + (VideoPage * &H2%)))
+                        CPU.Registers(Registers16BitE.CX, NewValue:=CPU.GetWord(AddressesE.CursorScanLines))
+                        CPU.Registers(Registers16BitE.DX, NewValue:=CPU.GetWord(AddressesE.CursorPositions + (VideoPage * &H2%)))
                      End If
                      Success = True
                   Case &H5%
@@ -132,7 +132,7 @@ Public Module InterruptHandlerModule
                      Select Case CurrentVideoMode
                         Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Mono
                            CursorPositionUpdate()
-                           CPU.Registers(Registers16BitE.AX, NewValue:=CPU.GET_WORD(AddressesE.Text80x25MonoPage0 + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)))
+                           CPU.Registers(Registers16BitE.AX, NewValue:=CPU.GetWord(AddressesE.Text80x25MonoPage0 + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)))
                            Success = True
                      End Select
                   Case &H9%, &HA%
@@ -238,8 +238,8 @@ Public Module InterruptHandlerModule
                            Select Case CByte(CPU.Registers(SubRegisters8BitE.BL))
                               Case &H0%
                                  Address = &H1F% * &H4%
-                                 CPU.Registers(SegmentRegistersE.ES, NewValue:=CPU.GET_WORD(Address + &H2%))
-                                 CPU.Registers(Registers16BitE.BP, NewValue:=CPU.GET_WORD(Address))
+                                 CPU.Registers(SegmentRegistersE.ES, NewValue:=CPU.GetWord(Address + &H2%))
+                                 CPU.Registers(Registers16BitE.BP, NewValue:=CPU.GetWord(Address))
                            End Select
                      End Select
                      Success = True
@@ -278,10 +278,10 @@ Public Module InterruptHandlerModule
                      Success = True
                End Select
             Case &H11%
-               CPU.Registers(Registers16BitE.AX, NewValue:=CPU.GET_WORD(AddressesE.EquipmentFlags))
+               CPU.Registers(Registers16BitE.AX, NewValue:=CPU.GetWord(AddressesE.EquipmentFlags))
                Success = True
             Case &H12%
-               CPU.Registers(Registers16BitE.AX, NewValue:=CPU.GET_WORD(AddressesE.BIOSMemorySize))
+               CPU.Registers(Registers16BitE.AX, NewValue:=CPU.GetWord(AddressesE.BIOSMemorySize))
                Success = True
             Case &H15%
                Select Case AH
@@ -321,8 +321,8 @@ Public Module InterruptHandlerModule
                Select Case AH
                   Case &H0%
                      CPU.Registers(SubRegisters8BitE.AL, NewValue:=CPU.Memory(AddressesE.ClockRollover))
-                     CPU.Registers(Registers16BitE.CX, NewValue:=CPU.GET_WORD(AddressesE.Clock + &H2%))
-                     CPU.Registers(Registers16BitE.DX, NewValue:=CPU.GET_WORD(AddressesE.Clock))
+                     CPU.Registers(Registers16BitE.CX, NewValue:=CPU.GetWord(AddressesE.Clock + &H2%))
+                     CPU.Registers(Registers16BitE.DX, NewValue:=CPU.GetWord(AddressesE.Clock))
                      Success = True
                   Case &H1%
                      CPU.PutWord(AddressesE.Clock + &H2%, CPU.Registers(Registers16BitE.CX))

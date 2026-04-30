@@ -140,7 +140,7 @@ Public Class Text80x25ColorClass
                   For Row As Integer = ScrollArea.ULCRow + &H1% To ScrollArea.LRCRow
                      For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
                         If Row <= ScrollArea.LRCRow Then
-                           CharacterCell = CPU.GET_WORD(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
+                           CharacterCell = CPU.GetWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
                            CPU.PutWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
                         Else
                            CharacterCell = Attribute << &H8%
@@ -154,7 +154,7 @@ Public Class Text80x25ColorClass
                   For Row As Integer = ScrollArea.LRCRow - &H1% To ScrollArea.ULCRow Step -&H1%
                      For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
                         If Row >= ScrollArea.ULCRow Then
-                           CharacterCell = CPU.GET_WORD(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
+                           CharacterCell = CPU.GetWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
                            CPU.PutWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
                         Else
                            CharacterCell = (Attribute << &H8%)
