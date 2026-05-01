@@ -53,7 +53,6 @@ Public Module CoreModule
    Public PIC As New PICClass                           'Contains a reference to the 8259 Programmable Interrupt Controller.
    Public PIT As New PITClass                           'Contains a reference to the 8253 Programmable Interval Timer class.
    Public PPI As New PPIClass                           'Contains the 8255 Programmable Peripheral Interface .
-   Public ScreenActive As Boolean = False               'Indicates whether or not the screen window is active.
    Public VideoAdapter As VideoAdapterClass = Nothing   'Contains a reference to the video adapter used.
 
    Public ReadOnly CPU_EVENT As New StringBuilder                                                                                                                                                                                                                                        'Contains CPU event specific text.
@@ -210,7 +209,7 @@ Public Module CoreModule
                   Address = CPU.AddressFromOperand(MemoryOperandsE.LAST).FlatAddress
 
                   If Address Is Nothing AndAlso Integer.TryParse(ParseElement(Code, $"{MEMORY_OPERAND_START}{Disassembler.HEXADECIMAL_PREFIX}", MEMORY_OPERAND_END).Element, NumberStyles.HexNumber, CultureInfo.InvariantCulture, ParsedAddress) Then
-                     Override = CPU.SegmentOverride() '', Preserve:=True)
+                     Override = CPU.SegmentOverride()
                      Address = (CPU.Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + ParsedAddress
                   End If
 
@@ -801,6 +800,7 @@ Public Module CoreModule
                         PC_SPEAKER.Enabled = False
 
                         PIC = New PICClass
+                        PIT.HighPrecisionTimer.ClockToken.Cancel()
                         PIT = New PITClass
                         PPI = New PPIClass
 
@@ -1056,8 +1056,10 @@ Public Module CoreModule
             CPU.Memory(AddressesE.VideoMode) = ToByte(MemoryVideoMode)
          End If
 
-         If MemoryVideoMode = CurrentVideoMode Then
-            If ScreenActive Then ScreenWindow.Invalidate()
+         If VideoModesEquivalent(CurrentVideoMode, MemoryVideoMode) Then
+            If ScreenWindow.Visible Then
+               ScreenWindow.Invalidate()
+            End If
          Else
             CurrentVideoMode = MemoryVideoMode
             SwitchVideoAdapter()
@@ -1107,7 +1109,7 @@ Public Module CoreModule
             Select Case CurrentVideoMode
                Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B
                   VideoAdapter = New CGA320x200Class
-               Case VideoModesE.Text80x25Color
+               Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray
                   VideoAdapter = New Text80x25ColorClass
                Case VideoModesE.VGA320x200
                   VideoAdapter = New VGA320x200Class
@@ -1116,9 +1118,16 @@ Public Module CoreModule
             End Select
          End If
 
-         If VideoAdapter IsNot Nothing Then VideoAdapter.Initialize()
+         If VideoAdapter IsNot Nothing Then
+            VideoAdapter.Initialize()
+         End If
 
-         If ScreenActive Then ScreenWindow.Invalidate()
+         If ScreenWindow.Visible Then
+            If VideoAdapter IsNot Nothing Then
+               ScreenWindow.ClientSize = VideoAdapter.Resolution
+            End If
+            ScreenWindow.Invalidate()
+         End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -1186,6 +1195,30 @@ Public Module CoreModule
          End Select
 
          Return VideoMode
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return Nothing
+   End Function
+
+   'This procedure returns whether the specified video modes are equivalant.
+   Private Function VideoModesEquivalent(VideoMode1 As VideoModesE, Videomode2 As VideoModesE) As Boolean
+      Try
+         Dim Equivalent As Boolean = False
+
+         Select Case VideoMode1
+            Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B
+               Equivalent = (VideoMode1 = Videomode2)
+            Case VideoModesE.Text40x25Color, VideoModesE.Text40x25Mono
+               Equivalent = (VideoMode1 = VideoModesE.Text40x25Color OrElse VideoMode1 = VideoModesE.Text40x25Mono)
+            Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray
+               Equivalent = (VideoMode1 = VideoModesE.Text80x25Color OrElse VideoMode1 = VideoModesE.Text80x25Gray)
+            Case Else
+               Equivalent = (VideoMode1 = Videomode2)
+         End Select
+
+         Return Equivalent
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

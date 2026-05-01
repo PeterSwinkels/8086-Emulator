@@ -130,7 +130,7 @@ Public Module InterruptHandlerModule
                      Success = True
                   Case &H8%
                      Select Case CurrentVideoMode
-                        Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Mono
+                        Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono
                            CursorPositionUpdate()
                            CPU.Registers(Registers16BitE.AX, NewValue:=CPU.GetWord(AddressesE.Text80x25MonoPage0 + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)))
                            Success = True
@@ -152,9 +152,9 @@ Public Module InterruptHandlerModule
                               End If
                               Count -= &H1%
                            Loop
-                        Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Mono
+                        Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono
                            Select Case CurrentVideoMode
-                              Case VideoModesE.Text80x25Color
+                              Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray
                                  VideoPageAddress = AddressesE.Text80x25ColorPage0
                               Case VideoModesE.Text80x25Mono
                                  VideoPageAddress = AddressesE.Text80x25MonoPage0
@@ -225,7 +225,7 @@ Public Module InterruptHandlerModule
                      Select Case CurrentVideoMode
                         Case VideoModesE.Text80x25Mono
                            Success = True
-                        Case VideoModesE.Text80x25Color
+                        Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray
                            Select Case CByte(CPU.Registers(SubRegisters8BitE.AL))
                               Case &H3%
                                  MCC.BlinkingOn = CBool(CPU.Registers(SubRegisters8BitE.BL))
@@ -245,7 +245,7 @@ Public Module InterruptHandlerModule
                      Success = True
                   Case &H12%
                      Select Case CurrentVideoMode
-                        Case VideoModesE.Text80x25Color
+                        Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray
                            Success = True
                         Case VideoModesE.Text80x25Mono
                            Success = True

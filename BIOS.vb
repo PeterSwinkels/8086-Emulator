@@ -65,7 +65,7 @@ Public Module BIOSModule
       Text80x25Mono = &H7%     '80x25 monochrome text.
       VGA320x200 = &H13%       '320x200 VGA.
       VGA640x480 = &H12%       '640x480 VGA.
-      VGA640x480Mono = &H11%   '640x480 monochrome vga.
+      VGA640x480Mono = &H11%   '640x480 monochrome VGA.
    End Enum
 
    Public Const CGA_320_x_200_BUFFER_SIZE As Integer = &H4000%               'Defines the 320x200 CGA mode video memory's size.
@@ -211,9 +211,9 @@ Public Module BIOSModule
 
                CPU.Memory(AddressesE.CursorPositions) = CByte(Cursor.X)
                CPU.Memory(AddressesE.CursorPositions + &H1%) = CByte(Cursor.Y)
-            Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Mono
+            Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono
                Select Case CurrentVideoMode
-                  Case VideoModesE.Text80x25Color
+                  Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray
                      VideoPageAddress = AddressesE.Text80x25ColorPage0
                   Case VideoModesE.Text80x25Mono
                      VideoPageAddress = AddressesE.Text80x25MonoPage0

@@ -19,17 +19,6 @@ Public Class ScreenWindow
          InitializeComponent()
 
          ToolTip.SetToolTip(Me, "This is where the emulation’s screen output is displayed and keyboard input is accepted.")
-
-         ScreenActive = True
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
-   End Sub
-
-   'This procedure sets the screen window's state to inactive when it is closed.
-   Private Sub ScreenWindow_Closed(sender As Object, e As EventArgs) Handles MyBase.Closed
-      Try
-         ScreenActive = False
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
