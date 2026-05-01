@@ -1620,16 +1620,15 @@ Public Module MSDOSModule
    'This procedure loads the specified MS-DOS program into the emulated CPU's memory after processing its header and returns whether or not it succeeded.
    Public Function LoadMSDOSProgram(FileName As String) As Boolean
       Try
+         Dim AllocatedAddress As New Integer
          Dim Executable As New List(Of Byte)(File.ReadAllBytes(FileName))
          Dim LoadAddress As Integer = CPU.Registers(SegmentRegistersE.CS) << &H4%
          Dim Success As Boolean = True
 
          If Executable.Count >= &H2% AndAlso Executable.GetRange(&H0%, EXE_MZ_SIGNATURE.Length).SequenceEqual(EXE_MZ_SIGNATURE) Then
             Executable = LoadMZEXE(Executable, FileName, LoadAddress)
+            AllocatedAddress = (CPU.Registers(SegmentRegistersE.DS) - (PSP_SIZE >> &H4%)) << &H4%
             Success = Executable.Any
-            If Success Then
-               ProcessIDs.Add(LoadAddress >> &H4%)
-            End If
          Else
             SyncLock SYNCHRONIZER
                CPU_EVENT.Append($"Loading the compact binary executable ""{FileName}"" at address {LoadAddress:X8}.{NewLine}")
@@ -1651,17 +1650,12 @@ Public Module MSDOSModule
             CreatePSP(LoadAddress)
 
             Executable.CopyTo(CPU.Memory, LoadAddress + PSP_SIZE)
+            AllocatedAddress = CPU.Registers(SegmentRegistersE.DS) << &H4%
          End If
 
-         If Allocations.FindIndex(Function(Allocation) Allocation.Item1 = CPU.Registers(SegmentRegistersE.DS) << &H4%) < 0 Then
-            Allocations.Add(Tuple.Create((CPU.Registers(SegmentRegistersE.DS) - (PSP_SIZE >> &H4%)) << &H4%, ((Executable.Count >> &H4%) + &H1%) << &H4%))
+         If Allocations.FindIndex(Function(Allocation) Allocation.Item1 = AllocatedAddress) < 0 Then
+            Allocations.Add(Tuple.Create(AllocatedAddress, ((Executable.Count >> &H4%) + &H1%) << &H4%))
             ProcessSegments.Push(Allocations.Last.Item1)
-         Else
-            SyncLock SYNCHRONIZER
-               CPU_EVENT.Append($"Memory allocation failure.{NewLine}")
-            End SyncLock
-
-            Success = False
          End If
 
          If Success Then
