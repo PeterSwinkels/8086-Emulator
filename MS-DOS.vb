@@ -1714,7 +1714,7 @@ Public Module MSDOSModule
                   RelocationItemOffset = BitConverter.ToUInt16(Executable.ToArray(), Position)
                   RelocationItemSegment = BitConverter.ToUInt16(Executable.ToArray(), Position + &H2%)
 
-                  RelocationItemFlatAddress = (LoadAddress + PSP_SIZE) + ((RelocationItemSegment << &H4%) + RelocationItemOffset)
+                  RelocationItemFlatAddress = LoadAddress + (RelocationItemSegment << &H4%) + ((PSP_SIZE + RelocationItemOffset) And &HFFFF%)
 
                   RelocationItem = BitConverter.ToUInt16(CPU.Memory, RelocationItemFlatAddress)
                   RelocationItem += ((LoadAddress + PSP_SIZE) >> &H4%)
@@ -1807,7 +1807,6 @@ Public Module MSDOSModule
 
       Return Nothing
    End Function
-
 
    'This procedure opens a file.
    Private Sub OpenFile(ByRef Flags As Integer)
