@@ -106,7 +106,7 @@ Public Module IOHandlerModule
 
          Return Value
       Catch ExceptionO As Exception
-         SyncLock Synchronizer
+         SyncLock SYNCHRONIZER
             CPU_EVENT.Append($"{ExceptionO.Message}{NewLine}")
          End SyncLock
       End Try

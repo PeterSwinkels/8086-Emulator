@@ -1052,8 +1052,7 @@ Public Module CoreModule
          Dim MemoryVideoMode As VideoModesE = DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
 
          If Not MemoryVideoMode = AdapterVideoMode Then
-            MemoryVideoMode = AdapterVideoMode
-            CPU.Memory(AddressesE.VideoMode) = ToByte(MemoryVideoMode)
+            CPU.Memory(AddressesE.VideoMode) = ToByte(AdapterVideoMode)
          End If
 
          If VideoModesEquivalent(CurrentVideoMode, MemoryVideoMode) Then

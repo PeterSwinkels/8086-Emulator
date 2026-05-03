@@ -469,6 +469,61 @@ Public Module MSDOSModule
       End Try
    End Sub
 
+   'This procedure performs direct console input without echo.
+   Private Sub DirectConsoleInput(ByRef Flags As Integer)
+      Dim KeyCode As New Integer?
+      Static ExtendedKeyCode As New Integer?
+
+      If ExtendedKeyCode Is Nothing Then
+         Do
+            KeyCode = LastBIOSKeyCode()
+         Loop Until KeyCode.HasValue OrElse CPU.ClockToken.IsCancellationRequested
+         If KeyCode IsNot Nothing AndAlso (KeyCode.Value And &HFF%) = Nothing Then
+            ExtendedKeyCode = KeyCode >> &H8%
+         End If
+         KeyCode = KeyCode And &HFF%
+         LastBIOSKeyCode(, Clear:=True)
+      Else
+         KeyCode = ExtendedKeyCode
+         ExtendedKeyCode = New Integer?
+      End If
+
+      If KeyCode IsNot Nothing Then
+         CPU.Registers(SubRegisters8BitE.AL, NewValue:=KeyCode)
+      End If
+   End Sub
+
+   'This procedure performs direct console I/O.
+   Private Sub DirectConsoleIO(ByRef Flags As Integer)
+      Dim KeyCode As New Integer?
+      Static ExtendedKeyCode As New Integer?
+
+      Select Case CPU.Registers(SubRegisters8BitE.DL)
+         Case &H0% To &HFE%
+            TeleType(CByte(CPU.Registers(SubRegisters8BitE.DL)))
+         Case &HFF%
+            If ExtendedKeyCode Is Nothing Then
+               Do
+                  KeyCode = LastBIOSKeyCode()
+               Loop Until KeyCode.HasValue OrElse CPU.ClockToken.IsCancellationRequested
+               If KeyCode IsNot Nothing AndAlso (KeyCode.Value And &HFF%) = Nothing Then
+                  ExtendedKeyCode = KeyCode >> &H8%
+               End If
+               KeyCode = KeyCode And &HFF%
+               LastBIOSKeyCode(, Clear:=True)
+            Else
+               KeyCode = ExtendedKeyCode
+               ExtendedKeyCode = New Integer?
+            End If
+
+            Flags = SET_BIT(Flags, (KeyCode Is Nothing), ZERO_FLAG_INDEX)
+
+            If KeyCode IsNot Nothing Then
+               CPU.Registers(SubRegisters8BitE.AL, NewValue:=KeyCode)
+            End If
+      End Select
+   End Sub
+
    'This procedure loads and executes a program.
    Private Sub ExecuteProgram(ByRef Flags As Integer)
       Try
@@ -1210,11 +1265,9 @@ Public Module MSDOSModule
    Public Function HandleMSDOSInterrupt(Vector As Integer, AH As Integer, ByRef Flags As Integer) As Boolean
       Try
          Dim Address As New Integer
-         Dim KeyCode As New Integer?
          Dim Position As New Integer
          Dim Result As New Integer?
          Dim Success As Boolean = False
-         Static ExtendedKeyCode As New Integer?
 
          Select Case Vector
             Case &H21%
@@ -1226,51 +1279,10 @@ Public Module MSDOSModule
                      TeleType(CByte(CPU.Registers(SubRegisters8BitE.DL)))
                      Success = True
                   Case &H6%
-                     Select Case CPU.Registers(SubRegisters8BitE.DL)
-                        Case &H0% To &HFE%
-                           TeleType(CByte(CPU.Registers(SubRegisters8BitE.DL)))
-                        Case &HFF%
-                           If ExtendedKeyCode Is Nothing Then
-                              Do
-                                 KeyCode = LastBIOSKeyCode()
-                              Loop Until KeyCode.HasValue OrElse CPU.ClockToken.IsCancellationRequested
-                              If KeyCode IsNot Nothing AndAlso (KeyCode.Value And &HFF%) = Nothing Then
-                                 ExtendedKeyCode = KeyCode >> &H8%
-                              End If
-                              KeyCode = KeyCode And &HFF%
-                              LastBIOSKeyCode(, Clear:=True)
-                           Else
-                              KeyCode = ExtendedKeyCode
-                              ExtendedKeyCode = New Integer?
-                           End If
-
-                           Flags = SET_BIT(Flags, (KeyCode Is Nothing), ZERO_FLAG_INDEX)
-
-                           If KeyCode IsNot Nothing Then
-                              CPU.Registers(SubRegisters8BitE.AL, NewValue:=KeyCode)
-                           End If
-                     End Select
-
+                     DirectConsoleIO(Flags)
                      Success = True
                   Case &H7%
-                     If ExtendedKeyCode Is Nothing Then
-                        Do
-                           KeyCode = LastBIOSKeyCode()
-                        Loop Until KeyCode.HasValue OrElse CPU.ClockToken.IsCancellationRequested
-                        If KeyCode IsNot Nothing AndAlso (KeyCode.Value And &HFF%) = Nothing Then
-                           ExtendedKeyCode = KeyCode >> &H8%
-                        End If
-                        KeyCode = KeyCode And &HFF%
-                        LastBIOSKeyCode(, Clear:=True)
-                     Else
-                        KeyCode = ExtendedKeyCode
-                        ExtendedKeyCode = New Integer?
-                     End If
-
-                     If KeyCode IsNot Nothing Then
-                        CPU.Registers(SubRegisters8BitE.AL, NewValue:=KeyCode)
-                     End If
-
+                     DirectConsoleInput(Flags)
                      Success = True
                   Case &H8%
                      CPU.Registers(SubRegisters8BitE.AL, NewValue:=ReadCharacter())

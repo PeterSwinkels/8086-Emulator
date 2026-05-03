@@ -134,7 +134,7 @@ Public Class InterfaceWindow
    Private Sub UpdateStatus(sender As Object, e As EventArgs) Handles Updater.Tick
       Try
          CPUActiveLabel.Text = $"CPU {If(CPU.Clock.Status = TaskStatus.Running, "active", "inactive")}."
-         SyncLock Synchronizer
+         SyncLock SYNCHRONIZER
             If CPU_EVENT.Length > 0 Then
                OutputBox.AppendText(CPU_EVENT.ToString())
                CPU_EVENT.Clear()
