@@ -992,7 +992,8 @@ Public Class CPU8086Class
                   Case OperationsF6_F7E.NEG
                      .NewValue = &H0% - .Value1
                      AdjustFlags(.Value1, Nothing, .NewValue, .Is8Bit)
-                     Registers(FlagRegistersE.CF, NewValue:=((.NewValue And If(.Is8Bit, &H80%, &H8000%)) = &H0%))
+                     Registers(FlagRegistersE.CF, NewValue:=Not (.Value1 = &H0%))
+                     Registers(FlagRegistersE.OF, NewValue:=(.Value1 = If(.Is8Bit, &H80%, &H8000%)))
                   Case OperationsF6_F7E.None
                      Return False
                   Case OperationsF6_F7E.NOT
