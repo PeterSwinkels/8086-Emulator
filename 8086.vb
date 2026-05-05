@@ -520,8 +520,8 @@ Public Class CPU8086Class
          End Select
 
          If Displacement IsNot Nothing Then
-            If DisplacementIs8Bit Then
-               Displacement = ConvertWidening(Displacement.Value, Is8Bit:=True)
+            If DisplacementIs8Bit AndAlso Displacement > &H7F% Then
+               Displacement = (Displacement.Value - &H100%) And &HFFFF%
             End If
 
             Addresses.Address = (Addresses.Address + Displacement.Value) And &HFFFF%
@@ -579,7 +579,7 @@ Public Class CPU8086Class
             If Subtraction Then
                Registers(FlagRegistersE.CF, NewValue:=(OldValue < Operand))
             Else
-               Registers(FlagRegistersE.CF, NewValue:=(NewValue < OldValue))
+               Registers(FlagRegistersE.CF, NewValue:=(NewValue > BitMask))
             End If
          End If
       End If
@@ -624,19 +624,6 @@ Public Class CPU8086Class
       End If
 
       Return NewBits
-   End Function
-
-   'This procedure converts the specified BYTE/WORD to a WORD/DWORD and returns the result.
-   Private Function ConvertWidening(Value As Integer, Is8Bit As Boolean) As Integer
-      Value = Value And If(Is8Bit, &HFF%, &HFFFF%)
-
-      If Is8Bit AndAlso Value > &H7F% Then
-         Value -= &H100%
-      ElseIf Not Is8Bit AndAlso Value > &H7FFF% Then
-         Value -= &H10000%
-      End If
-
-      Return Value And If(Is8Bit, &HFFFF%, &HFFFFFFFF%)
    End Function
 
    'This procedure gives the CPU the command to execute instructions and returns the address of the next instruction to be executed.
@@ -835,13 +822,13 @@ Public Class CPU8086Class
 
             With OperandPair
                If Opcode = OpcodesE.MULTI1_TGT16_BYTE Then
-                  .Value2 = ConvertWidening(.Value2, Is8Bit:=True)
+                  If .Value2 > &H7F% Then .Value2 = (.Value2 - &H100%) And &HFFFF%
                End If
 
                Select Case DirectCast(CByte(Operation), Operations80_83E)
                   Case Operations80_83E.ADC
+                     If CBool(Registers(FlagRegistersE.CF)) Then .Value2 += &H1%
                      .NewValue = .Value1 + .Value2
-                     If CBool(Registers(FlagRegistersE.CF)) Then .NewValue += &H1%
                      AdjustFlags(.Value1, .Value2, .NewValue, .Is8Bit, Subtraction:=False)
                   Case Operations80_83E.ADD
                      .NewValue = .Value1 + .Value2
@@ -856,8 +843,8 @@ Public Class CPU8086Class
                      .NewValue = .Value1 Or .Value2
                      AdjustFlags(.Value1, .Value2, .NewValue, .Is8Bit)
                   Case Operations80_83E.SBB
+                     If CBool(Registers(FlagRegistersE.CF)) Then .Value2 += &H1%
                      .NewValue = .Value1 - .Value2
-                     If CBool(Registers(FlagRegistersE.CF)) Then .NewValue -= &H1%
                      AdjustFlags(.Value1, .Value2, .NewValue, .Is8Bit)
                   Case Operations80_83E.SUB
                      .NewValue = .Value1 - .Value2
@@ -1142,8 +1129,8 @@ Public Class CPU8086Class
             With OperandPair
                Select Case Opcode
                   Case OpcodesE.ADC_TGT_REG8 To OpcodesE.ADC_AX_WORD
+                     If CBool(Registers(FlagRegistersE.CF)) Then .Value2 += &H1%
                      .NewValue = .Value1 + .Value2
-                     If CBool(Registers(FlagRegistersE.CF)) Then .NewValue += &H1%
                      AdjustFlags(.Value1, .Value2, .NewValue, .Is8Bit, Subtraction:=False)
                   Case OpcodesE.ADD_TGT_REG8 To OpcodesE.ADD_AX_WORD
                      .NewValue = .Value1 + .Value2
@@ -1160,8 +1147,8 @@ Public Class CPU8086Class
                      .NewValue = .Value1 Or .Value2
                      AdjustFlags(.Value1, .Value2, .NewValue, .Is8Bit)
                   Case OpcodesE.SBB_TGT_REG8 To OpcodesE.SBB_AX_WORD
+                     If CBool(Registers(FlagRegistersE.CF)) Then .Value2 += &H1%
                      .NewValue = .Value1 - .Value2
-                     If CBool(Registers(FlagRegistersE.CF)) Then .NewValue -= &H1%
                      AdjustFlags(.Value1, .Value2, .NewValue, .Is8Bit)
                   Case OpcodesE.SUB_TGT_REG8 To OpcodesE.SUB_AX_WORD
                      .NewValue = .Value1 - .Value2

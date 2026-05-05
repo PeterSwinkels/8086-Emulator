@@ -1621,7 +1621,7 @@ Public Module MSDOSModule
 
          WriteStringToMemory(EnvironmentText, ENVIRONMENT_SEGMENT << &H4%)
 
-         UpdateMSDOSPath
+         UpdateMSDOSPath()
 
          CPU.Registers(SegmentRegistersE.CS, NewValue:=LOWEST_EXECUTABLE_ADDRESS)
       Catch ExceptionO As Exception
@@ -1674,6 +1674,7 @@ Public Module MSDOSModule
             DTA = (CPU.Registers(SegmentRegistersE.CS) << &H10%) Or PSP_COMMAND_TAIL
             ProcessIDs.Add(LoadAddress >> &H4%)
             CPU.Stack(Push:=CPU.Registers(Registers16BitE.IP) - PSP_SIZE)
+            WritePathToEnvironmentBlock(FileName)
          End If
 
          Return Success
@@ -2171,6 +2172,40 @@ Public Module MSDOSModule
                   Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
                End Try
          End Select
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure writes the specified executable's path to the environment block.
+   Private Sub WritePathToEnvironmentBlock(FileName As String)
+      Try
+         Dim CurrentPath As String = CurrentDirectory()
+         Dim FileItem As New FileSystemItemStr With {.IsFile = True, .Name = Path.GetFileName(FileName), .ShortName = Nothing}
+         Dim FilePath As String = Path.GetDirectoryName(FileName)
+         Dim Items As New List(Of FileSystemItemStr)
+         Dim MSDOSProgramPath As New StringBuilder
+
+         Directory.SetCurrentDirectory(FilePath.Substring(0, FilePath.IndexOf("\") + 1))
+
+         MSDOSProgramPath.Append(FilePath.Substring(0, FilePath.IndexOf("\"c) + 1).ToUpper())
+
+         FilePath = FilePath.Substring(FilePath.IndexOf("\"c))
+         If Not FilePath.EndsWith("\"c) Then FilePath = $"{FilePath}\"
+
+         For Each Parent As String In FilePath.Split("\"c)
+            If Not Parent = Nothing Then
+               Items = GetFileSystemItems(CurrentDirectory(), "*.*")
+               Directory.SetCurrentDirectory($".\{Parent}")
+               MSDOSProgramPath.Append($"{GetShortName(Items, CurrentDirectory())}\")
+            End If
+         Next Parent
+
+         MSDOSProgramPath.Append(GetShortNames({FileItem}.ToList()).First.ShortName)
+
+         Directory.SetCurrentDirectory(CurrentPath)
+
+         WriteStringToMemory($"{EnvironmentText}{ToChar(&H1%)}{ToChar(&H0%)}{MSDOSProgramPath.ToString()}{ToChar(&H0%)}", ENVIRONMENT_SEGMENT << &H4%)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
