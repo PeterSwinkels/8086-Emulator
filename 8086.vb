@@ -436,6 +436,7 @@ Public Class CPU8086Class
    Public DoSystemTimerTick As Boolean = False                                     'Indicates whether or not the system timer tick interrupt needs to be executed.
    Public HLTEnabled As Boolean = False                                            'Indicates whether the HLT instruction halts the CPU is ignored.
    Public INT6Enabled As Boolean = False                                           'Indicates whether or not interrupt 6h is triggered for invalid opcodes.
+   Public LastOverride As SegmentRegistersE? = Nothing                             'Contains the most recent segment override used.
    Public Memory() As Byte = Enumerable.Repeat(CByte(&H0%), &H100000%).ToArray()   'Contains the memory used by the emulated 8086 CPU.
    Public Tracing As Boolean = False                                               'Indicates whether or not tracing is enabled.
 
@@ -638,16 +639,16 @@ Public Class CPU8086Class
             Vector = PIC.GetInterruptVector()
             ''End If
 
-            SyncLock SYNCHRONIZER
-               If Not Vector = &HFF% Then
-                  ExecuteInterrupt(OpcodesE.INT, Vector)
-               End If
+            ''SyncLock SYNCHRONIZER
+            ''   If Not Vector = &HFF% Then
+            ''      ExecuteInterrupt(OpcodesE.INT, Vector)
+            ''   End If
 
-               If DoSystemTimerTick Then
-                  ExecuteInterrupt(OpcodesE.INT, SYSTEM_TIMER_TICK)
-                  DoSystemTimerTick = False
-               End If
-            End SyncLock
+            ''   If DoSystemTimerTick Then
+            ''      ExecuteInterrupt(OpcodesE.INT, SYSTEM_TIMER_TICK)
+            ''      DoSystemTimerTick = False
+            ''   End If
+            ''End SyncLock
 
             If Not ExecuteOpcode() Then
                If INT6Enabled Then
@@ -1115,14 +1116,14 @@ Public Class CPU8086Class
                Return False
             End If
          Case OpcodesE.ADC_TGT_REG8 To OpcodesE.ADC_AX_WORD,
-               OpcodesE.ADD_TGT_REG8 To OpcodesE.ADD_AX_WORD,
-               OpcodesE.AND_TGT_REG8 To OpcodesE.AND_AX_WORD,
-               OpcodesE.CMP_TGT_REG8 To OpcodesE.CMP_AX_WORD,
-               OpcodesE.MOV_TGT_REG8 To OpcodesE.MOV_REG16_SRC,
-               OpcodesE.OR_TGT_REG8 To OpcodesE.OR_AX_WORD,
-               OpcodesE.SBB_TGT_REG8 To OpcodesE.SBB_AX_WORD,
-               OpcodesE.SUB_TGT_REG8 To OpcodesE.SUB_AX_WORD,
-               OpcodesE.XOR_TGT_REG8 To OpcodesE.XOR_AX_WORD
+                  OpcodesE.ADD_TGT_REG8 To OpcodesE.ADD_AX_WORD,
+                  OpcodesE.AND_TGT_REG8 To OpcodesE.AND_AX_WORD,
+                  OpcodesE.CMP_TGT_REG8 To OpcodesE.CMP_AX_WORD,
+                  OpcodesE.MOV_TGT_REG8 To OpcodesE.MOV_REG16_SRC,
+                  OpcodesE.OR_TGT_REG8 To OpcodesE.OR_AX_WORD,
+                  OpcodesE.SBB_TGT_REG8 To OpcodesE.SBB_AX_WORD,
+                  OpcodesE.SUB_TGT_REG8 To OpcodesE.SUB_AX_WORD,
+                  OpcodesE.XOR_TGT_REG8 To OpcodesE.XOR_AX_WORD
 
             Operand = GetByteCSIP()
             OperandPair = GetValues(GetOperandPair(Opcode, CByte(Operand)))
@@ -1160,13 +1161,13 @@ Public Class CPU8086Class
 
                Select Case Opcode
                   Case OpcodesE.ADC_TGT_REG8 To OpcodesE.ADC_AX_WORD,
-                        OpcodesE.ADD_TGT_REG8 To OpcodesE.ADD_AX_WORD,
-                        OpcodesE.AND_TGT_REG8 To OpcodesE.AND_AX_WORD,
-                        OpcodesE.MOV_TGT_REG8 To OpcodesE.MOV_REG16_SRC,
-                        OpcodesE.OR_TGT_REG8 To OpcodesE.OR_AX_WORD,
-                        OpcodesE.SBB_TGT_REG8 To OpcodesE.SBB_AX_WORD,
-                        OpcodesE.SUB_TGT_REG8 To OpcodesE.SUB_AX_WORD,
-                        OpcodesE.XOR_TGT_REG8 To OpcodesE.XOR_AX_WORD
+                           OpcodesE.ADD_TGT_REG8 To OpcodesE.ADD_AX_WORD,
+                           OpcodesE.AND_TGT_REG8 To OpcodesE.AND_AX_WORD,
+                           OpcodesE.MOV_TGT_REG8 To OpcodesE.MOV_REG16_SRC,
+                           OpcodesE.OR_TGT_REG8 To OpcodesE.OR_AX_WORD,
+                           OpcodesE.SBB_TGT_REG8 To OpcodesE.SBB_AX_WORD,
+                           OpcodesE.SUB_TGT_REG8 To OpcodesE.SUB_AX_WORD,
+                           OpcodesE.XOR_TGT_REG8 To OpcodesE.XOR_AX_WORD
 
                      SetNewValue(OperandPair)
                End Select
@@ -1301,18 +1302,18 @@ Public Class CPU8086Class
          Case OpcodesE.MOV_AL_BYTE To OpcodesE.MOV_BH_BYTE
             Registers(DirectCast(Opcode And &H7%, SubRegisters8BitE), NewValue:=GetByteCSIP())
          Case OpcodesE.MOV_AL_MEM
-            Override = SegmentOverride(, Preserve:=True)
+            Override = SegmentOverride()
             Registers(SubRegisters8BitE.AL, NewValue:=Memory((If(Override Is Nothing, Registers(SegmentRegistersE.DS), Registers(Override)) << &H4%) + GetWordCSIP()))
          Case OpcodesE.MOV_AX_MEM
-            Override = SegmentOverride(, Preserve:=True)
+            Override = SegmentOverride()
             Registers(Registers16BitE.AX, NewValue:=GetWord((If(Override Is Nothing, Registers(SegmentRegistersE.DS), Registers(Override)) << &H4%) + GetWordCSIP()))
          Case OpcodesE.MOV_AX_WORD To OpcodesE.MOV_DI_WORD
             Registers(DirectCast(Opcode And &H7%, Registers16BitE), NewValue:=GetWordCSIP())
          Case OpcodesE.MOV_MEM_AL
-            Override = SegmentOverride(, Preserve:=True)
+            Override = SegmentOverride()
             Memory((If(Override Is Nothing, Registers(SegmentRegistersE.DS), Registers(Override)) << &H4%) + GetWordCSIP()) = CByte(Registers(SubRegisters8BitE.AL))
          Case OpcodesE.MOV_MEM_AX
-            Override = SegmentOverride(, Preserve:=True)
+            Override = SegmentOverride()
             PutWord((If(Override Is Nothing, Registers(SegmentRegistersE.DS), Registers(Override)) << &H4%) + GetWordCSIP(), Registers(Registers16BitE.AX))
          Case OpcodesE.MOV_SG_SRC
             With GetSegmentAndTarget(Opcode, CByte(GetByteCSIP() And &HDF%))
@@ -1350,9 +1351,9 @@ Public Class CPU8086Class
             Registers(FlagRegistersE.ZF, NewValue:=(Not ZFStopValue))
 
             Opcode = DirectCast(GetByteCSIP(), OpcodesE)
-
+            Override = SegmentOverride()
             Do Until CBool(Registers(FlagRegistersE.ZF)) = ZFStopValue OrElse Registers(Registers16BitE.CX) = &H0%
-               ExecuteStringOpcode(Opcode)
+               ExecuteStringOpcode(Opcode, Override)
                Registers(Registers16BitE.CX, NewValue:=Registers(Registers16BitE.CX) - &H1%)
             Loop
          Case OpcodesE.RSBITS_BYTE_1 To OpcodesE.RSBITS_WORD_1, OpcodesE.RSBITS_BYTE_CL To OpcodesE.RSBITS_WORD_CL
@@ -1454,7 +1455,7 @@ Public Class CPU8086Class
             RaiseEvent Interrupt(GetByteCSIP(), Registers(SubRegisters8BitE.AH))
          Case Else
             If Array.IndexOf({OpcodesE.LOCK, OpcodesE.NOP, OpcodesE.WAIT}, Opcode) < 0 Then
-               Return ExecuteControlFlowOpcode(Opcode) OrElse ExecuteMultiOpcode(Opcode) OrElse ExecuteStackOpcode(Opcode) OrElse ExecuteStringOpcode(Opcode)
+               Return ExecuteControlFlowOpcode(Opcode) OrElse ExecuteMultiOpcode(Opcode) OrElse ExecuteStackOpcode(Opcode) OrElse ExecuteStringOpcode(Opcode, SegmentOverride())
             End If
       End Select
 
@@ -1495,7 +1496,7 @@ Public Class CPU8086Class
    End Function
 
    'This procedure executes the specified string opcode and returns whether or not it succeeded.
-   Private Function ExecuteStringOpcode(Opcode As OpcodesE) As Boolean
+   Private Function ExecuteStringOpcode(Opcode As OpcodesE, Override As SegmentRegistersE?) As Boolean
       Dim Is8Bit As Boolean = ((Opcode And &H1%) = &H0%)
       Dim NewValue As New Integer
       Dim SourceValue As New Integer
@@ -1506,37 +1507,37 @@ Public Class CPU8086Class
 
       Select Case Opcode
          Case OpcodesE.CMPSB
-            SourceValue = Memory(((Registers(SegmentRegistersE.DS) << &H4%) + Registers(Registers16BitE.SI)) And ADDRESS_MASK)
+            SourceValue = Memory(((Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + Registers(Registers16BitE.SI)) And ADDRESS_MASK)
             TargetValue = Memory(((Registers(SegmentRegistersE.ES) << &H4%) + Registers(Registers16BitE.DI)) And ADDRESS_MASK)
             NewValue = TargetValue - SourceValue
             AdjustFlags(TargetValue, SourceValue, NewValue)
          Case OpcodesE.CMPSW
-            SourceValue = GetWord((Registers(SegmentRegistersE.DS) << &H4%) + Registers(Registers16BitE.SI))
+            SourceValue = GetWord((Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + Registers(Registers16BitE.SI))
             TargetValue = GetWord((Registers(SegmentRegistersE.ES) << &H4%) + Registers(Registers16BitE.DI))
             NewValue = TargetValue - SourceValue
             AdjustFlags(TargetValue, SourceValue, NewValue, Is8Bit:=False)
          Case OpcodesE.LODSB
-            Registers(SubRegisters8BitE.AL, NewValue:=Memory(((Registers(SegmentRegistersE.DS) << &H4%) + Registers(Registers16BitE.SI)) And ADDRESS_MASK))
+            Registers(SubRegisters8BitE.AL, NewValue:=Memory(((Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + Registers(Registers16BitE.SI)) And ADDRESS_MASK))
          Case OpcodesE.LODSW
-            Registers(Registers16BitE.AX, NewValue:=GetWord((Registers(SegmentRegistersE.DS) << &H4%) + Registers(Registers16BitE.SI)))
+            Registers(Registers16BitE.AX, NewValue:=GetWord((Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + Registers(Registers16BitE.SI)))
          Case OpcodesE.MOVSB
-            Memory(((Registers(SegmentRegistersE.ES) << &H4%) + Registers(Registers16BitE.DI)) And ADDRESS_MASK) = Memory(((Registers(SegmentRegistersE.DS) << &H4%) + Registers(Registers16BitE.SI)) And ADDRESS_MASK)
+            Memory(((Registers(SegmentRegistersE.ES) << &H4%) + Registers(Registers16BitE.DI)) And ADDRESS_MASK) = Memory(((Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + Registers(Registers16BitE.SI)) And ADDRESS_MASK)
          Case OpcodesE.MOVSW
-            PutWord((Registers(SegmentRegistersE.ES) << &H4%) + Registers(Registers16BitE.DI), GetWord((Registers(SegmentRegistersE.DS) << &H4%) + Registers(Registers16BitE.SI)))
+            PutWord((Registers(SegmentRegistersE.ES) << &H4%) + Registers(Registers16BitE.DI), GetWord((Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + Registers(Registers16BitE.SI)))
          Case OpcodesE.SCASB
             SourceValue = Registers(SubRegisters8BitE.AL)
-            TargetValue = Memory(((Registers(SegmentRegistersE.ES) << &H4%) + Registers(Registers16BitE.DI)) And ADDRESS_MASK)
+            TargetValue = Memory(((Registers(If(Override Is Nothing, SegmentRegistersE.ES, Override)) << &H4%) + Registers(Registers16BitE.DI)) And ADDRESS_MASK)
             NewValue = TargetValue - SourceValue
             AdjustFlags(TargetValue, SourceValue, NewValue)
          Case OpcodesE.SCASW
             SourceValue = Registers(Registers16BitE.AX)
-            TargetValue = GetWord((Registers(SegmentRegistersE.ES) << &H4%) + Registers(Registers16BitE.DI))
+            TargetValue = GetWord((Registers(If(Override Is Nothing, SegmentRegistersE.ES, Override)) << &H4%) + Registers(Registers16BitE.DI))
             NewValue = TargetValue - SourceValue
             AdjustFlags(TargetValue, SourceValue, NewValue, Is8Bit:=False)
          Case OpcodesE.STOSB
-            Memory(((Registers(SegmentRegistersE.ES) << &H4%) + Registers(Registers16BitE.DI)) And ADDRESS_MASK) = CByte(Registers(SubRegisters8BitE.AL))
+            Memory(((Registers(If(Override Is Nothing, SegmentRegistersE.ES, Override)) << &H4%) + Registers(Registers16BitE.DI)) And ADDRESS_MASK) = CByte(Registers(SubRegisters8BitE.AL))
          Case OpcodesE.STOSW
-            PutWord((Registers(SegmentRegistersE.ES) << &H4%) + Registers(Registers16BitE.DI), Registers(Registers16BitE.AX))
+            PutWord((Registers(If(Override Is Nothing, SegmentRegistersE.ES, Override)) << &H4%) + Registers(Registers16BitE.DI), Registers(Registers16BitE.AX))
          Case Else
             Return False
       End Select
@@ -1774,7 +1775,7 @@ Public Class CPU8086Class
    End Function
 
    'This procedure sets and/or returns the current segment override.
-   Public Function SegmentOverride(Optional NewOverride As SegmentRegistersE? = Nothing, Optional Preserve As Boolean = False) As SegmentRegistersE?
+   Private Function SegmentOverride(Optional NewOverride As SegmentRegistersE? = Nothing) As SegmentRegistersE?
       Dim Override As SegmentRegistersE? = Nothing
       Static CurrentOverride As SegmentRegistersE? = Nothing
 
@@ -1783,7 +1784,8 @@ Public Class CPU8086Class
          Override = CurrentOverride
       Else
          Override = CurrentOverride
-         If Not Preserve Then CurrentOverride = Nothing
+         LastOverride = Override
+         CurrentOverride = Nothing
       End If
 
       Return Override

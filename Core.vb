@@ -209,19 +209,22 @@ Public Module CoreModule
                   Address = CPU.AddressFromOperand(MemoryOperandsE.LAST).FlatAddress
 
                   If Address Is Nothing AndAlso Integer.TryParse(ParseElement(Code, $"{MEMORY_OPERAND_START}{Disassembler.HEXADECIMAL_PREFIX}", MEMORY_OPERAND_END).Element, NumberStyles.HexNumber, CultureInfo.InvariantCulture, ParsedAddress) Then
-                     Override = CPU.SegmentOverride()
+                     Override = CPU.LastOverride
                      Address = (CPU.Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + ParsedAddress
                   End If
 
                   GenerateAddressContent(Address)
                ElseIf Code IsNot Nothing AndAlso (Code.Contains("LODSB") OrElse Code.Contains("LODSW")) Then
-                  Address = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + ((CPU.Registers(Registers16BitE.SI) + If(CBool(CPU.Registers(FlagRegistersE.DF)), 1, -1)) And &HFFFF%)
+                  Override = CPU.LastOverride
+                  Address = (CPU.Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + ((CPU.Registers(Registers16BitE.SI) + If(CBool(CPU.Registers(FlagRegistersE.DF)), 1, -1)) And &HFFFF%)
                   GenerateAddressContent(Address)
                ElseIf Code IsNot Nothing AndAlso {"SCASB", "SCASW", "STOSB", "STOSW"}.Any(Function(OpcodeText As String) Code.Contains(OpcodeText)) Then
-                  Address = (CPU.Registers(SegmentRegistersE.ES) << &H4%) + ((CPU.Registers(Registers16BitE.DI) + If(CBool(CPU.Registers(FlagRegistersE.DF)), 1, -1)) And &HFFFF%)
+                  Override = CPU.LastOverride
+                  Address = (CPU.Registers(If(Override Is Nothing, SegmentRegistersE.ES, Override)) << &H4%) + ((CPU.Registers(Registers16BitE.DI) + If(CBool(CPU.Registers(FlagRegistersE.DF)), 1, -1)) And &HFFFF%)
                   GenerateAddressContent(Address)
                ElseIf Code IsNot Nothing AndAlso {"CMPSB", "CMPSW", "MOVSB", "MOVSW"}.Any(Function(OpcodeText As String) Code.Contains(OpcodeText)) Then
-                  Address = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + ((CPU.Registers(Registers16BitE.SI) + If(CBool(CPU.Registers(FlagRegistersE.DF)), 1, -1)) And &HFFFF%)
+                  Override = CPU.LastOverride
+                  Address = (CPU.Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + ((CPU.Registers(Registers16BitE.SI) + If(CBool(CPU.Registers(FlagRegistersE.DF)), 1, -1)) And &HFFFF%)
                   GenerateAddressContent(Address, AddNewLine:=False)
 
                   Address = (CPU.Registers(SegmentRegistersE.ES) << &H4%) + ((CPU.Registers(Registers16BitE.DI) + If(CBool(CPU.Registers(FlagRegistersE.DF)), 1, -1)) And &HFFFF%)

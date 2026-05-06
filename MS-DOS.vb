@@ -1711,7 +1711,7 @@ Public Module MSDOSModule
             CPU.Registers(Registers16BitE.DX, NewValue:=&H0%)
             CPU.Registers(SegmentRegistersE.CS, NewValue:=RelocatedCS)
             CPU.Registers(Registers16BitE.IP, NewValue:=BitConverter.ToUInt16(Executable.ToArray(), EXE_INITIAL_IP))
-            CPU.Registers(SegmentRegistersE.DS, NewValue:=((LoadAddress + PSP_SIZE) >> &H4%))
+            CPU.Registers(SegmentRegistersE.DS, NewValue:=(LoadAddress >> &H4%))
             CPU.Registers(SegmentRegistersE.ES, NewValue:=(LoadAddress >> &H4%))
             CPU.Registers(SegmentRegistersE.SS, NewValue:=(If(InitialSS = Nothing, RelocatedCS, RelocatedCS + InitialSS)))
             CPU.Registers(Registers16BitE.SP, NewValue:=If(InitialSP = Nothing, &HFFFF%, InitialSP))
@@ -2185,6 +2185,10 @@ Public Module MSDOSModule
          Dim FilePath As String = Path.GetDirectoryName(FileName)
          Dim Items As New List(Of FileSystemItemStr)
          Dim MSDOSProgramPath As New StringBuilder
+
+         If FilePath = Nothing Then
+            FilePath = CurrentPath
+         End If
 
          Directory.SetCurrentDirectory(FilePath.Substring(0, FilePath.IndexOf("\") + 1))
 
