@@ -374,6 +374,21 @@ Public Module CoreModule
       End Try
    End Sub
 
+
+   'This procedure returns the dword at the specified adddress.
+   Public Function GetDWord(Address As Integer) As Integer
+      Try
+         Dim Offset As Integer = Address And &HFFFF%
+         Dim Segment As Integer = Address And &HF0000%
+
+         Return CPU.Memory(Segment + Offset) Or (CInt(CPU.Memory(Segment + ((Offset + &H1%) And &HFFFF%))) << &H8%) Or (CInt(CPU.Memory(Segment + ((Offset + &H2%) And &HFFFF%))) << &H10%) Or (CInt(CPU.Memory(Segment + ((Offset + &H3%) And &HFFFF%))) << &H18%)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return Nothing
+   End Function
+
    'This procedure returns the literal value represented by a command element.
    Private Function GetLiteral(Element As String, Optional Is8Bit As Boolean = True) As Integer?
       Try
@@ -987,6 +1002,21 @@ Public Module CoreModule
 
       Return {}
    End Function
+
+   'This procedure writes the specified dword to the specified address.
+   Public Sub PutDWord(Address As Integer, DWord As Integer)
+      Try
+         Dim Offset As Integer = Address And &HFFFF%
+         Dim Segment As Integer = Address And &HF0000%
+
+         CPU.Memory(Segment + Offset) = CByte(DWord And &HFF%)
+         CPU.Memory(Segment + ((Offset + &H1%) And &HFFFF%)) = CByte((DWord And &HFF00%) >> &H8%)
+         CPU.Memory(Segment + ((Offset + &H2%) And &HFFFF%)) = CByte((DWord And &HFF0000%) >> &H10%)
+         CPU.Memory(Segment + ((Offset + &H3%) And &HFFFF%)) = CByte((DWord And &HFF000000%) >> &H18%)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
 
    'This procedure displays a file dialog requesting the user to specify a file and returns the user's selection.
    Private Function RequestFileName(Title As String, Optional Save As Boolean = False, Optional Filter As String = Nothing, Optional UseCurrentDiretory As Boolean = False) As String

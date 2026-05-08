@@ -48,16 +48,18 @@ Public Module MSDOSModule
 
    'This enumeration lists addresses used inside a FCB block.
    Private Enum FCBE As Integer
-      ExtendedFCBFlag = -7  'Extended FCB flag.
-      Attribute = -1        'Attribute.
-      Drive = &H0%          'Drive number.
-      Filename = &H1%       'Filename.
-      Extension = &H9%      'Extension.
-      CurrentBlock = &HC%   'Current block.
-      RecordSize = &HE%     'Logical record size.
-      FileSize = &H10%      'File size.
-      FileDate = &H14%      'File date.
-      FileTime = &H14%      'File time.
+      ExtendedFCBFlag = -7              'Extended FCB flag.
+      Attribute = -1                    'Attribute.
+      Drive = &H0%                      'Drive number.
+      Filename = &H1%                   'Filename.
+      Extension = &H9%                  'Extension.
+      CurrentBlock = &HC%               'Current block.
+      RecordSize = &HE%                 'Logical record size.
+      FileSize = &H10%                  'File size.
+      FileDate = &H14%                  'File date.
+      FileTime = &H14%                  'File time.
+      RelativeRecordInBlock = &H20%     'Relative record within current block.
+      RelativeRecordFromStart = &H21%   'Relative record from start of file.
    End Enum
 
    'This enumeration lists the memory allocation strategies.
@@ -155,7 +157,8 @@ Public Module MSDOSModule
    Private AvailableDevices As Boolean = True                        'Contains the AVAILDEV flag.
    Private BootDrive As Integer = &H0%                               'Contains the boot drive.
    Private CTRLBreakCheck As Boolean = False                         'Contains the control-break checking status.
-   Private DTA As New Integer                                        'Contains the Disk Transfer Address.
+   Private DTAOffset As New Integer                                  'Contains the Disk Transfer Address offset.
+   Private DTASegment As New Integer                                 'Contains the Disk Transfer Address segment.
    Private EnvironmentText As String = ""                            'Contains the MS-DOS environment text.
    Private ExtendedCTRLBreakCheck As Boolean = False                 'Contains the extended control-break checking status.
    Private MemoryAllocationStrategy As MASE = MASE.FirstFit          'Contains the memory allocation strategy used.
@@ -568,8 +571,8 @@ Public Module MSDOSModule
    'This procedure creates a file using an FCB.
    Private Sub FCBCreateFile()
       Try
-         Dim Offset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
          Dim Extension As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim()
+         Dim FCBOffset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
          Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim()
          Dim FilePath As String = $"{FileName}.{Extension}"
 
@@ -578,12 +581,12 @@ Public Module MSDOSModule
                Throw New ArgumentException
             End If
 
-            CPU.PutWord(Offset + FCBE.CurrentBlock, &H0%)
-            CPU.PutWord(Offset + FCBE.FileDate, DATE_TO_MSDOS_DATE(DateTime.Today))
-            CPU.PutWord(Offset + FCBE.FileSize, &H0%)
-            CPU.PutWord(Offset + FCBE.FileSize + &H2%, &H0%)
-            CPU.PutWord(Offset + FCBE.FileTime, TIME_TO_MSDOS_TIME(DateTime.Today))
-            CPU.PutWord(Offset + FCBE.RecordSize, &H80%)
+            CPU.PutWord(FCBOffset + FCBE.CurrentBlock, &H0%)
+            CPU.PutWord(FCBOffset + FCBE.FileDate, DATE_TO_MSDOS_DATE(DateTime.Today))
+            CPU.PutWord(FCBOffset + FCBE.FileSize, &H0%)
+            CPU.PutWord(FCBOffset + FCBE.FileSize + &H2%, &H0%)
+            CPU.PutWord(FCBOffset + FCBE.FileTime, TIME_TO_MSDOS_TIME(DateTime.Today))
+            CPU.PutWord(FCBOffset + FCBE.RecordSize, &H80%)
 
             File.Create(FilePath)
             CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
@@ -598,7 +601,6 @@ Public Module MSDOSModule
    'This procedure deletes a file using an FCB.
    Private Sub FCBDeleteFile()
       Try
-         Dim Offset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
          Dim Extension As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim()
          Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim()
          Dim FilePath As String = Nothing
@@ -656,8 +658,8 @@ Public Module MSDOSModule
    'This procedure opens a file using an FCB.
    Private Sub FCBOpenFile()
       Try
-         Dim Offset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
          Dim Extension As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim()
+         Dim FCBOffset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
          Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim()
          Dim FilePath As String = Nothing
          Dim FileSize As New Long
@@ -668,12 +670,14 @@ Public Module MSDOSModule
          Try
             FileSize = New FileInfo(FilePath).Length
 
-            CPU.PutWord(Offset + FCBE.CurrentBlock, &H0%)
-            CPU.PutWord(Offset + FCBE.FileDate, DATE_TO_MSDOS_DATE(File.GetLastWriteTime(FilePath)))
-            CPU.PutWord(Offset + FCBE.FileSize, CInt(FileSize And &HFFFF%))
-            CPU.PutWord(Offset + FCBE.FileSize + &H2%, CInt(FileSize) >> &H10%)
-            CPU.PutWord(Offset + FCBE.FileTime, TIME_TO_MSDOS_TIME(File.GetLastWriteTime(FilePath)))
-            CPU.PutWord(Offset + FCBE.RecordSize, &H80%)
+            CPU.PutWord(FCBOffset + FCBE.CurrentBlock, &H0%)
+            CPU.Memory(FCBOffset + FCBE.RelativeRecordInBlock) = &H0%
+            PutDWord(FCBOffset + FCBE.RelativeRecordFromStart, &H0%)
+            CPU.PutWord(FCBOffset + FCBE.FileDate, DATE_TO_MSDOS_DATE(File.GetLastWriteTime(FilePath)))
+            CPU.PutWord(FCBOffset + FCBE.FileSize, CInt(FileSize And &HFFFF%))
+            CPU.PutWord(FCBOffset + FCBE.FileSize + &H2%, CInt(FileSize) >> &H10%)
+            CPU.PutWord(FCBOffset + FCBE.FileTime, TIME_TO_MSDOS_TIME(File.GetLastWriteTime(FilePath)))
+            CPU.PutWord(FCBOffset + FCBE.RecordSize, &H80%)
 
             CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
          Catch
@@ -761,37 +765,79 @@ Public Module MSDOSModule
       End Try
    End Sub
 
-   'This procedure reads a file randomly using an FCB block.
-   Private Sub FCBRandomReadFile()
+   'This procedure randomly reads the specified number of records from a file using an FCB block.
+   Private Sub FCBRandomBlockReadFile()
       Try
          Dim Buffer() As Byte = {}
          Dim Count As Integer = CPU.Registers(Registers16BitE.CX)
          Dim Extension As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim()
+         Dim FCBOffset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
          Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim()
-         Dim Offset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
-         Dim CurrentBlock As Integer = CPU.GetWord(Offset + FCBE.CurrentBlock)
-         Dim DTAOffset As Integer = ((DTA And &HFFFF0000%) >> &HC%) + (DTA And &HFFFF%)
-         Dim RecordSize As Integer = CPU.GetWord(Offset + FCBE.RecordSize)
+         Dim RecordSize As Integer = CPU.GetWord(FCBOffset + FCBE.RecordSize)
+         Dim RelativeRecordFromStart As Integer = CPU.GetWord(FCBOffset + FCBE.RelativeRecordFromStart)
+
+         If RecordSize >= &H40% Then RelativeRecordFromStart = RelativeRecordFromStart And &HFFFFFF%
 
          FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
 
          Using FileO As New FileStream(GetLongName(FileSystemItems, $"{FileName}.{Extension}"), FileMode.Open, FileAccess.Read)
-            If CurrentBlock * RecordSize >= FileO.Length Then
+            If RelativeRecordFromStart * RecordSize > FileO.Length Then
                CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1%)
-            ElseIf (CurrentBlock * RecordSize) + (RecordSize * Count) >= FileO.Length Then
-               FileO.Seek(CurrentBlock * RecordSize, SeekOrigin.Begin)
-               ReDim Buffer(0 To CInt(FileO.Length - (CurrentBlock * RecordSize)) - 1)
+            ElseIf (RelativeRecordFromStart * RecordSize) + (RecordSize * Count) > FileO.Length Then
+               FileO.Seek(RelativeRecordFromStart * RecordSize, SeekOrigin.Begin)
+               ReDim Buffer(0 To CInt(FileO.Length - (RelativeRecordFromStart * RecordSize)) - 1)
+               FileO.Read(Buffer, 0, Buffer.Count)
+               CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H3%)
+               Count = CInt(Ceiling(Buffer.Count / RecordSize))
+               RelativeRecordFromStart += 1
+            Else
+               FileO.Seek(RelativeRecordFromStart * RecordSize, SeekOrigin.Begin)
+               ReDim Buffer(0 To (RecordSize * Count) - 1)
+               FileO.Read(Buffer, 0, Buffer.Count)
+               CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
+               RelativeRecordFromStart += Count
+            End If
+         End Using
+
+         CPU.Registers(Registers16BitE.CX, NewValue:=Count)
+         CPU.PutWord(FCBOffset + FCBE.RelativeRecordFromStart, RelativeRecordFromStart)
+         WriteBytesToMemory(Buffer, (DTASegment << &H4%) + DTAOffset)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure randomly reads a single record from a file using an FCB block.
+   Private Sub FCBRandomReadFile()
+      Try
+         Dim Buffer() As Byte = {}
+         Dim Extension As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim()
+         Dim FCBOffset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
+         Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim()
+         Dim RecordSize As Integer = CPU.GetWord(FCBOffset + FCBE.RecordSize)
+         Dim RelativeRecordFromStart As Integer = GetDWord(FCBOffset + FCBE.RelativeRecordFromStart)
+
+         If RecordSize >= &H40% Then RelativeRecordFromStart = RelativeRecordFromStart And &HFFFFFF%
+
+         FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
+
+         Using FileO As New FileStream(GetLongName(FileSystemItems, $"{FileName}.{Extension}"), FileMode.Open, FileAccess.Read)
+            If RelativeRecordFromStart * RecordSize > FileO.Length Then
+               CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1%)
+            ElseIf (RelativeRecordFromStart * RecordSize) + RecordSize > FileO.Length Then
+               FileO.Seek(RelativeRecordFromStart * RecordSize, SeekOrigin.Begin)
+               ReDim Buffer(0 To CInt(FileO.Length - (RelativeRecordFromStart * RecordSize)) - 1)
                FileO.Read(Buffer, 0, Buffer.Count)
                CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H3%)
             Else
-               FileO.Seek(CurrentBlock * RecordSize, SeekOrigin.Begin)
-               ReDim Buffer(0 To (RecordSize * Count) - 1)
+               FileO.Seek(RelativeRecordFromStart * RecordSize, SeekOrigin.Begin)
+               ReDim Buffer(0 To RecordSize - 1)
                FileO.Read(Buffer, 0, Buffer.Count)
                CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
             End If
          End Using
 
-         WriteBytesToMemory(Buffer, DTAOffset)
+         WriteBytesToMemory(Buffer, (DTASegment << &H4%) + DTAOffset)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -802,54 +848,75 @@ Public Module MSDOSModule
       Try
          Dim Buffer() As Byte = {}
          Dim Extension As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim()
+         Dim FCBOffset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
+         Dim CurrentBlock As Integer = CPU.GetWord(FCBOffset + FCBE.CurrentBlock)
          Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim()
-         Dim Offset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
-         Dim CurrentBlock As Integer = CPU.GetWord(Offset + FCBE.CurrentBlock)
-         Dim DTAOffset As Integer = ((DTA And &HFFFF0000%) >> &HC%) + (DTA And &HFFFF%)
-         Dim RecordSize As Integer = CPU.GetWord(Offset + FCBE.RecordSize)
+         Dim RecordSize As Integer = CPU.GetWord(FCBOffset + FCBE.RecordSize)
+         Dim RelativeRecord As Integer = CPU.Memory(FCBOffset + FCBE.RelativeRecordInBlock)
 
          FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
 
          Using FileO As New FileStream(GetLongName(FileSystemItems, $"{FileName}.{Extension}"), FileMode.Open, FileAccess.Read)
-            If CurrentBlock * RecordSize >= FileO.Length Then
+            If (CurrentBlock * RecordSize) + RelativeRecord > FileO.Length Then
                CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1%)
-            ElseIf (CurrentBlock * RecordSize) + RecordSize >= FileO.Length Then
+            ElseIf ((CurrentBlock * RecordSize) + RelativeRecord) + RecordSize > FileO.Length Then
                FileO.Seek(CurrentBlock * RecordSize, SeekOrigin.Begin)
                ReDim Buffer(0 To CInt(FileO.Length - (CurrentBlock * RecordSize)) - 1)
                FileO.Read(Buffer, 0, Buffer.Count)
                CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H3%)
+               RelativeRecord += 1
+               If RelativeRecord = RecordSize Then
+                  CurrentBlock += 1
+                  RelativeRecord = 0
+               End If
             Else
                FileO.Seek(CurrentBlock * RecordSize, SeekOrigin.Begin)
                ReDim Buffer(0 To RecordSize - 1)
                FileO.Read(Buffer, 0, Buffer.Count)
                CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
+               RelativeRecord += 1
+               If RelativeRecord = RecordSize Then
+                  CurrentBlock += 1
+                  RelativeRecord = 0
+               End If
             End If
          End Using
 
-         WriteBytesToMemory(Buffer, DTAOffset)
+         CPU.PutWord(FCBOffset + FCBE.CurrentBlock, CurrentBlock)
+         CPU.Memory(FCBOffset + FCBE.RelativeRecordInBlock) = ToByte(RelativeRecord)
+         WriteBytesToMemory(Buffer, (DTASegment << &H4%) + DTAOffset)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
    End Sub
 
-   'This procedure writes to a file using an FCB block.
-   Private Sub FCBWriteFile()
+   'This procedure writes sequentially to a file using an FCB block.
+   Private Sub FCBSequentialWriteFile()
       Try
          Dim Extension As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim()
+         Dim FCBOffset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
+         Dim CurrentBlock As Integer = CPU.GetWord(FCBOffset + FCBE.CurrentBlock)
          Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim()
-         Dim Offset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
-         Dim CurrentBlock As Integer = CPU.GetWord(Offset + FCBE.CurrentBlock)
-         Dim DTAOffset As Integer = ((DTA And &HFFFF0000%) >> &HC%) + (DTA And &HFFFF%)
-         Dim RecordSize As Integer = CPU.GetWord(Offset + FCBE.RecordSize)
-         Dim Buffer() As Byte = CPU.Memory.ToList.GetRange(DTAOffset, RecordSize).ToArray()
+         Dim RecordSize As Integer = CPU.GetWord(FCBOffset + FCBE.RecordSize)
+         Dim RelativeRecord As Integer = CPU.Memory(FCBOffset + FCBE.RelativeRecordInBlock)
+         Dim Buffer() As Byte = CPU.Memory.ToList.GetRange((DTASegment << &H4%) + DTAOffset, RecordSize).ToArray()
 
          FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
 
          Try
-            Using FileO As New FileStream(GetLongName(FileSystemItems, $"{FileName}.{Extension}"), FileMode.Append, FileAccess.Write)
-               FileO.Seek(CurrentBlock * RecordSize, SeekOrigin.Begin)
+            Using FileO As New FileStream(GetLongName(FileSystemItems, $"{FileName}.{Extension}"), FileMode.Open, FileAccess.Write)
+               FileO.Seek((CurrentBlock * RecordSize) + RelativeRecord, SeekOrigin.Begin)
                FileO.Write(Buffer, &H0%, Buffer.Count)
             End Using
+
+            RelativeRecord += 1
+            If RelativeRecord = RecordSize Then
+               CurrentBlock += 1
+               RelativeRecord = 0
+            End If
+
+            CPU.PutWord(FCBOffset + FCBE.CurrentBlock, CurrentBlock)
+            CPU.Memory(FCBOffset + FCBE.RelativeRecordInBlock) = ToByte(RelativeRecord)
 
             CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
          Catch
@@ -1188,8 +1255,11 @@ Public Module MSDOSModule
    Private Function GetLongName(FileSystemItems As List(Of FileSystemItemStr), ShortName As String) As String
       Try
          Dim LongName As String = ""
-         Dim LongNames As New List(Of FileSystemItemStr)(From Item In FileSystemItems Where Item.ShortName.ToUpper() = ShortName.ToUpper() Select Item)
+         Dim LongNames As List(Of FileSystemItemStr) = Nothing
 
+         If ShortName.EndsWith(".") Then ShortName = ShortName.Substring(0, ShortName.Length - 1)
+
+         LongNames = New List(Of FileSystemItemStr)(From Item In FileSystemItems Where Item.ShortName.ToUpper() = ShortName.ToUpper() Select Item)
          If LongNames.Count > 0 Then LongName = LongNames.First().Name
 
          Return LongName
@@ -1329,7 +1399,7 @@ Public Module MSDOSModule
                      FCBSequentialReadFile()
                      Success = True
                   Case &H15%
-                     FCBWriteFile()
+                     FCBSequentialWriteFile()
                      Success = True
                   Case &H16%
                      FCBCreateFile()
@@ -1338,7 +1408,11 @@ Public Module MSDOSModule
                      CPU.Registers(SubRegisters8BitE.AL, NewValue:=ToByte(Path.GetPathRoot(Directory.GetCurrentDirectory()).ToUpper().ToCharArray.First()) - ToByte("A"c))
                      Success = True
                   Case &H1A%
-                     DTA = (CPU.Registers(SegmentRegistersE.DS) << &H10%) + CPU.Registers(Registers16BitE.DX)
+                     DTASegment = CPU.Registers(SegmentRegistersE.DS)
+                     DTAOffset = CPU.Registers(Registers16BitE.DX)
+                     Success = True
+                  Case &H21%
+                     FCBRandomReadFile()
                      Success = True
                   Case &H25%
                      Address = CPU.Registers(SubRegisters8BitE.AL) * &H4%
@@ -1349,7 +1423,7 @@ Public Module MSDOSModule
                      Array.Copy(CPU.Memory, ProcessIDs.Last() << &H4%, CPU.Memory, CPU.Registers(Registers16BitE.DX) << &H4%, PSP_SIZE)
                      Success = True
                   Case &H27%
-                     FCBRandomReadFile()
+                     FCBRandomBlockReadFile()
                      Success = True
                   Case &H29%
                      FCBParseFilename()
@@ -1366,8 +1440,8 @@ Public Module MSDOSModule
                      GetCurrentTime()
                      Success = True
                   Case &H2F%
-                     CPU.Registers(Registers16BitE.BX, NewValue:=DTA And &HFFFF%)
-                     CPU.Registers(SegmentRegistersE.ES, NewValue:=DTA >> &H10%)
+                     CPU.Registers(Registers16BitE.BX, NewValue:=DTAOffset)
+                     CPU.Registers(SegmentRegistersE.ES, NewValue:=DTASegment)
                      Success = True
                   Case &H30%
                      CPU.Registers(Registers16BitE.AX, NewValue:=VERSION)
@@ -1610,7 +1684,8 @@ Public Module MSDOSModule
          AvailableDevices = True
          BootDrive = ToInt32(CurrentDirectory.ToCharArray.First()) - ToInt32("A"c)
          CommandTail = ""
-         DTA = New Integer
+         DTAOffset = New Integer
+         DTASegment = New Integer
          EnvironmentText = $"COMSPEC={ToChar(BootDrive + ToInt32("A"c))}:\COMMAND.COM{ToChar(&H0%)}PATH={ToChar(&H0%)}{ToChar(&H0%)}"
          OpenFiles.Clear()
          PrinterBuffer.Clear()
@@ -1671,7 +1746,7 @@ Public Module MSDOSModule
          End If
 
          If Success Then
-            DTA = (CPU.Registers(SegmentRegistersE.CS) << &H10%) Or PSP_COMMAND_TAIL
+            DTASegment = (CPU.Registers(SegmentRegistersE.CS) << &H4%) + PSP_COMMAND_TAIL
             ProcessIDs.Add(LoadAddress >> &H4%)
             CPU.Stack(Push:=CPU.Registers(Registers16BitE.IP) - PSP_SIZE)
             WritePathToEnvironmentBlock(FileName)
@@ -2102,16 +2177,16 @@ Public Module MSDOSModule
    'This procedure writes information for the specified file system item to the DTA.
    Private Sub WriteDTA(FilePath As String, IsDirectory As Boolean)
       Try
+         Dim DTAAddress As Integer = (DTASegment << &H4%) + DTAOffset
          Dim FileSize As Long = If(IsDirectory, Nothing, New FileInfo(FilePath).Length)
          Dim ItemName As String = GetShortName(FileSystemItems, FilePath)
-         Dim Offset As Integer = ((DTA And &HFFFF0000%) >> &HC%) + (DTA And &HFFFF%)
 
-         CPU.Memory(Offset + DTAE.Attribute) = ToByte(File.GetAttributes(FilePath))
-         CPU.PutWord(Offset + DTAE.FileSystemItemTime, TIME_TO_MSDOS_TIME(File.GetLastWriteTime(FilePath)))
-         CPU.PutWord(Offset + DTAE.FileSystemItemDate, DATE_TO_MSDOS_DATE(File.GetLastWriteTime(FilePath)))
-         CPU.PutWord(Offset + DTAE.FileSystemItemSize, CInt(FileSize And &HFFFF%))
-         CPU.PutWord(Offset + DTAE.FileSystemItemSize + &H2%, CInt(FileSize) >> &H10%)
-         WriteStringToMemory($"{Path.GetFileName(ItemName)}{ToChar(&H0%)}", Offset + DTAE.FileSystemItemName)
+         CPU.Memory(DTAAddress + DTAE.Attribute) = ToByte(File.GetAttributes(FilePath))
+         CPU.PutWord(DTAAddress + DTAE.FileSystemItemTime, TIME_TO_MSDOS_TIME(File.GetLastWriteTime(FilePath)))
+         CPU.PutWord(DTAAddress + DTAE.FileSystemItemDate, DATE_TO_MSDOS_DATE(File.GetLastWriteTime(FilePath)))
+         CPU.PutWord(DTAAddress + DTAE.FileSystemItemSize, CInt(FileSize And &HFFFF%))
+         CPU.PutWord(DTAAddress + DTAE.FileSystemItemSize + &H2%, CInt(FileSize) >> &H10%)
+         WriteStringToMemory($"{Path.GetFileName(ItemName)}{ToChar(&H0%)}", DTAAddress + DTAE.FileSystemItemName)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
