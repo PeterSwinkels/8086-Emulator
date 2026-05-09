@@ -10,8 +10,10 @@ Imports System.Windows.Forms
 
 'This class contains the screen output window.
 Public Class ScreenWindow
-   Private Const WM_KEYDOWN As Integer = &H100%   'Defines the key down window message.
-   Private Const WM_KEYUP As Integer = &H101%     'Defines the key up window message.
+   Private Const WM_KEYDOWN As Integer = &H100%     'Defines the key down window message.
+   Private Const WM_KEYUP As Integer = &H101%       'Defines the key up window message.
+   Private Const WM_SYSKEYDOWN As Integer = &H104   'Defines the system key down window message.
+   Private Const WM_SYSKEYUP As Integer = &H105     'Defines the system key up window message.
 
    'This procedure initializes this window.
    Public Sub New()
@@ -75,9 +77,9 @@ Public Class ScreenWindow
          Dim Scancode As Integer = (m.LParam.ToInt32 >> &H10%) And &HFF%
 
          Select Case m.Msg
-            Case WM_KEYDOWN
+            Case WM_KEYDOWN, WM_SYSKEYDOWN
                KeyScancode = CByte(Scancode)
-            Case WM_KEYUP
+            Case WM_KEYUP, WM_SYSKEYUP
                KeyScancode = CByte(Scancode Or &H80%)
          End Select
 

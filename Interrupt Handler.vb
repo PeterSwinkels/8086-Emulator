@@ -21,16 +21,20 @@ Public Module InterruptHandlerModule
    'This procedure handles any pending hardware interrupts.
    Public Sub ExecuteHardwareInterrupts()
       Try
-         ''Dim Vector As Integer = PIC.GetInterruptVector()
+         Dim Vector As Integer
 
-         ''If Not Vector = &HFF% Then
-         ''   CPU.ExecuteInterrupt(OpcodesE.INT, Vector)
+         ''If CBool(CPU.Registers(FlagRegistersE.IF)) Then
+         Vector = PIC.GetInterruptVector()
          ''End If
 
-         ''If CPU.DoSystemTimerTick Then
-         ''   CPU.ExecuteInterrupt(OpcodesE.INT, SYSTEM_TIMER_TICK)
-         ''   CPU.DoSystemTimerTick = False
-         ''End If
+         If Not Vector = &HFF% Then
+            CPU.ExecuteInterrupt(OpcodesE.INT, Vector)
+         End If
+
+         If CPU.DoSystemTimerTick Then
+            CPU.ExecuteInterrupt(OpcodesE.INT, SYSTEM_TIMER_TICK)
+            CPU.DoSystemTimerTick = False
+         End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

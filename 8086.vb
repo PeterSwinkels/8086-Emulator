@@ -603,19 +603,26 @@ Public Class CPU8086Class
    'This procedure returns the specified bits shifted/rotated as specified and sets CF to the last bit shifted out.
    Private Function BitRotateOrShift(Bits As Integer, Is8Bit As Boolean, Optional Right As Boolean = True, Optional Rotate As Boolean = True, Optional ReplicateSign As Boolean = False, Optional UpdatePFSFZF As Boolean = False, Optional RotateCFIntoTarget As Boolean = False) As Integer
       Dim NewBits As Integer = Bits And If(Is8Bit, &HFF%, &HFFFF%)
-      Dim OldCarryFlag As Integer = Registers(FlagRegistersE.CF) And &H1%
+      Dim CarryFlag As Integer = Registers(FlagRegistersE.CF) And &H1%
       Dim SignBit As Integer = NewBits And If(Is8Bit, &H80%, &H8000%)
-      Dim NewCarryFlag As Integer = If(Right, NewBits And &H1%, SignBit)
+      Dim BitOut As Integer = If(Right, NewBits And &H1%, SignBit)
       Dim SignMask As Integer = If(Is8Bit, &H80%, &H8000%)
 
-      If RotateCFIntoTarget AndAlso Right Then OldCarryFlag <<= If(Is8Bit, &H7%, &HF%)
-      If Not Right Then NewCarryFlag >>= If(Is8Bit, &H7%, &HF%)
+      If Not Right Then BitOut >>= If(Is8Bit, &H7%, &HF%)
+
       NewBits = If(Right, NewBits >> &H1%, NewBits << &H1%) And If(Is8Bit, &HFF%, &HFFFF%)
-      If RotateCFIntoTarget Then NewBits = NewBits Or OldCarryFlag
-      If Rotate Then NewBits = NewBits Or If(Right, NewCarryFlag << If(Is8Bit, &H7%, &HF%), NewCarryFlag)
+
+      If RotateCFIntoTarget Then
+         NewBits = NewBits Or If(Right, CarryFlag << If(Is8Bit, &H7%, &HF%), CarryFlag)
+      End If
+
+      If Rotate Then
+         NewBits = NewBits Or If(Right, BitOut << If(Is8Bit, &H7%, &HF%), BitOut)
+      End If
+
       If ReplicateSign Then NewBits = NewBits Or SignBit
 
-      Registers(FlagRegistersE.CF, NewValue:=NewCarryFlag)
+      Registers(FlagRegistersE.CF, NewValue:=BitOut)
       Registers(FlagRegistersE.OF, NewValue:=(Not (NewBits And SignMask) = (Bits And SignMask)))
 
       If UpdatePFSFZF Then
@@ -1379,9 +1386,9 @@ Public Class CPU8086Class
                      Case RotateAndShiftOperationsE.None
                         Return False
                      Case RotateAndShiftOperationsE.RCL
-                        .NewValue = BitRotateOrShift(.NewValue, .Is8Bit, Right:=False,,,, RotateCFIntoTarget:=True)
+                        .NewValue = BitRotateOrShift(.NewValue, .Is8Bit, Right:=False, Rotate:=False,,, RotateCFIntoTarget:=True)
                      Case RotateAndShiftOperationsE.RCR
-                        .NewValue = BitRotateOrShift(.NewValue, .Is8Bit,,,,, RotateCFIntoTarget:=True)
+                        .NewValue = BitRotateOrShift(.NewValue, .Is8Bit,, Rotate:=False,,, RotateCFIntoTarget:=True)
                      Case RotateAndShiftOperationsE.ROL
                         .NewValue = BitRotateOrShift(.NewValue, .Is8Bit, Right:=False)
                      Case RotateAndShiftOperationsE.ROR

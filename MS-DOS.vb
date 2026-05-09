@@ -1390,8 +1390,6 @@ Public Module MSDOSModule
                   Case &H11%
                      FCBFindFile()
                      Success = True
-                  Case &H12%
-                     ''--->>> Search for next entry using FCB.
                   Case &H13%
                      FCBDeleteFile()
                      Success = True
