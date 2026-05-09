@@ -639,16 +639,16 @@ Public Class CPU8086Class
             Vector = PIC.GetInterruptVector()
             ''End If
 
-            ''SyncLock SYNCHRONIZER
-            ''   If Not Vector = &HFF% Then
-            ''      ExecuteInterrupt(OpcodesE.INT, Vector)
-            ''   End If
+            SyncLock SYNCHRONIZER
+               If Not Vector = &HFF% Then
+                  ExecuteInterrupt(OpcodesE.INT, Vector)
+               End If
 
-            ''   If DoSystemTimerTick Then
-            ''      ExecuteInterrupt(OpcodesE.INT, SYSTEM_TIMER_TICK)
-            ''      DoSystemTimerTick = False
-            ''   End If
-            ''End SyncLock
+               If DoSystemTimerTick Then
+                  ExecuteInterrupt(OpcodesE.INT, SYSTEM_TIMER_TICK)
+                  DoSystemTimerTick = False
+               End If
+            End SyncLock
 
             If Not ExecuteOpcode() Then
                If INT6Enabled Then
