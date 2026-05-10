@@ -103,3 +103,18 @@ D:\Other\8086 Emulator.v1104.exp\obj\Debug\8086 Emulator.vbproj.CoreCompileInput
 D:\Other\8086 Emulator.v1104.exp\obj\Debug\8086 Emu.1CF2A95C.Up2Date
 D:\Other\8086 Emulator.v1104.exp\obj\Debug\8086 Emulator.exe
 D:\Other\8086 Emulator.v1104.exp\obj\Debug\8086 Emulator.pdb
+D:\Other\8086 Emulator.v1106.exp\bin\Debug\8086 Emulator.exe.config
+D:\Other\8086 Emulator.v1106.exp\bin\Debug\8086 Emulator.exe
+D:\Other\8086 Emulator.v1106.exp\bin\Debug\8086 Emulator.pdb
+D:\Other\8086 Emulator.v1106.exp\bin\Debug\SDL2-CS.dll
+D:\Other\8086 Emulator.v1106.exp\bin\Debug\SDL2-CS.xml
+D:\Other\8086 Emulator.v1106.exp\bin\Debug\SDL2-CS.dll.config
+D:\Other\8086 Emulator.v1106.exp\obj\Debug\8086 Emulator.vbproj.AssemblyReference.cache
+D:\Other\8086 Emulator.v1106.exp\obj\Debug\Emulator8086Program.InterfaceWindow.resources
+D:\Other\8086 Emulator.v1106.exp\obj\Debug\Emulator8086Program.Resources.resources
+D:\Other\8086 Emulator.v1106.exp\obj\Debug\Emulator8086Program.ScreenWindow.resources
+D:\Other\8086 Emulator.v1106.exp\obj\Debug\8086 Emulator.vbproj.GenerateResource.cache
+D:\Other\8086 Emulator.v1106.exp\obj\Debug\8086 Emulator.vbproj.CoreCompileInputs.cache
+D:\Other\8086 Emulator.v1106.exp\obj\Debug\8086 Emu.1CF2A95C.Up2Date
+D:\Other\8086 Emulator.v1106.exp\obj\Debug\8086 Emulator.exe
+D:\Other\8086 Emulator.v1106.exp\obj\Debug\8086 Emulator.pdb

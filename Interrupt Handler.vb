@@ -18,28 +18,6 @@ Public Module InterruptHandlerModule
    Private Const CURSOR_MASK As Integer = &H1F1F%     'Defines the cursor end/start bits.
    Private Const VIDEO_MODE_MASK As Byte = &H7F%      'Defines the bits indicating a video mode.
 
-   'This procedure handles any pending hardware interrupts.
-   Public Sub ExecuteHardwareInterrupts()
-      Try
-         Dim Vector As Integer
-
-         ''If CBool(CPU.Registers(FlagRegistersE.IF)) Then
-         Vector = PIC.GetInterruptVector()
-         ''End If
-
-         If Not Vector = &HFF% Then
-            CPU.ExecuteInterrupt(OpcodesE.INT, Vector)
-         End If
-
-         If CPU.DoSystemTimerTick Then
-            CPU.ExecuteInterrupt(OpcodesE.INT, SYSTEM_TIMER_TICK)
-            CPU.DoSystemTimerTick = False
-         End If
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
-   End Sub
-
    'This procedure handles the specified interrupt and returns whether or not is succeeded.
    Public Function HandleInterrupt(Vector As Integer, Optional AH As Integer = Nothing, Optional IRET As Boolean = True) As Boolean
       Try
@@ -298,7 +276,7 @@ Public Module InterruptHandlerModule
                      CPU.Registers(Registers16BitE.AX, NewValue:=&H0%)
                      Do
                         If CPU.Clock.Status = TaskStatus.Running Then
-                           ExecuteHardwareInterrupts()
+                           CPU.ExecuteHardwareInterrupts()
                         End If
                         Application.DoEvents()
                         Value = LastBIOSKeyCode()

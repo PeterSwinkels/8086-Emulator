@@ -637,25 +637,10 @@ Public Class CPU8086Class
    'This procedure gives the CPU the command to execute instructions and returns the address of the next instruction to be executed.
    Public Function Execute() As Task(Of Integer)
       Try
-         Dim Vector As New Integer
-
          Do Until ClockToken.Token.IsCancellationRequested
             If Tracing Then RaiseEvent Trace()
 
-            ''If CBool(Registers(FlagRegistersE.IF)) Then
-            Vector = PIC.GetInterruptVector()
-            ''End If
-
-            SyncLock SYNCHRONIZER
-               If Not Vector = &HFF% Then
-                  ExecuteInterrupt(OpcodesE.INT, Vector)
-               End If
-
-               If DoSystemTimerTick Then
-                  ExecuteInterrupt(OpcodesE.INT, SYSTEM_TIMER_TICK)
-                  DoSystemTimerTick = False
-               End If
-            End SyncLock
+            ExecuteHardwareInterrupts()
 
             If Not ExecuteOpcode() Then
                If INT6Enabled Then
@@ -776,6 +761,22 @@ Public Class CPU8086Class
 
       Return True
    End Function
+
+   'This procedure executes any pending hardware interrupts.
+   Public Sub ExecuteHardwareInterrupts()
+      SyncLock SYNCHRONIZER
+         Dim Vector As Integer? = PIC.GetInterruptVector()
+
+         If Vector IsNot Nothing Then
+            ExecuteInterrupt(OpcodesE.INT, Vector)
+         End If
+
+         If DoSystemTimerTick AndAlso CBool(Registers(FlagRegistersE.IF)) Then
+            ExecuteInterrupt(OpcodesE.INT, SYSTEM_TIMER_TICK)
+            DoSystemTimerTick = False
+         End If
+      End SyncLock
+   End Sub
 
    'This procedure executes the specified interrupt call.
    Public Sub ExecuteInterrupt(Opcode As OpcodesE, Optional Vector As Integer? = Nothing)

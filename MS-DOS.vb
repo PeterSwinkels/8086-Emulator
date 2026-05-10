@@ -251,7 +251,7 @@ Public Module MSDOSModule
 
          Do Until Buffer.Count = Maximum
             If CPU.Clock.Status = TaskStatus.Running Then
-               ExecuteHardwareInterrupts()
+               CPU.ExecuteHardwareInterrupts()
             End If
 
             KeyCode = ReadCharacter() And &HFF%
@@ -546,6 +546,9 @@ Public Module MSDOSModule
                      CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_INSUFFICIENT_MEMORY)
                   Else
                      CPU.Registers(SegmentRegistersE.CS, NewValue:=CInt(Address) >> &H4%)
+
+                     Using File.OpenRead(FileName)
+                     End Using
 
                      If LoadMSDOSProgram(FileName) Then
                         CPU.Stack(Push:=CPU.Registers(FlagRegistersE.All))
@@ -1230,7 +1233,7 @@ Public Module MSDOSModule
 
          Do
             If CPU.Clock.Status = TaskStatus.Running Then
-               ExecuteHardwareInterrupts()
+               CPU.ExecuteHardwareInterrupts()
             End If
 
             Application.DoEvents()
@@ -1675,6 +1678,36 @@ Public Module MSDOSModule
       Return Nothing
    End Function
 
+   'This procedure loads a MS-DOS compact executable.
+   Private Sub LoadCompactExecutable(Executable As List(Of Byte), FileName As String, LoadAddress As Integer)
+      Try
+         SyncLock SYNCHRONIZER
+            CPU_EVENT.Append($"Loading the compact binary executable ""{FileName}"" at address {LoadAddress:X8}.{NewLine}")
+         End SyncLock
+
+         CPU.Stack(Push:=CPU.Registers(Registers16BitE.IP) - PSP_SIZE)
+
+         CPU.Registers(Registers16BitE.AX, NewValue:=&HFFFF%)
+         CPU.Registers(Registers16BitE.CX, NewValue:=Executable.Count)
+         CPU.Registers(Registers16BitE.DX, NewValue:=&H0%)
+         CPU.Registers(Registers16BitE.BX, NewValue:=&H0%)
+         CPU.Registers(SegmentRegistersE.DS, NewValue:=CPU.Registers(SegmentRegistersE.CS))
+         CPU.Registers(SegmentRegistersE.ES, NewValue:=CPU.Registers(SegmentRegistersE.DS))
+         CPU.Registers(Registers16BitE.IP, NewValue:=PSP_SIZE)
+         CPU.Registers(Registers16BitE.BP, NewValue:=&H0%)
+         CPU.Registers(SegmentRegistersE.SS, NewValue:=CPU.Registers(SegmentRegistersE.CS))
+         CPU.Registers(Registers16BitE.SP, NewValue:=&HFFFE%)
+         CPU.PutWord((CPU.Registers(SegmentRegistersE.SS) << &H4%) + CPU.Registers(Registers16BitE.SP), CPU.Registers(SegmentRegistersE.CS))
+         CPU.PutWord((CPU.Registers(SegmentRegistersE.SS) << &H4%) + CPU.Registers(Registers16BitE.SP) + &H2%, &H0%)
+
+         CreatePSP(LoadAddress)
+
+         Executable.CopyTo(CPU.Memory, LoadAddress + PSP_SIZE)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
    'This procedure loads "MS-DOS" into memory.
    Public Sub LoadMSDOS()
       Try
@@ -1715,38 +1748,18 @@ Public Module MSDOSModule
             AllocatedAddress = (CPU.Registers(SegmentRegistersE.DS) - (PSP_SIZE >> &H4%)) << &H4%
             Success = Executable.Any
          Else
-            SyncLock SYNCHRONIZER
-               CPU_EVENT.Append($"Loading the compact binary executable ""{FileName}"" at address {LoadAddress:X8}.{NewLine}")
-            End SyncLock
-
-            CPU.Registers(Registers16BitE.AX, NewValue:=&HFFFF%)
-            CPU.Registers(Registers16BitE.CX, NewValue:=Executable.Count)
-            CPU.Registers(Registers16BitE.DX, NewValue:=&H0%)
-            CPU.Registers(Registers16BitE.BX, NewValue:=&H0%)
-            CPU.Registers(SegmentRegistersE.DS, NewValue:=CPU.Registers(SegmentRegistersE.CS))
-            CPU.Registers(SegmentRegistersE.ES, NewValue:=CPU.Registers(SegmentRegistersE.DS))
-            CPU.Registers(Registers16BitE.IP, NewValue:=PSP_SIZE)
-            CPU.Registers(Registers16BitE.BP, NewValue:=&H0%)
-            CPU.Registers(SegmentRegistersE.SS, NewValue:=CPU.Registers(SegmentRegistersE.CS))
-            CPU.Registers(Registers16BitE.SP, NewValue:=&HFFFF%)
-            CPU.PutWord((CPU.Registers(SegmentRegistersE.SS) << &H4%) + CPU.Registers(Registers16BitE.SP), CPU.Registers(SegmentRegistersE.CS))
-            CPU.PutWord((CPU.Registers(SegmentRegistersE.SS) << &H4%) + CPU.Registers(Registers16BitE.SP) + &H2%, &H0%)
-
-            CreatePSP(LoadAddress)
-
-            Executable.CopyTo(CPU.Memory, LoadAddress + PSP_SIZE)
+            LoadCompactExecutable(Executable, FileName, LoadAddress)
             AllocatedAddress = CPU.Registers(SegmentRegistersE.DS) << &H4%
          End If
 
-         If Allocations.FindIndex(Function(Allocation) Allocation.Item1 = AllocatedAddress) < 0 Then
-            Allocations.Add(Tuple.Create(AllocatedAddress, ((Executable.Count >> &H4%) + &H1%) << &H4%))
-            ProcessSegments.Push(Allocations.Last.Item1)
-         End If
-
          If Success Then
+            If Allocations.FindIndex(Function(Allocation) Allocation.Item1 = AllocatedAddress) < 0 Then
+               Allocations.Add(Tuple.Create(AllocatedAddress, ((Executable.Count >> &H4%) + &H1%) << &H4%))
+               ProcessSegments.Push(Allocations.Last.Item1)
+            End If
+
             DTASegment = (CPU.Registers(SegmentRegistersE.CS) << &H4%) + PSP_COMMAND_TAIL
             ProcessIDs.Add(LoadAddress >> &H4%)
-            CPU.Stack(Push:=CPU.Registers(Registers16BitE.IP) - PSP_SIZE)
             WritePathToEnvironmentBlock(FileName)
          End If
 
@@ -1778,6 +1791,8 @@ Public Module MSDOSModule
                CPU_EVENT.Append($"Loading the MZ-executable ""{FileName}"" at address {LoadAddress:X8}.{NewLine}")
             End SyncLock
 
+            CPU.Stack(Push:=CPU.Registers(Registers16BitE.IP) - PSP_SIZE)
+
             CPU.Registers(Registers16BitE.AX, NewValue:=&H0%)
             CPU.Registers(Registers16BitE.BX, NewValue:=(Executable.Count - HeaderSize) >> &H10%)
             CPU.Registers(Registers16BitE.CX, NewValue:=(Executable.Count - HeaderSize) And &HFFFF%)
@@ -1787,7 +1802,7 @@ Public Module MSDOSModule
             CPU.Registers(SegmentRegistersE.DS, NewValue:=(LoadAddress >> &H4%))
             CPU.Registers(SegmentRegistersE.ES, NewValue:=(LoadAddress >> &H4%))
             CPU.Registers(SegmentRegistersE.SS, NewValue:=(If(InitialSS = Nothing, RelocatedCS, RelocatedCS + InitialSS)))
-            CPU.Registers(Registers16BitE.SP, NewValue:=If(InitialSP = Nothing, &HFFFF%, InitialSP))
+            CPU.Registers(Registers16BitE.SP, NewValue:=If(InitialSP = Nothing, &HFFFE%, InitialSP))
 
             CreatePSP(LoadAddress)
 
@@ -1814,6 +1829,8 @@ Public Module MSDOSModule
             SyncLock SYNCHRONIZER
                CPU_EVENT.Append($"""{FileName}"" does not fit inside the emulated memory.{NewLine}")
             End SyncLock
+
+            Executable = New List(Of Byte)
          End If
 
          Return Executable
@@ -1948,7 +1965,7 @@ Public Module MSDOSModule
          If ExtendedKeyCode = Nothing Then
             Do
                If CPU.Clock.Status = TaskStatus.Running Then
-                  ExecuteHardwareInterrupts()
+                  CPU.ExecuteHardwareInterrupts()
                End If
 
                Application.DoEvents()
