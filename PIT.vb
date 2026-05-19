@@ -38,8 +38,9 @@ Public Class PITClass
       Public BCD As Boolean              'Defines whether or not a counter is in BCD mode.
       Public Format As FormatsE          'Defines a counter's format.
       Public Mode As ModesE              'Defines a counter's mode.
-      Public Mode3Half As Boolean        'Defines ... ???
+      Public Mode3Half As Boolean        'Defines wheteher or not mode 3 half is on.
       Public MSB As Byte?                'Defines a counter's most significant byte.
+      Public LastFrequency As Integer    'Contains the last set frequency for comparison.
       Public Latched As Boolean          'Indicates whether or not a counter is latched.
       Public LatchedValue As Integer     'Contains the latched counter.
       Public LatchedLSBRead As Boolean   'Indicates LSB/MSB order for latch.
@@ -100,14 +101,21 @@ Public Class PITClass
             Case ModesE.Mode0
                .Value = NewValue
                .Reload = .Value
+               UpdateSpeakerFrequency(Counter)
             Case ModesE.Mode3
                NewValue = NewValue And &HFFFE
 
                .Reload = NewValue
                .Value = NewValue
                .Mode3Half = False
-            Case Else
+               UpdateSpeakerFrequency(Counter)
+            Case ModesE.Mode2
                .Reload = .Value
+               .Value = NewValue
+               UpdateSpeakerFrequency(Counter)
+            Case Else
+               .Reload = NewValue
+               UpdateSpeakerFrequency(Counter)
          End Select
       End With
    End Sub
@@ -130,6 +138,9 @@ Public Class PITClass
             .LSB = Nothing
             .MSB = Nothing
             .LSBRead = False
+            If CounterIndex = CountersE.CassetteAndSpeaker Then
+               PC_SPEAKER.SetFrequency(0)
+            End If
          End If
       End With
    End Sub
@@ -191,12 +202,14 @@ Public Class PITClass
                   If Not .Mode3Half Then
                      .Value = .Reload
                      .Mode3Half = True
+                     UpdateSpeakerFrequency(Counter)
                   Else
                      If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
                         PIC.RaiseIRQ(&H0%)
                      End If
                      .Value = .Reload
                      .Mode3Half = False
+                     UpdateSpeakerFrequency(Counter)
                   End If
                End If
 
@@ -213,6 +226,7 @@ Public Class PITClass
 
                If .Value <= &H0% Then
                   .Value = .Reload
+                  UpdateSpeakerFrequency(Counter)
                End If
 
                Continue For
@@ -247,6 +261,25 @@ Public Class PITClass
       Next Counter
    End Sub
 
+   'This procedure updates the PC speaker frequency if applicable.
+   Private Sub UpdateSpeakerFrequency(Counter As CountersE)
+      If Counter = CountersE.CassetteAndSpeaker Then
+         Dim Frequency As Integer = 0
+         With Counters(Counter)
+            If .LSB IsNot Nothing And .MSB IsNot Nothing Then
+               Frequency = (CInt(.MSB.Value) << &H8%) Or CInt(.LSB.Value)
+            ElseIf .LSB IsNot Nothing Then
+               Frequency = CInt(.LSB.Value)
+            ElseIf .MSB IsNot Nothing Then
+               Frequency = CInt(.MSB.Value) << &H8%
+            End If
+         End With
+         If Frequency > 0 Then
+            PC_SPEAKER.SetFrequency(Frequency)
+         End If
+      End If
+   End Sub
+
    'This procedure writes to the specified counter.
    Public Sub WriteCounter(Counter As CountersE, NewValue As Byte)
       With Counters(Counter)
@@ -255,20 +288,20 @@ Public Class PITClass
                .LSB = NewValue
                .MSB = Nothing
                InitializeCounter(Counter, NewValue:=CInt(.LSB))
+               UpdateSpeakerFrequency(Counter)
             Case FormatsE.LSBMSB
                If .LSB Is Nothing Then
                   .LSB = NewValue
                Else
                   .MSB = NewValue
                   InitializeCounter(Counter, NewValue:=(CInt(.MSB) << &H8%) Or CInt(.LSB))
-                  If Counter = CountersE.CassetteAndSpeaker Then
-                     PC_SPEAKER.SetFrequency((CInt(.MSB.Value) << 8) Or .LSB.Value)
-                  End If
+                  UpdateSpeakerFrequency(Counter)
                End If
             Case FormatsE.MSB
                .LSB = Nothing
                .MSB = NewValue
                InitializeCounter(Counter, NewValue:=(CInt(.MSB) << &H8%))
+               UpdateSpeakerFrequency(Counter)
          End Select
       End With
    End Sub
