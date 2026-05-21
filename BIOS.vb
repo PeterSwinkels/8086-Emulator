@@ -281,7 +281,6 @@ Public Module BIOSModule
             CPU.Memory(AddressesE.ClockRollover) = &H1%
          Else
             ClockCounter += &H1%
-            If ClockCounter = MAXIMUM_CLOCK_VALUE Then CPU.Memory(AddressesE.ClockRollover) = &HFF%
          End If
 
          CPU.PutWord(AddressesE.Clock, ClockCounter And &HFFFF%)

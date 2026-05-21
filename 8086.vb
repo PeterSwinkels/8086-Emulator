@@ -807,12 +807,15 @@ Public Class CPU8086Class
    'This procedure executes the opcode located at CS:IP and returns whether or not it succeeded.
    Private Function ExecuteMultiOpcode(Opcode As OpcodesE) As Boolean
       Dim AL As New Integer
-      Dim AX As New Integer
-      Dim DX As New Integer
+      Dim AX As New Long
+      Dim Divider As New Long
+      Dim DX As New Long
       Dim LargeValue As New Long
       Dim Operand As New Integer
       Dim OperandPair As New OperandPairStr
       Dim Operation As New Object
+      Dim Remainder As New Long
+      Dim Result As New Long
       Dim Segment As New Integer
       Dim Value As New Integer
 
@@ -914,76 +917,79 @@ Public Class CPU8086Class
                      Else
                         If .Is8Bit Then
                            AX = Registers(Registers16BitE.AX)
-                           If AX > &H7F% Then AX -= &H100%
-                           If .Value1 > &H7F% Then .Value1 -= &H100%
-                           .NewValue = CInt(Truncate(AX / .Value1))
-                           If .NewValue > &HFF% Then .NewValue -= &H100%
+                           AX = If(AX > &H7FFF%, AX - &H10000%, AX)
+                           Divider = If(.Value1 > &H7F%, .Value1 - &H100%, .Value1)
+                           Result = CInt(Truncate(AX / Divider))
+                           Remainder = AX Mod Divider
 
-                           If .NewValue < SByte.MinValue OrElse .NewValue > SByte.MaxValue Then
+                           If Result < SByte.MinValue OrElse Result > SByte.MaxValue Then
                               ExecuteInterrupt(OpcodesE.INT, DIVIDE_BY_ZERO)
                            Else
-                              Registers(SubRegisters8BitE.AL, NewValue:= .NewValue)
-                              Registers(SubRegisters8BitE.AH, NewValue:=AX Mod .Value1)
+                              Registers(SubRegisters8BitE.AL, NewValue:=If(Result < &H0%, Result + &H100%, Result))
+                              Registers(SubRegisters8BitE.AH, NewValue:=If(Remainder < &H0%, Remainder + &H100%, Remainder))
                            End If
                         Else
-                           LargeValue = (CLng(Registers(Registers16BitE.DX)) << &H10%) Or CLng(Registers(Registers16BitE.AX))
-                           If LargeValue > &H7FFFFFFF% Then LargeValue -= &H100000000&
-                           If .Value1 > &H7FFF% Then .Value1 -= &H10000%
-                           .NewValue = CInt(Truncate(LargeValue / .Value1))
-                           If .NewValue > &H7FFF% Then .NewValue -= &H10000%
+                           AX = Registers(Registers16BitE.AX)
+                           DX = Registers(Registers16BitE.DX)
+                           LargeValue = (DX << &H10%) Or AX
+                           LargeValue = If(LargeValue > &H7FFFFFFFL, LargeValue - &H100000000L, LargeValue)
+                           Divider = If(.Value1 > &H7FFF%, .Value1 - &H10000%, .Value1)
+                           Result = CLng(Truncate(LargeValue / Divider))
+                           Remainder = LargeValue Mod Divider
 
-                           If .NewValue < Short.MinValue OrElse .NewValue > Short.MaxValue Then
+                           If Result < Short.MinValue OrElse Result > Short.MaxValue Then
                               ExecuteInterrupt(OpcodesE.INT, DIVIDE_BY_ZERO)
                            Else
-                              Registers(Registers16BitE.AX, NewValue:= .NewValue)
-                              Registers(Registers16BitE.DX, NewValue:=CInt(LargeValue Mod .Value1))
+                              Registers(Registers16BitE.AX, NewValue:=CInt(If(Result < &H0%, Result + &H10000%, Result)))
+                              Registers(Registers16BitE.DX, NewValue:=CInt(If(Remainder < &H0%, Remainder + &H10000%, Remainder)))
                            End If
                         End If
                      End If
                   Case OperationsF6_F7E.IMUL
                      If .Is8Bit Then
                         AL = Registers(SubRegisters8BitE.AL)
+                        Operand = .Value1
+
                         If AL > &H7F% Then AL -= &H100%
-                        If .Value1 > &H7F% Then .Value1 -= &H100%
+                        If Operand > &H7F% Then Operand -= &H100%
 
-                        .NewValue = AL * .Value1
-                        If .NewValue > &H7F% Then .NewValue -= &H100%
-                        Registers(Registers16BitE.AX, NewValue:= .NewValue)
+                        AX = AL * Operand
 
-                        Registers(FlagRegistersE.CF, NewValue:=CInt(.NewValue > &H7FFF&))
-                        Registers(FlagRegistersE.OF, NewValue:=CInt(.NewValue > &H7FFF&))
+                        Registers(Registers16BitE.AX, NewValue:=AX)
+                        Registers(FlagRegistersE.CF, NewValue:=(AX < -&H80% OrElse AX > &H7F%))
+                        Registers(FlagRegistersE.OF, NewValue:=(AX < -&H80% OrElse AX > &H7F%))
                      Else
                         AX = Registers(Registers16BitE.AX)
-                        If AX > &H7FFF% Then AX -= &H10000%
-                        If .Value1 > &H7FFF% Then .Value1 -= &H10000%
+                        Operand = .Value1
 
-                        LargeValue = CLng(AX) * .Value1
+                        If AX > &H7FFF% Then AX -= &H10000%
+                        If Operand > &H7FFF% Then Operand -= &H10000%
+
+                        LargeValue = AX * Operand
 
                         AX = CInt(LargeValue And &HFFFF%)
                         DX = CInt(LargeValue >> &H10%)
-                        If AX > &H7FFF% Then AX -= &H10000%
-                        If DX > &H7FFF% Then DX -= &H10000%
                         Registers(Registers16BitE.AX, NewValue:=AX)
                         Registers(Registers16BitE.DX, NewValue:=DX)
 
-                        Registers(FlagRegistersE.CF, NewValue:=CInt(LargeValue > &HFFFFFFFF&))
-                        Registers(FlagRegistersE.OF, NewValue:=CInt(LargeValue > &HFFFFFFFF&))
+                        Registers(FlagRegistersE.CF, NewValue:=(LargeValue < -&H8000% OrElse LargeValue > &H7FFF%))
+                        Registers(FlagRegistersE.OF, NewValue:=(LargeValue < -&H8000% OrElse LargeValue > &H7FFF%))
                      End If
                   Case OperationsF6_F7E.MUL
                      If .Is8Bit Then
                         .NewValue = Registers(SubRegisters8BitE.AL) * .Value1
                         Registers(Registers16BitE.AX, NewValue:= .NewValue)
 
-                        Registers(FlagRegistersE.CF, NewValue:=CInt(.NewValue > &HFFFF&))
-                        Registers(FlagRegistersE.OF, NewValue:=CInt(.NewValue > &HFFFF&))
+                        Registers(FlagRegistersE.CF, NewValue:=CInt(.NewValue > &HFF&))
+                        Registers(FlagRegistersE.OF, NewValue:=CInt(.NewValue > &HFF&))
                      Else
                         LargeValue = CLng(Registers(Registers16BitE.AX)) * .Value1
 
                         Registers(Registers16BitE.AX, NewValue:=LargeValue And &HFFFF%)
                         Registers(Registers16BitE.DX, NewValue:=LargeValue >> &H10%)
 
-                        Registers(FlagRegistersE.CF, NewValue:=CInt(LargeValue > &HFFFFFFFF&))
-                        Registers(FlagRegistersE.OF, NewValue:=CInt(LargeValue > &HFFFFFFFF&))
+                        Registers(FlagRegistersE.CF, NewValue:=CInt(LargeValue > &HFFFF&))
+                        Registers(FlagRegistersE.OF, NewValue:=CInt(LargeValue > &HFFFF&))
                      End If
                   Case OperationsF6_F7E.NEG
                      .NewValue = &H0% - .Value1

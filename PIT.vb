@@ -53,8 +53,8 @@ Public Class PITClass
    Private Const BINARY_BCD_MASK As Integer = &H1%   'Defines the binary/BCD bit.
    Private Const COUNTER_MASK As Integer = &HC0%     'Defines the counter bits.
    Private Const FORMAT_MASK As Integer = &H30%      'Defines the format bits.
-   Private Const FREQUENCY As Double = 1.19318       'Defines the PIT's clock frequency in MHz.
    Private Const MODE_MASK As Integer = &HE%         'Defines the mode bits.
+   Private Const PIT_FREQUENCY As Double = 1.19318   'Defines the PIT's clock frequency in MHz.
 
    Private ReadOnly Counters(&H0% To &H2%) As CounterStr  'Contains the counters.
 
@@ -62,7 +62,7 @@ Public Class PITClass
 
    'This procedure initializes this class.
    Public Sub New()
-      HighPrecisionTimer = New HighPrecisionTimerClass(IntervalDuration:=FREQUENCY / 1000000)
+      HighPrecisionTimer = New HighPrecisionTimerClass(IntervalDuration:=PIT_FREQUENCY / 1000000)
 
       With Counters(CountersE.TimeOfDay)
          .BCD = False
@@ -102,16 +102,15 @@ Public Class PITClass
                .Value = NewValue
                .Reload = .Value
                UpdateSpeakerFrequency(Counter)
-            Case ModesE.Mode3
-               NewValue = NewValue And &HFFFE
-
-               .Reload = NewValue
-               .Value = NewValue
-               .Mode3Half = False
-               UpdateSpeakerFrequency(Counter)
             Case ModesE.Mode2
                .Reload = .Value
                .Value = NewValue
+               UpdateSpeakerFrequency(Counter)
+            Case ModesE.Mode3
+               NewValue = NewValue And &HFFFE%
+               .Reload = NewValue
+               .Value = NewValue
+               .Mode3Half = False
                UpdateSpeakerFrequency(Counter)
             Case Else
                .Reload = NewValue
@@ -263,19 +262,20 @@ Public Class PITClass
 
    'This procedure updates the PC speaker frequency if applicable.
    Private Sub UpdateSpeakerFrequency(Counter As CountersE)
+      Dim NewFrequency As Integer = 0
+
       If Counter = CountersE.CassetteAndSpeaker Then
-         Dim Frequency As Integer = 0
          With Counters(Counter)
             If .LSB IsNot Nothing And .MSB IsNot Nothing Then
-               Frequency = (CInt(.MSB.Value) << &H8%) Or CInt(.LSB.Value)
+               NewFrequency = (CInt(.MSB.Value) << &H8%) Or CInt(.LSB.Value)
             ElseIf .LSB IsNot Nothing Then
-               Frequency = CInt(.LSB.Value)
+               NewFrequency = CInt(.LSB.Value)
             ElseIf .MSB IsNot Nothing Then
-               Frequency = CInt(.MSB.Value) << &H8%
+               NewFrequency = CInt(.MSB.Value) << &H8%
             End If
          End With
-         If Frequency > 0 Then
-            PC_SPEAKER.SetFrequency(Frequency)
+         If NewFrequency > 0 Then
+            PC_SPEAKER.SetFrequency(NewFrequency)
          End If
       End If
    End Sub
