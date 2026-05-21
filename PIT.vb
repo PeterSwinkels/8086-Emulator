@@ -1,11 +1,10 @@
-﻿'This class's imports and settings.
+'This class's imports and settings.
 Option Compare Binary
 Option Explicit On
 Option Infer Off
 Option Strict On
 
 Imports System
-Imports System.Threading.Tasks
 
 'This class contains the 8253 PIT.
 Public Class PITClass
@@ -48,22 +47,20 @@ Public Class PITClass
       Public LSBRead As Boolean          'Indicates whether or not a counter's lsb has been read.
       Public Reload As Integer           'Defines a counter's reload value.
       Public Value As Integer            'Defines a counter's value.
+      Public CycleCount As Long          'Current cycle count for this counter.
+      Public NextTickCycle As Long       'Cycle count at which next tick occurs.
    End Structure
 
    Private Const BINARY_BCD_MASK As Integer = &H1%   'Defines the binary/BCD bit.
    Private Const COUNTER_MASK As Integer = &HC0%     'Defines the counter bits.
    Private Const FORMAT_MASK As Integer = &H30%      'Defines the format bits.
    Private Const MODE_MASK As Integer = &HE%         'Defines the mode bits.
-   Private Const PIT_FREQUENCY As Double = 1.19318   'Defines the PIT's clock frequency in MHz.
+   Private Const PIT_FREQUENCY As Double = 1.193182  'Defines the PIT's clock frequency in MHz.
 
    Private ReadOnly Counters(&H0% To &H2%) As CounterStr  'Contains the counters.
 
-   Public WithEvents HighPrecisionTimer As HighPrecisionTimerClass = Nothing   'Contains the PIT's timer.
-
    'This procedure initializes this class.
    Public Sub New()
-      HighPrecisionTimer = New HighPrecisionTimerClass(IntervalDuration:=PIT_FREQUENCY / 1000000)
-
       With Counters(CountersE.TimeOfDay)
          .BCD = False
          .Format = FormatsE.LSBMSB
@@ -71,9 +68,9 @@ Public Class PITClass
          .Mode = ModesE.Mode3
          .Reload = &HFFFF%
          .Value = .Reload
+         .CycleCount = 0
+         .NextTickCycle = .Reload
       End With
-
-      HighPrecisionTimer.Clock.Start()
    End Sub
 
    'This procedure caps the specified value's octets, if necessary, to ensure the value is in BCD and returns the result.
@@ -190,72 +187,71 @@ Public Class PITClass
       Return Value
    End Function
 
-   'This procedure updates the counters.
-   Private Sub UpdateCounters() Handles HighPrecisionTimer.IntervalElapsed
+   'This procedure updates the counters based on CPU cycles executed.
+   Public Sub UpdateCountersWithCycles(cyclesExecuted As Long)
       For Each Counter As CountersE In [Enum].GetValues(GetType(CountersE))
          With Counters(Counter)
-            If .Mode = ModesE.Mode3 Then
-               .Value -= &H2%
+            .CycleCount += cyclesExecuted
 
-               If .Value <= &H0% Then
-                  If Not .Mode3Half Then
-                     .Value = .Reload
-                     .Mode3Half = True
-                     UpdateSpeakerFrequency(Counter)
-                  Else
-                     If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
-                        PIC.RaiseIRQ(&H0%)
+            If .CycleCount >= .NextTickCycle Then
+               Select Case .Mode
+                  Case ModesE.Mode3
+                     .Value -= &H2%
+
+                     If .Value <= &H0% Then
+                        If Not .Mode3Half Then
+                           .Value = .Reload
+                           .Mode3Half = True
+                           UpdateSpeakerFrequency(Counter)
+                        Else
+                           If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
+                              PIC.RaiseIRQ(&H0%)
+                           End If
+                           .Value = .Reload
+                           .Mode3Half = False
+                           UpdateSpeakerFrequency(Counter)
+                        End If
                      End If
-                     .Value = .Reload
-                     .Mode3Half = False
-                     UpdateSpeakerFrequency(Counter)
-                  End If
-               End If
 
-               Continue For
-            End If
-
-            If .Mode = ModesE.Mode2 Then
-               .Value -= &H1%
-               If .Value = &H1% Then
-                  If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
-                     PIC.RaiseIRQ(&H0%)
-                  End If
-               End If
-
-               If .Value <= &H0% Then
-                  .Value = .Reload
-                  UpdateSpeakerFrequency(Counter)
-               End If
-
-               Continue For
-            End If
-
-            If .Mode = ModesE.Mode0 Then
-               If .Value > &H0% Then
-                  .Value -= &H1%
-                  If .Value = &H0% Then
-                     If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
-                        PIC.RaiseIRQ(&H0%)
+                  Case ModesE.Mode2
+                     .Value -= &H1%
+                     If .Value = &H1% Then
+                        If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
+                           PIC.RaiseIRQ(&H0%)
+                        End If
                      End If
-                  End If
-               End If
 
-               Continue For
+                     If .Value <= &H0% Then
+                        .Value = .Reload
+                        UpdateSpeakerFrequency(Counter)
+                     End If
+
+                  Case ModesE.Mode0
+                     If .Value > &H0% Then
+                        .Value -= &H1%
+                        If .Value = &H0% Then
+                           If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
+                              PIC.RaiseIRQ(&H0%)
+                           End If
+                        End If
+                     End If
+
+                  Case Else
+                     .Value -= &H1%
+                     If .Value <= &H0% Then
+                        If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
+                           PIC.RaiseIRQ(&H0%)
+                        End If
+                        If .Mode = ModesE.Mode2 OrElse .Mode = ModesE.Mode3 Then
+                           .Value = .Reload
+                        Else
+                           .Value = &H0%
+                        End If
+                     End If
+               End Select
+
+               .NextTickCycle = .CycleCount + .Reload
             End If
-
-            .Value -= &H1%
-            If .Value <= &H0% Then
-               If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
-                  PIC.RaiseIRQ(&H0%)
-               End If
-               If .Mode = ModesE.Mode2 OrElse .Mode = ModesE.Mode3 Then
-                  .Value = .Reload
-               Else
-                  .Value = &H0%
-               End If
-            End If
-
          End With
       Next Counter
    End Sub

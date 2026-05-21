@@ -1,4 +1,4 @@
-﻿'This class's imports and settings.
+'This class's imports and settings.
 Option Compare Binary
 Option Explicit On
 Option Infer Off
@@ -79,7 +79,6 @@ Public Class InterfaceWindow
       Try
          CPU.ClockToken.Cancel()
          PC_SPEAKER.Stop()
-         PIT.HighPrecisionTimer.ClockToken.Cancel()
 
          Output = Nothing
 
