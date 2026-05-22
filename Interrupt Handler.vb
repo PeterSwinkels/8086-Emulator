@@ -8,6 +8,7 @@ Imports Emulator8086Program.CPU8086Class
 Imports System
 Imports System.Convert
 Imports System.Environment
+Imports System.Math
 Imports System.Threading.Tasks
 Imports System.Windows.Forms
 
@@ -53,6 +54,23 @@ Public Module InterruptHandlerModule
             Case &H9%
                CPU.Memory(AddressesE.KeyboardFlags) = ToByte(GetKeyboardFlags() And &HFF%)
                CPU.Memory(AddressesE.KeyboardFlags + &H1%) = ToByte(GetKeyboardFlags() >> &H8%)
+
+               CPU.PutWord((BIOS_SEGMENT << &H4%) + CPU.Memory(AddressesE.KeyboardBufferHead), LastBIOSKeyCode().Value)
+
+               CPU.Memory(AddressesE.KeyboardBufferHead) = ToByte(CPU.Memory(AddressesE.KeyboardBufferHead) + &H2)
+
+               If CPU.Memory(AddressesE.KeyboardBufferHead) = KEY_BUFFER_END Then
+                  CPU.Memory(AddressesE.KeyboardBufferHead) = KEY_BUFFER_START
+               End If
+
+               If CPU.Memory(AddressesE.KeyboardBufferHead) = CPU.Memory(AddressesE.KeyboardBufferTail) Then
+                  CPU.Memory(AddressesE.KeyboardBufferTail) = ToByte(CPU.Memory(AddressesE.KeyboardBufferTail) + &H2)
+
+                  If CPU.Memory(AddressesE.KeyboardBufferTail) = KEY_BUFFER_END Then
+                     CPU.Memory(AddressesE.KeyboardBufferTail) = KEY_BUFFER_START
+                  End If
+               End If
+
                Success = True
             Case &H10%
                Select Case AH
@@ -282,6 +300,11 @@ Public Module InterruptHandlerModule
                         Value = LastBIOSKeyCode()
                         If Value IsNot Nothing Then CPU.Registers(Registers16BitE.AX, NewValue:=Value)
                      Loop While (CPU.Registers(Registers16BitE.AX) = &H0%) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
+
+                     CPU.Memory(AddressesE.KeyboardBufferTail) = ToByte(CPU.Memory(AddressesE.KeyboardBufferTail) + &H2)
+                     If CPU.Memory(AddressesE.KeyboardBufferTail) = KEY_BUFFER_END Then
+                        CPU.Memory(AddressesE.KeyboardBufferTail) = KEY_BUFFER_START
+                     End If
 
                      LastBIOSKeyCode(, Clear:=True)
                      Success = True

@@ -27,6 +27,9 @@ Public Module BIOSModule
       EquipmentFlags = &H410%           'Equipment flags.
       ExtendedCharacters = &HC0000%     'Extended character bitmaps.
       KeyboardFlags = &H417%            'Keyboard flags.
+      KeyboardBufferHead = &H41A%       'Keyboard buffer head offset.
+      KeyboardBufferTail = &H41C%       'Keyboard buffer tail offset.
+      KeyboardBuffer = &H41E%           'Keyboard buffer.
       MachineID = &HFFFFE%              'Machine ID.
       Text80x25ColorPage0 = &HB8000%    '80x25 color text video buffer.
       Text80x25MonoPage0 = &HB0000%     '80x25 monochrome text video buffer.
@@ -68,14 +71,18 @@ Public Module BIOSModule
       VGA640x480Mono = &H11%   '640x480 monochrome VGA.
    End Enum
 
+   Public Const BIOS_SEGMENT As Integer = &H40%                              'Defines the BIOS segment.
    Public Const CGA_320_x_200_BUFFER_SIZE As Integer = &H4000%               'Defines the 320x200 CGA mode video memory's size.
    Public Const CGA_320_X_200_BYTES_PER_ROW As Integer = &H50%               'Defines the number of bytes per row used by 320x200 CGA mode 
    Public Const CGA_320_X_200_LINES_PER_CHARACTER As Integer = &H8%          'Defines the number of lines per character used by 320x200 CGA mode 
    Public Const CGA_320_X_200_PIXELS_PER_BYTE As Integer = &H4%              'Defines the number of pixels per byte used by 320x200 CGA mode.
    Public Const EXTENDED_CHARACTERS_VECTOR As Integer = &H1F%                'Defines the extended character bitmap pointer's location.
+   Public Const INITIAL_KEYBOARD_HEAD_TAIL As Byte = &H1E%                   'Defines the initial keyboard head and tail offsets.
    Public Const INITIAL_MODE_FLAGS_MDA As Integer = &H30%                    'Defines the initial video mode in the equipment flags as MDA.
    Public Const INITIAL_MODE_FLAGS_NOT_MDA As Integer = &H20%                'Defines the initial video mode in the equipment flags as not MDA.
    Public Const INITIAL_STACK_SIZE As Integer = &H10%                        'Defines the stack size at start up.
+   Public Const KEY_BUFFER_END As Byte = &H1E%                               'Defines the key buffer end.
+   Public Const KEY_BUFFER_START As Byte = &H3E%                             'Defines the key buffer start.
    Public Const MAXIMUM_CLOCK_VALUE As Integer = &H1800B0%                   'Defines the highest value reached by the clock just before midnight.
    Public Const MAXIMUM_VIDEO_PAGE_COUNT As Integer = &H8%                   'Defines the maximum number of video pages.
    Public Const TEXT_80_X_25_BYTES_PER_ROW As Integer = &HA0%                'Defines the number of bytes per row used by 80x25 monochrome text mode 
@@ -88,7 +95,7 @@ Public Module BIOSModule
    Private Const MACHINE_ID As Byte = &HFF%                                   'Defines the machine ID.
    Private Const TICKS_PER_SECOND As Double = 18.2064814814815                'Defines the number of clock ticks per second.
 
-   Public ClockCounter As Integer = &H0%         'Contains the system clock counter.
+   Public ClockCounter As Integer = &H0%   'Contains the system clock counter.
 
    'This procedure loads the BIOS into memory.
    Public Sub LoadBIOS()
@@ -141,6 +148,8 @@ Public Module BIOSModule
          CPU.PutWord(AddressesE.BIOSMemorySize, BIOS_MEMORY_SIZE)
          CPU.Memory(AddressesE.ColumnCount) = MCC.ColumnCount()
          CPU.PutWord(AddressesE.CRTControllerBasePOrt, IOPortsE.MDA3B0)
+         CPU.Memory(AddressesE.KeyboardBufferHead) = INITIAL_KEYBOARD_HEAD_TAIL
+         CPU.Memory(AddressesE.KeyboardBufferTail) = INITIAL_KEYBOARD_HEAD_TAIL
          CPU.Memory(AddressesE.MachineID) = MACHINE_ID
 
          CPU.Registers(SegmentRegistersE.SS, NewValue:=AddressesE.BIOSStack)

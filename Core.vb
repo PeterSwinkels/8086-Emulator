@@ -833,6 +833,9 @@ Public Module CoreModule
                         CPU.Tracing = False
                         Output.AppendText($"{If(Not CPU.Clock.Status = TaskStatus.Running, "Execution already stopped.", "Execution stopped.")}{NewLine}")
                         CPU.ClockToken.Cancel()
+
+                        PC_SPEAKER.SetFrequency(Nothing)
+                        PC_SPEAKER.Enabled = False
                      Case "SCO"
                         FileName = If(Operands Is Nothing, RequestFileName("Save console output.", Save:=True), Operands)
                         If Not FileName = Nothing Then
