@@ -1,0 +1,7 @@
+[Assembler]
+-Only 8086 instructions are supported.
+-A flat address target must be prefixed with an at sign ("@") and is only supported for control flow instructions.
+-Single characters enclosed in quotes (""") may be used in place of a hexadecimal byte.
+-Double characters enclosed in quotes (""") may be used in place of a hexadecimal word.
+-Comments prefixed with a semi colon (";") are allowed.
+-Enter an asterisk ("*") to overwrite the most recent instruction.
