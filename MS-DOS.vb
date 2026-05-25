@@ -784,7 +784,7 @@ Public Module MSDOSModule
          WriteStringToMemory(FCBFileName.ToString(), FCBAddress + &H1%)
          WriteStringToMemory(FCBExtension.ToString(), FCBAddress + &H9%)
 
-         If FCBDriveValid Then
+         If Not FCBDriveValid Then
             CPU.Registers(SubRegisters8BitE.AL, NewValue:=&HFF%)
          Else
             CPU.Registers(SubRegisters8BitE.AL, NewValue:=Abs(CInt(WildcardPresent)))
