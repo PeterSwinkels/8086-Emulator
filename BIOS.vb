@@ -13,30 +13,32 @@ Imports System.Threading.Tasks
 Public Module BIOSModule
    'This enumeration lists the flat addresses of BIOS data area locations.
    Public Enum AddressesE As Integer
-      BIOS = &HF0000%                   'BIOS.
-      BIOSMemorySize = &H413%           'BIOS Memory size.
-      BIOSStack = &HF3000%              'BIOS stack segment.
-      CGA320x200 = &HB8000%             '320x200 CGA video buffer.
-      Characters = &HFFA6E%             'Character bitmaps.
-      Clock = &H46C%                    'Clock.
-      ClockRollover = &H470%            'Clock rollover flag.
-      ColumnCount = &H44A%              'Column count.
-      CRTControllerBasePOrt = &H463%    'CRT controller base port.
-      CursorPositions = &H450%          'Cursor positions.
-      CursorScanLines = &H460%          'Cursor scan line start/end.
-      EquipmentFlags = &H410%           'Equipment flags.
-      ExtendedCharacters = &HC0000%     'Extended character bitmaps.
-      KeyboardFlags = &H417%            'Keyboard flags.
-      KeyboardBufferHead = &H41A%       'Keyboard buffer head offset.
-      KeyboardBufferTail = &H41C%       'Keyboard buffer tail offset.
-      KeyboardBuffer = &H41E%           'Keyboard buffer.
-      MachineID = &HFFFFE%              'Machine ID.
-      Text80x25ColorPage0 = &HB8000%    '80x25 color text video buffer.
-      Text80x25MonoPage0 = &HB0000%     '80x25 monochrome text video buffer.
-      VGA320x200 = &HA0000%             '320x200 VGA video buffer.
-      VideoMode = &H449%                'Current video mode.
-      VideoModeOptions = &H487%         'Video mode options.
-      VideoPage = &H462%                'Current video page.
+      BIOS = &HF0000%                        'BIOS.
+      BIOSMemorySize = &H413%                'BIOS Memory size.
+      BIOSStack = &HF3000%                   'BIOS stack segment.
+      CGA320x200 = &HB8000%                  '320x200 CGA video buffer.
+      CGACurrentPalette = &H466%              'CGA current palette.
+      Characters = &HFFA6E%                  'Character bitmaps.
+      Clock = &H46C%                         'Clock.
+      ClockRollover = &H470%                 'Clock rollover flag.
+      ColumnCount = &H44A%                   'Column count.
+      CRTControllerBasePort = &H463%         'CRT controller base port.
+      CRTModeControlRegisterValue = &H465%   'CRT mode control register value.
+      CursorPositions = &H450%               'Cursor positions.
+      CursorScanLines = &H460%               'Cursor scan line start/end.
+      EquipmentFlags = &H410%                'Equipment flags.
+      ExtendedCharacters = &HC0000%          'Extended character bitmaps.
+      KeyboardFlags = &H417%                 'Keyboard flags.
+      KeyboardBufferHead = &H41A%            'Keyboard buffer head offset.
+      KeyboardBufferTail = &H41C%            'Keyboard buffer tail offset.
+      KeyboardBuffer = &H41E%                'Keyboard buffer.
+      MachineID = &HFFFFE%                   'Machine ID.
+      Text80x25ColorPage0 = &HB8000%         '80x25 color text video buffer.
+      Text80x25MonoPage0 = &HB0000%          '80x25 monochrome text video buffer.
+      VGA320x200 = &HA0000%                  '320x200 VGA video buffer.
+      VideoMode = &H449%                     'Current video mode.
+      VideoModeOptions = &H487%              'Video mode options.
+      VideoPage = &H462%                     'Current video page.
    End Enum
 
    'This enumeration lists the supported Teletype control characters
@@ -116,11 +118,13 @@ Public Module BIOSModule
             VideoAdapter = New Text80x25MonoClass
             CPU.PutWord(AddressesE.EquipmentFlags, INITIAL_MODE_FLAGS_MDA)
             CPU.Memory(AddressesE.VideoMode) = CurrentVideoMode
+            CPU.PutWord(AddressesE.CRTControllerBasePort, IOPortsE.MDAIndex)
          Else
             CurrentVideoMode = VideoModesE.Text80x25Color
             VideoAdapter = New Text80x25ColorClass
             CPU.PutWord(AddressesE.EquipmentFlags, INITIAL_MODE_FLAGS_NOT_MDA)
             CPU.Memory(AddressesE.VideoMode) = CurrentVideoMode
+            CPU.PutWord(AddressesE.CRTControllerBasePort, IOPortsE.CGAIndex)
 
             Address = EXTENDED_CHARACTERS_VECTOR * &H4%
             CPU.PutWord(Address + &H2%, AddressesE.ExtendedCharacters >> &H4%)
@@ -147,7 +151,6 @@ Public Module BIOSModule
 
          CPU.PutWord(AddressesE.BIOSMemorySize, BIOS_MEMORY_SIZE)
          CPU.Memory(AddressesE.ColumnCount) = MCC.ColumnCount()
-         CPU.PutWord(AddressesE.CRTControllerBasePOrt, IOPortsE.MDA3B0)
          CPU.Memory(AddressesE.KeyboardBufferHead) = INITIAL_KEYBOARD_HEAD_TAIL
          CPU.Memory(AddressesE.KeyboardBufferTail) = INITIAL_KEYBOARD_HEAD_TAIL
          CPU.Memory(AddressesE.MachineID) = MACHINE_ID

@@ -743,8 +743,6 @@ Public Module CoreModule
                         Address = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + (CPU.Registers(Registers16BitE.DI)) And ADDRESS_MASK
                         FileName = If(Operands Is Nothing, RequestFileName("Load binary."), Operands)
                         If Not FileName = Nothing Then Success = LoadBinary(FileName, CInt(Address))
-                     Case "LOADFIX"
-                        CPU.Registers(SegmentRegistersE.CS, NewValue:=LOADFIX_ADDRESS)
                      Case "M", "MD", "MT"
                         Parsed.Remainder = Input
 

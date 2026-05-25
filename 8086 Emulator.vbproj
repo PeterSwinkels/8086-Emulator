@@ -127,6 +127,7 @@
     <Compile Include="Assembler.vb" />
     <Compile Include="BIOS.vb" />
     <Compile Include="CGA320x200.vb" />
+    <Compile Include="Mouse.vb" />
     <Compile Include="PC Speaker.vb" />
     <Compile Include="PIC.vb" />
     <Compile Include="PPI.vb" />

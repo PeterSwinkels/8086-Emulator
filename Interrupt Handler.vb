@@ -8,7 +8,6 @@ Imports Emulator8086Program.CPU8086Class
 Imports System
 Imports System.Convert
 Imports System.Environment
-Imports System.Math
 Imports System.Threading.Tasks
 Imports System.Windows.Forms
 
@@ -55,19 +54,21 @@ Public Module InterruptHandlerModule
                CPU.Memory(AddressesE.KeyboardFlags) = ToByte(GetKeyboardFlags() And &HFF%)
                CPU.Memory(AddressesE.KeyboardFlags + &H1%) = ToByte(GetKeyboardFlags() >> &H8%)
 
-               CPU.PutWord((BIOS_SEGMENT << &H4%) + CPU.Memory(AddressesE.KeyboardBufferHead), LastBIOSKeyCode().Value)
+               If LastBIOSKeyCode() IsNot Nothing Then
+                  CPU.PutWord((BIOS_SEGMENT << &H4%) + CPU.Memory(AddressesE.KeyboardBufferHead), LastBIOSKeyCode().Value)
 
-               CPU.Memory(AddressesE.KeyboardBufferHead) = ToByte(CPU.Memory(AddressesE.KeyboardBufferHead) + &H2)
+                  CPU.Memory(AddressesE.KeyboardBufferHead) = ToByte(CPU.Memory(AddressesE.KeyboardBufferHead) + &H2)
 
-               If CPU.Memory(AddressesE.KeyboardBufferHead) = KEY_BUFFER_END Then
-                  CPU.Memory(AddressesE.KeyboardBufferHead) = KEY_BUFFER_START
-               End If
+                  If CPU.Memory(AddressesE.KeyboardBufferHead) = KEY_BUFFER_END Then
+                     CPU.Memory(AddressesE.KeyboardBufferHead) = KEY_BUFFER_START
+                  End If
 
-               If CPU.Memory(AddressesE.KeyboardBufferHead) = CPU.Memory(AddressesE.KeyboardBufferTail) Then
-                  CPU.Memory(AddressesE.KeyboardBufferTail) = ToByte(CPU.Memory(AddressesE.KeyboardBufferTail) + &H2)
+                  If CPU.Memory(AddressesE.KeyboardBufferHead) = CPU.Memory(AddressesE.KeyboardBufferTail) Then
+                     CPU.Memory(AddressesE.KeyboardBufferTail) = ToByte(CPU.Memory(AddressesE.KeyboardBufferTail) + &H2)
 
-                  If CPU.Memory(AddressesE.KeyboardBufferTail) = KEY_BUFFER_END Then
-                     CPU.Memory(AddressesE.KeyboardBufferTail) = KEY_BUFFER_START
+                     If CPU.Memory(AddressesE.KeyboardBufferTail) = KEY_BUFFER_END Then
+                        CPU.Memory(AddressesE.KeyboardBufferTail) = KEY_BUFFER_START
+                     End If
                   End If
                End If
 
@@ -253,7 +254,10 @@ Public Module InterruptHandlerModule
                   Case &H13%
                      WriteString()
                      Success = True
+                  Case &H18%, &H19%
+                     Success = True
                   Case &H1A%
+                     CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1A%)
                      Success = True
                   Case &H1B%
                      Select Case CurrentVideoMode
@@ -372,7 +376,8 @@ Public Module InterruptHandlerModule
             Case &H33%
                Select Case AH
                   Case &H0%
-                     CPU.Registers(Registers16BitE.AX, NewValue:=&H0%)
+                     CPU.Registers(Registers16BitE.AX, NewValue:=MOUSE_DRIVER_INSTALLED)
+                     CPU.Registers(Registers16BitE.BX, NewValue:=MOUSE_BUTTON_COUNT)
                      Success = True
                End Select
             Case Else

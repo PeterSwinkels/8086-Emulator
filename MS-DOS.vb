@@ -86,6 +86,12 @@ Public Module MSDOSModule
       STDPRN   'Printer.
    End Enum
 
+   'This enumeration lists MS-DOS version numbers.
+   Private Enum VersionsE As Integer
+      v500 = &H5%       'v5.00.
+      v622 = &H1606%    'v6.22.
+   End Enum
+
    'This structure defines a file system item.
    Private Structure FileSystemItemStr
       Public Name As String        'Defines the file system item's name.
@@ -94,7 +100,6 @@ Public Module MSDOSModule
    End Structure
 
    Public Const COMMAND_TAIL_MAXIMUM_LENGTH As Integer = &H7E%         'Defines the maximum length of a command tail in a PSP.
-   Public Const LOADFIX_ADDRESS As Integer = &H1000%                   'Defines the executable loading address used by LoadFix.
    Private Const CARRY_FLAG_INDEX As Integer = &H0%                     'Defines the carry flag's bit index.
    Private Const COUNTRY_INFORMATION_BUFFER_SIZE As Integer = &H28%     'Defines the country information buffer size.
    Private Const ERROR_ACCESS_DENIED As Integer = &H5%                  'Defines the access denied error code.
@@ -126,7 +131,7 @@ Public Module MSDOSModule
    Private Const INT_20H As Integer = &H20CD%                           'Defines the INT 20h instruction.
    Private Const INVALID_CHARACTERS As String = "*<>?[]| """            'Defines the characters that are invalid in an MS-DOS file system item name.
    Private Const LOWEST_ALLOCATABLE_ADDRESS As Integer = &H600%         'Defines the lowest address that can be allocated.
-   Private Const LOWEST_EXECUTABLE_ADDRESS As Integer = &H700%          'Defines the lowest address used to load an executable.
+   Private Const LOWEST_EXECUTABLE_ADDRESS As Integer = &H2000%         'Defines the lowest address used to load an executable.
    Private Const MS_DOS As Integer = &HFF00%                            'Defines a value indicating that the operating system is MS-DOS.
    Private Const PSP_BYTES_AVAILABLE As Integer = &H6%                  'Defines the number of bytes available in a block of memory less the space used by the PSP.
    Private Const PSP_COMMAND_TAIL As Integer = &H80%                    'Defines the offset of the command tail in a PSP.
@@ -142,11 +147,12 @@ Public Module MSDOSModule
    Private Const PSP_PREVIOUS_PSP As Integer = &H38%                    'Defines the offset of the previous PSP in a PSP.
    Private Const PSP_SIZE As Integer = &H100%                           'Defines a PSP's size.
    Private Const PSP_SSSP As Integer = &H2E%                            'Defines the SS:SP values in a PSP.
-   Private Const VERSION As Integer = &H1606%                           'Defines the emulated MS-DOS version as 6.22.
+   Private Const VERSION As VersionsE = VersionsE.v500                  'Defines the emulated MS-DOS version as 5.00.
    Private Const VOLUME_ATTRIBUTE As Integer = &H8%                     'Defines the volume label attribute.
 
    Private ReadOnly DATE_TO_MSDOS_DATE As Func(Of Date, Integer) = Function([Date] As Date) [Date].Day Or ([Date].Month << &H5%) Or (([Date].Year - 1980) << &H9%)   'Converts the specified date to a value suitable for MS-DOS and returns the result.
    Private ReadOnly ENVIRONMENT_SEGMENT As Integer = LOWEST_ALLOCATABLE_ADDRESS                                                                                      'Defines the MS-DOS environment's segment.
+   Private ReadOnly DBCS_SEGMENT As Integer = ENVIRONMENT_SEGMENT + &H1%                                                                                             'Defines the Double-Byte Character Set table segment.
    Private ReadOnly EXE_MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}                                                                                                      'Defines the signature of an MZ executable.
    Private ReadOnly INT_21H_RETF() As Byte = {&HCD%, &H21%, &HCB%}                                                                                                   'Defines the INT 21h and RETF instructions.
    Private ReadOnly LOWEST_FILE_HANDLE As Integer = STDFileHandlesE.STDPRN + &H1%                                                                                    'Defines the lowest possible file handle.
@@ -264,24 +270,21 @@ Public Module MSDOSModule
                      Buffer.RemoveAt(Buffer.Count - &H1%)
                   End If
                Case &HD%
+                  Buffer.Add(ToByte(KeyCode))
                   CPU.Memory(Address + &H1%) = ToByte(Buffer.Count)
                   WriteBytesToMemory(Buffer.ToArray(), Address + &H2%)
                   Exit Do
                Case Else
                   If Buffer.Count < Maximum - &H1% Then
-                     TeleType(ToByte(KeyCode))
                      Buffer.Add(ToByte(KeyCode))
+                     TeleType(Buffer.Last)
                      If KeyCode = &H0% Then
                         If Buffer.Count < Maximum - &H1% Then
                            KeyCode = ReadCharacter()
-                           TeleType(ToByte(KeyCode))
                            Buffer.Add(ToByte(KeyCode))
-                        Else
-                           TeleType(TeletypeE.BEL)
+                           TeleType(Buffer.Last)
                         End If
                      End If
-                  Else
-                     TeleType(TeletypeE.BEL)
                   End If
             End Select
          Loop
@@ -527,6 +530,25 @@ Public Module MSDOSModule
       End Select
    End Sub
 
+   'This procedure handles IOCTL function 8h.
+   Private Sub DriveRemovableQuery(ByRef Flags As Integer)
+      Try
+         Try
+            Dim Drive As Integer = CPU.Registers(SubRegisters8BitE.BL)
+            Dim DriveLetter As Char = If(Drive = &H0%, CurrentDirectory.ToCharArray.First, ToChar(Drive + ToInt32("@"c)))
+            Dim DriveInformation As New DriveInfo(DriveLetter)
+
+            CPU.Registers(Registers16BitE.AX, NewValue:=If(DriveInformation.DriveType.HasFlag(DriveType.Removable), &H1%, &H0%))
+            Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+         Catch MSDOSException As Exception
+            CPU.Registers(Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
+            Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+         End Try
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
    'This procedure loads and executes a program.
    Private Sub ExecuteProgram(ByRef Flags As Integer)
       Try
@@ -706,7 +728,7 @@ Public Module MSDOSModule
          Dim ModifyDrive As Boolean = ((CPU.Registers(SubRegisters8BitE.AL) And ParsingControlBitsE.ModifyDrive) = ParsingControlBitsE.ModifyDrive)
          Dim WildcardPresent As Boolean = FilePattern.Contains("*"c)
 
-         If FilePattern.Chars(1) = ":"c Then
+         If (Not FilePattern = Nothing) AndAlso FilePattern.Chars(1) = ":"c Then
             FCBDrive = FilePattern.Substring(0, 2)
             FCBDriveValid = New DriveInfo(FCBDrive).IsReady
             FilePattern = FilePattern.Substring(2)
@@ -729,17 +751,23 @@ Public Module MSDOSModule
             Next Index
 
             If IsPeriod Then
-               For Index As Integer = 0 To 3
-                  Character = FilePattern.ToString().Chars(Index + FCBFileName.Length + 1)
+               For Index As Integer = 0 To 2
+                  If Index + FCBFileName.Length + 1 >= FilePattern.Length Then
+                     Exit For
+                  End If
+
+                  Character = FilePattern.Chars(Index + FCBFileName.Length + 1)
+
                   If $".\/{INVALID_CHARACTERS}".Contains(Character) Then
                      Exit For
                   End If
+
                   FCBExtension.Append(Character)
                Next Index
             End If
 
             If FCBFileName.ToString().Length < 8 Then
-               FCBFileName.Append(New String(" "c, 8 - FilePattern.ToString().Length))
+               FCBFileName.Append(New String(" "c, 8 - FCBFileName.ToString().Length))
             End If
 
             If FCBExtension.ToString().Length < 3 Then
@@ -945,11 +973,15 @@ Public Module MSDOSModule
 
                FileSystemItems = GetFileSystemItems(CurrentDirectory(), SearchPattern, Attributes)
 
-               Index = 0
-               FileSystemItem = FileSystemItems(Index)
-               WriteDTA(FileSystemItem.Name, Not FileSystemItem.IsFile)
-
-               Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+               If FileSystemItems.Any Then
+                  Index = 0
+                  FileSystemItem = FileSystemItems(Index)
+                  WriteDTA(FileSystemItem.Name, Not FileSystemItem.IsFile)
+                  Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+               Else
+                  CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_FILE_NOT_FOUND)
+                  Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+               End If
             Else
                If Index >= FileSystemItems.Count Then
                   CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_FILE_NOT_FOUND)
@@ -1547,6 +1579,9 @@ Public Module MSDOSModule
                                  Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
                                  Success = True
                            End Select
+                        Case &H8%
+                           DriveRemovableQuery(Flags)
+                           Success = True
                      End Select
                   Case &H46%
                      ForceDuplicateFileHandle(Flags)
@@ -1558,6 +1593,7 @@ Public Module MSDOSModule
                      Result = AllocateMemory(CPU.Registers(Registers16BitE.BX) << &H4%)
                      CPU.Registers(Registers16BitE.BX, NewValue:=(LargestFreeMemoryBlock() >> &H4%))
                      Flags = SET_BIT(Flags, (Result Is Nothing), CARRY_FLAG_INDEX)
+
 
                      If Result Is Nothing Then
                         CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_INSUFFICIENT_MEMORY)
@@ -1582,6 +1618,7 @@ Public Module MSDOSModule
                      If Result IsNot Nothing Then
                         CPU.Registers(Registers16BitE.AX, NewValue:=CInt(Result))
                      End If
+
                      Success = True
                   Case &H4B%
                      ExecuteProgram(Flags)
@@ -1624,6 +1661,17 @@ Public Module MSDOSModule
                         Case Else
                            Success = True
                      End Select
+                  Case &H63%
+                     Select Case CPU.Registers(SubRegisters8BitE.AL)
+                        Case &H0%
+                           CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
+                           CPU.Registers(SubRegisters8BitE.DL, NewValue:=&H0%)
+                           CPU.Registers(SegmentRegistersE.DS, NewValue:=DBCS_SEGMENT)
+                           CPU.Registers(Registers16BitE.SI, NewValue:=&H0%)
+                        Case Else
+                           CPU.Registers(SubRegisters8BitE.AL, NewValue:=&HFF%)
+                     End Select
+                     Success = True
                End Select
             Case &H28%
                Success = True
@@ -1725,6 +1773,7 @@ Public Module MSDOSModule
          SwitchCharacter = "-"c
          Verify = False
 
+         CPU.PutWord(DBCS_SEGMENT << &H4%, &H0%)
          WriteStringToMemory(EnvironmentText, ENVIRONMENT_SEGMENT << &H4%)
 
          UpdateMSDOSPath()
@@ -1982,7 +2031,7 @@ Public Module MSDOSModule
             ExtendedKeyCode = New Integer
          End If
 
-         Return KeyCode.Value
+         Return If(KeyCode Is Nothing, Nothing, KeyCode.Value)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -2194,14 +2243,14 @@ Public Module MSDOSModule
       Try
          Dim DTAAddress As Integer = (DTASegment << &H4%) + DTAOffset
          Dim FileSize As Long = If(IsDirectory, Nothing, New FileInfo(FilePath).Length)
-         Dim ItemName As String = GetShortName(FileSystemItems, FilePath)
+         Dim ItemName As String = Path.GetFileName(GetShortName(FileSystemItems, FilePath))
 
          CPU.Memory(DTAAddress + DTAE.Attribute) = ToByte(File.GetAttributes(FilePath))
          CPU.PutWord(DTAAddress + DTAE.FileSystemItemTime, TIME_TO_MSDOS_TIME(File.GetLastWriteTime(FilePath)))
          CPU.PutWord(DTAAddress + DTAE.FileSystemItemDate, DATE_TO_MSDOS_DATE(File.GetLastWriteTime(FilePath)))
          CPU.PutWord(DTAAddress + DTAE.FileSystemItemSize, CInt(FileSize And &HFFFF%))
          CPU.PutWord(DTAAddress + DTAE.FileSystemItemSize + &H2%, CInt(FileSize) >> &H10%)
-         WriteStringToMemory($"{Path.GetFileName(ItemName)}{ToChar(&H0%)}", DTAAddress + DTAE.FileSystemItemName)
+         WriteStringToMemory($"{ItemName}{ToChar(&H0%)}", DTAAddress + DTAE.FileSystemItemName)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -2249,6 +2298,7 @@ Public Module MSDOSModule
                End Select
 
                CPU.Registers(Registers16BitE.AX, NewValue:=Count)
+               Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
             Case Else
                OpenFileToBeWritten = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CPU.Registers(Registers16BitE.BX))
                Bytes = CPU.Memory.ToList.GetRange((CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX), Count).ToArray()

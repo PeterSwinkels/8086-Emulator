@@ -7,7 +7,7 @@ Option Strict On
 Imports System
 Imports System.Windows.Forms
 
-'This module contains information about the cursor.
+'This module contains the cursor related procedures.
 Public Module CursorModule
    Public Structure CursorStr
       Public Off As Boolean             'Indicates whether or not the cursor is off

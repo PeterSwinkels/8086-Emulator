@@ -5,6 +5,7 @@ Option Infer Off
 Option Strict On
 
 Imports System
+Imports System.Convert
 Imports System.Diagnostics
 Imports System.Drawing
 
@@ -65,6 +66,11 @@ Public Class MCCClass
    Private RegisterValue(RegistersE.HorizontalTotalCharacters To RegistersE.LightPenLSB) As Byte   'Contains the register values.
    Private SelectedPalette As New Integer                                                          'Contains the palette number used by the active palette.
 
+   'This procedure returns the color graphics display adapter status port's current value.
+   Public Function CGAStatus() As Byte
+      Return CByte(If(CYCLE_CLOCK.ElapsedMilliseconds Mod FRAME_DURATION >= (FRAME_DURATION - CGA_RETRACE_DURATION), &H8%, &H1%))
+   End Function
+
    'This function returns the number of scanlines per character.
    Public Function CharacterScanLineCount() As Byte
       Return CHARACTER_SCANLINE_COUNT
@@ -107,10 +113,12 @@ Public Class MCCClass
       Select Case Value
          Case &H0%
             SelectedPalette = Value
+            CPU.Memory(AddressesE.CGACurrentPalette) = ToByte(Value)
             ActivePalette = If(IntenseColors, PALETTE0H, PALETTE0L)
             CreateBrushes()
          Case &H1%
             SelectedPalette = Value
+            CPU.Memory(AddressesE.CGACurrentPalette) = ToByte(Value)
             ActivePalette = If(IntenseColors, PALETTE1H, PALETTE1L)
             CreateBrushes()
       End Select
@@ -214,18 +222,13 @@ Public Class MCCClass
       Dim Success As Boolean = True
 
       Select Case Register
-         Case RegistersE.CursorAddressMSB, RegistersE.CursorAddressLSB
+         Case RegistersE.HorizontalTotalCharacters To RegistersE.LightPenLSB
             SelectedRegister = Register
          Case Else
             Success = False
       End Select
 
       Return Success
-   End Function
-
-   'This procedure returns the color graphics display adapter status port's current value.
-   Public Function CGAStatus() As Byte
-      Return CByte(If(CYCLE_CLOCK.ElapsedMilliseconds Mod FRAME_DURATION >= (FRAME_DURATION - CGA_RETRACE_DURATION), &H8%, &H1%))
    End Function
 
    'This procedure returns the number of video pages for the current video mode.

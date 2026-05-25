@@ -21,8 +21,10 @@ Public Module IOHandlerModule
       PITCounter1 = &H41%               'RAM refresh counter.
       PITCounter2 = &H42%               'Cassette and speaker.
       PITModeControl = &H43%            'Mode control register.
+      Port49 = &H49%                    'I/O port 49h.
       KeyboardIO = &H60%                'Keyboard I/O register.
       PPIPortB = &H61%                  'Port B output.
+      PPIPortC = &H62%                  'Port C input.
       Reserved3 = &HE0%                 'Reserved.
       Reserved4 = &HEF%                 'Reserved.
       Reserved5 = &HF8%                 'Reserved.
@@ -78,29 +80,44 @@ Public Module IOHandlerModule
          Dim Value As Integer? = Nothing
 
          Select Case (Port And &HFFFF%)
-            Case IOPortsE.PICICW2
-               Value = PIC.ReadMask()
+            Case IOPortsE.CGA3D0, IOPortsE.CGA3D6, IOPortsE.CGAIndex
+               Value = If(MCC.IsMDA, &HFF%, MCC.SelectedRegister)
+            Case IOPortsE.CGA3D1, IOPortsE.CGA3D7, IOPortsE.CGAData
+               Value = If(MCC.IsMDA, &HFF%, MCC.Register())
+            Case IOPortsE.CGA3D2, IOPortsE.CGA3D3, IOPortsE.CGAColor, IOPortsE.CGAMode, IOPortsE.CGALightPenStrobeReset, IOPortsE.CGAPresetLightPenLatch
+               Value = &HFF%
+            Case IOPortsE.CGAStatus
+               Value = If(MCC.IsMDA, &HFF%, MCC.CGAStatus())
+            Case IOPortsE.Joystick
+               Value = &HFF%
             Case IOPortsE.KeyboardIO
                Value = KeyScancode
+            Case IOPortsE.MDA3B0, IOPortsE.MDA3B6, IOPortsE.MDAIndex
+               Value = MCC.SelectedRegister
+            Case IOPortsE.MDA3B1, IOPortsE.MDAData
+               Value = MCC.Register()
+            Case IOPortsE.PICICW2
+               Value = PIC.ReadMask()
             Case IOPortsE.PITCounter0 To IOPortsE.PITCounter2
                Value = PIT.ReadCounter(DirectCast(Port And PIT_IO_PORT_MASK, PITClass.CountersE))
             Case IOPortsE.PITModeControl
                Value = &H0%
+            Case IOPortsE.Port49
+               Value = &HFF%
             Case IOPortsE.PPIPortB
                Value = PPI.PortB()
-            Case IOPortsE.MDA3B0
-               Value = If(MCC.IsMDA, MCC.GET_SELECTED_REGISTER(), &HFF%)
-            Case IOPortsE.MDA3B1, IOPortsE.MDAData
-               Value = If(MCC.IsMDA, MCC.Register(), &HFF%)
-            Case IOPortsE.MDA3B0, IOPortsE.MDAIndex, IOPortsE.MDA3B6
-               Value = If(MCC.IsMDA, MCC.SelectedRegister, &HFF%)
-            Case IOPortsE.MDAStatus
-               Value = If(MCC.IsMDA, MCC.MDAStatus(), &HFF%)
-            Case IOPortsE.CGAStatus
-               Value = If(MCC.IsMDA, &HFF%, MCC.CGAStatus())
-            Case IOPortsE.CGA3D0 To IOPortsE.CGAPresetLightPenLatch
+            Case IOPortsE.PPIPortC
                Value = &HFF%
-            Case IOPortsE.Joystick, IOPortsE.Reserved1 To IOPortsE.Reserved2, IOPortsE.Reserved3 To IOPortsE.Reserved4, IOPortsE.Reserved5 To IOPortsE.Reserved6, IOPortsE.Reserved7, IOPortsE.Reserved8 To IOPortsE.Reserved9, IOPortsE.Reserved10 To IOPortsE.Reserved11, IOPortsE.Reserved12 To IOPortsE.Reserved13, IOPortsE.Reserved14 To IOPortsE.Reserved15, IOPortsE.Reserved16 To IOPortsE.Reserved17, IOPortsE.Reserved18 To IOPortsE.Reserved19
+            Case IOPortsE.Reserved1 To IOPortsE.Reserved2,
+                 IOPortsE.Reserved3 To IOPortsE.Reserved4,
+                 IOPortsE.Reserved5 To IOPortsE.Reserved6,
+                 IOPortsE.Reserved7,
+                 IOPortsE.Reserved8 To IOPortsE.Reserved9,
+                 IOPortsE.Reserved10 To IOPortsE.Reserved11,
+                 IOPortsE.Reserved12 To IOPortsE.Reserved13,
+                 IOPortsE.Reserved14 To IOPortsE.Reserved15,
+                 IOPortsE.Reserved16 To IOPortsE.Reserved17,
+                 IOPortsE.Reserved18 To IOPortsE.Reserved19
                Value = &HFF%
          End Select
 
@@ -120,6 +137,37 @@ Public Module IOHandlerModule
          Dim Success As Boolean = True
 
          Select Case (Port And &HFFFF%)
+            Case IOPortsE.CGA3D0, IOPortsE.CGA3D6, IOPortsE.CGAIndex
+               If Not MCC.IsMDA Then
+                  MCC.SelectRegister(DirectCast(Value, MCCClass.RegistersE))
+               End If
+            Case IOPortsE.CGA3D1, IOPortsE.CGAData
+               If Not MCC.IsMDA Then
+                  MCC.Register(NewValue:=ToByte(Value))
+               End If
+            Case IOPortsE.CGAColor
+               MCC.ColorSelect(Value)
+            Case IOPortsE.CGAMode
+               Success = True
+            Case IOPortsE.Joystick
+               Success = True
+            Case IOPortsE.MDA3B0, IOPortsE.MDAIndex, IOPortsE.MDA3B6
+               MCC.SelectRegister(DirectCast(Value, MCCClass.RegistersE))
+            Case IOPortsE.MDA3B1, IOPortsE.MDAData
+               MCC.Register(NewValue:=ToByte(Value))
+            Case IOPortsE.MDAColor, IOPortsE.MDAStatus
+               Success = True
+            Case IOPortsE.MDAMode
+               If MCC.IsMDA Then
+                  Select Case Value
+                     Case &H3F%
+                        MCC.BlinkingOn = True
+                     Case &H40%
+                        MCC.BlinkingOn = False
+                  End Select
+               End If
+
+               CPU.Memory(AddressesE.CRTModeControlRegisterValue) = ToByte(Value)
             Case IOPortsE.PICICW1
                PIC.WriteCommand(ToByte(Value))
             Case IOPortsE.PICICW2
@@ -130,35 +178,20 @@ Public Module IOHandlerModule
                PIT.WriteCounter(DirectCast(Port And PIT_IO_PORT_MASK, PITClass.CountersE), NewValue:=CByte(Value))
             Case IOPortsE.PITModeControl
                PIT.ModeControl(NewValue:=Value)
-            Case IOPortsE.MDA3B0, IOPortsE.MDAIndex, IOPortsE.MDA3B6
-               MCC.SelectRegister(DirectCast(Value, MCCClass.RegistersE))
-            Case IOPortsE.MDA3B1, IOPortsE.MDAData
-               MCC.Register(NewValue:=ToByte(Value))
-            Case IOPortsE.MDAMode
-               If MCC.IsMDA Then
-                  Select Case Value
-                     Case &H3F%
-                        MCC.BlinkingOn = True
-                     Case &H40%
-                        MCC.BlinkingOn = False
-                  End Select
-               End If
-               Success = True
-            Case IOPortsE.MDAColor, IOPortsE.MDAStatus
-               Success = True
-            Case IOPortsE.VGAVideoDACPELAddress
-               VGA.SelectAddress(Value)
             Case IOPortsE.VGAVideoDAC
                VGA.WriteToDAC(Value)
-            Case IOPortsE.CGAIndex
-               Success = True
-            Case IOPortsE.CGAData
-               Success = True
-            Case IOPortsE.CGAMode
-               Success = True
-            Case IOPortsE.CGAColor
-               MCC.ColorSelect(Value)
-            Case IOPortsE.Joystick, IOPortsE.Reserved1 To IOPortsE.Reserved2, IOPortsE.Reserved3 To IOPortsE.Reserved4, IOPortsE.Reserved5 To IOPortsE.Reserved6, IOPortsE.Reserved7, IOPortsE.Reserved8 To IOPortsE.Reserved9, IOPortsE.Reserved10 To IOPortsE.Reserved11, IOPortsE.Reserved12 To IOPortsE.Reserved13, IOPortsE.Reserved14 To IOPortsE.Reserved15, IOPortsE.Reserved16 To IOPortsE.Reserved17, IOPortsE.Reserved18 To IOPortsE.Reserved19
+            Case IOPortsE.VGAVideoDACPELAddress
+               VGA.SelectAddress(Value)
+            Case IOPortsE.Reserved1 To IOPortsE.Reserved2,
+                 IOPortsE.Reserved3 To IOPortsE.Reserved4,
+                 IOPortsE.Reserved5 To IOPortsE.Reserved6,
+                 IOPortsE.Reserved7,
+                 IOPortsE.Reserved8 To IOPortsE.Reserved9,
+                 IOPortsE.Reserved10 To IOPortsE.Reserved11,
+                 IOPortsE.Reserved12 To IOPortsE.Reserved13,
+                 IOPortsE.Reserved14 To IOPortsE.Reserved15,
+                 IOPortsE.Reserved16 To IOPortsE.Reserved17,
+                 IOPortsE.Reserved18 To IOPortsE.Reserved19
                Success = True
             Case Else
                Success = False

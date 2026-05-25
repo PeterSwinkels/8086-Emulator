@@ -74,12 +74,14 @@ Public Class ScreenWindow
    'This procedure sets the key scan code to be returned by the keyboard I/O port.
    Protected Overrides Sub WndProc(ByRef m As Message)
       Try
-         Dim Scancode As Integer = (m.LParam.ToInt32 >> &H10%) And &HFF%
+         Dim Scancode As New Integer
 
          Select Case m.Msg
             Case WM_KEYDOWN, WM_SYSKEYDOWN
+               Scancode = (m.LParam.ToInt32 >> &H10%) And &HFF%
                KeyScancode = CByte(Scancode)
             Case WM_KEYUP, WM_SYSKEYUP
+               Scancode = (m.LParam.ToInt32 >> &H10%) And &HFF%
                KeyScancode = CByte(Scancode Or &H80%)
          End Select
 

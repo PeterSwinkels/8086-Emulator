@@ -20,7 +20,6 @@ INT int ah                    Executes an INT instruction.
 INT6 on|off                   Turns interrupt 0x6 for invalid opcodes on or off/displays status.
 IRET                          Executes an IRET instruction.
 L [Path]                      Loads a file into the emulated memory at DS:DI.
-LOADFIX                       Sets CS to 1000h.
 M [Offset:Segment] [Count]    Display memory.
 MA [Offset:Segment]           Allows the user to enter assembly instructions.
                               Enter "?" for help.
