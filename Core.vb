@@ -48,7 +48,6 @@ Public Module CoreModule
    Private WithEvents Disassembler As New DisassemblerClass   'Contains a reference to the disassembler class.
 
    Public AssemblyModeOn As Boolean = False             'Indicates whether input is interpreted as assembly language.
-   Public CurrentVideoMode As New VideoModesE           'Contains the current video mode.
    Public Output As TextBox = Nothing                   'Contains a reference to an output.
    Public PIC As New PICClass                           'Contains a reference to the 8259 Programmable Interrupt Controller.
    Public PIT As New PITClass                           'Contains a reference to the 8253 Programmable Interval Timer class.
@@ -1089,12 +1088,12 @@ Public Module CoreModule
             CPU.Memory(AddressesE.VideoMode) = ToByte(AdapterVideoMode)
          End If
 
-         If VideoModesEquivalent(CurrentVideoMode, MemoryVideoMode) Then
+         If VideoModesEquivalent(MCC.CurrentVideoMode, MemoryVideoMode) Then
             If ScreenWindow.Visible Then
                ScreenWindow.Invalidate()
             End If
          Else
-            CurrentVideoMode = MemoryVideoMode
+            MCC.CurrentVideoMode = MemoryVideoMode
             SwitchVideoAdapter()
          End If
       Catch ExceptionO As Exception
@@ -1134,12 +1133,12 @@ Public Module CoreModule
          Dim PreviousAdapter As VideoAdapterClass = VideoAdapter
 
          If MCC.IsMDA Then
-            Select Case CurrentVideoMode
+            Select Case MCC.CurrentVideoMode
                Case VideoModesE.Text80x25Mono
                   VideoAdapter = New Text80x25MonoClass
             End Select
          Else
-            Select Case CurrentVideoMode
+            Select Case MCC.CurrentVideoMode
                Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B
                   VideoAdapter = New CGA320x200Class
                Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray

@@ -59,6 +59,7 @@ Public Class MCCClass
 
    Public ActivePalette(&H0% To &H3%) As Color                                                    'Contains the active palette.
    Public BlinkingOn As Boolean = True                                                            'Incidates whether or not blinking colors are enabled.
+   Public CurrentVideoMode As New VideoModesE                                                     'Contains the current video mode.
    Public IsMDA As Boolean = True                                                                 'Indicates whether or not an MDA will be emulated.
    Public PaintBrushes(&H0% To &H3%) As Brush                                                     'Contains the paint brushes created using the active palette.
    Public SelectedRegister As New RegistersE                                                      'Contains the selected register.
@@ -161,9 +162,72 @@ Public Class MCCClass
       Next Index
    End Sub
 
+   'This procedure returns whether or not the current video mode is a text mode.
+   Public Function InTextMode() As Boolean
+      Dim TextMode As New Boolean
+
+      Select Case CurrentVideoMode
+         Case VideoModesE.Text40x25Color, VideoModesE.Text40x25Mono, VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono
+            TextMode = True
+         Case Else
+            TextMode = False
+      End Select
+
+      Return TextMode
+   End Function
+
    'This procedure returns the monochrome display adapter status port's current value.
    Public Function MDAStatus() As Byte
       Return CByte(If(CYCLE_CLOCK.ElapsedMilliseconds Mod FRAME_DURATION >= (FRAME_DURATION - MDA_RETRACE_DURATION), &H80%, &H2%))
+   End Function
+
+   'This procedure returns the number of pixels per column for the current video mode.
+   Public Function PixelsPerColumn() As Integer
+      Dim Count As Integer
+
+      Select Case RasterScanLineCount()
+         Case RasterScanLinesE.SC200
+            Count = 200
+         Case RasterScanLinesE.SC350
+            Count = 350
+         Case RasterScanLinesE.SC400
+            Count = 400
+         Case RasterScanLinesE.SC480
+            Count = 480
+      End Select
+
+      Return Count
+   End Function
+
+   'This procedure returns the number of pixels per row for the current video mode.
+   Public Function PixelsPerRow() As Integer
+      Dim Count As Integer
+
+      Select Case CurrentVideoMode
+         Case VideoModesE.PCjr160x200
+            Count = 160
+         Case VideoModesE.CGA320x200A,
+              VideoModesE.CGA320x200B,
+              VideoModesE.EGA320x200,
+              VideoModesE.PCjr320x200,
+              VideoModesE.VGA320x200
+            Count = 320
+         Case VideoModesE.CGA640x200,
+              VideoModesE.EGA640x200,
+              VideoModesE.EGA640x350Mono,
+              VideoModesE.EGA640x350,
+              VideoModesE.PCjr640x200,
+              VideoModesE.Text40x25Color,
+              VideoModesE.Text40x25Mono,
+              VideoModesE.Text80x25Color,
+              VideoModesE.Text80x25Gray,
+              VideoModesE.Text80x25Mono,
+              VideoModesE.VGA640x480,
+              VideoModesE.VGA640x480Mono
+            Count = 640
+      End Select
+
+      Return Count
    End Function
 
    'This procedure returns the number of raster scanlines for the current video mode.
@@ -173,6 +237,7 @@ Public Class MCCClass
       Select Case CurrentVideoMode
          Case VideoModesE.CGA320x200A,
               VideoModesE.CGA320x200B,
+              VideoModesE.CGA640x200,
               VideoModesE.EGA320x200,
               VideoModesE.EGA640x200,
               VideoModesE.PCjr160x200,
@@ -181,17 +246,17 @@ Public Class MCCClass
               VideoModesE.VGA320x200
             Count = RasterScanLinesE.SC200
          Case VideoModesE.EGA640x350,
-              VideoModesE.Text40x25Color,
+              VideoModesE.EGA640x350Mono
+            Count = RasterScanLinesE.SC350
+         Case VideoModesE.Text40x25Color,
               VideoModesE.Text40x25Mono,
               VideoModesE.Text80x25Color,
               VideoModesE.Text80x25Gray,
               VideoModesE.Text80x25Mono
-            Count = RasterScanLinesE.SC350
+            Count = RasterScanLinesE.SC400
          Case VideoModesE.VGA640x480,
               VideoModesE.VGA640x480Mono
             Count = RasterScanLinesE.SC480
-         Case Else
-            Count = RasterScanLinesE.SC400
       End Select
 
       Return Count

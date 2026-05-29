@@ -19,7 +19,7 @@ Public Module InterruptHandlerModule
    Private Const VIDEO_MODE_MASK As Byte = &H7F%      'Defines the bits indicating a video mode.
 
    'This procedure handles the specified interrupt and returns whether or not is succeeded.
-   Public Function HandleInterrupt(Vector As Integer, Optional AH As Integer = Nothing, Optional IRET As Boolean = True) As Boolean
+   Public Function HandleInterrupt(Vector As Integer, Optional AH As Integer = Nothing) As Boolean
       Try
          Dim Address As New Integer
          Dim AL As New Integer
@@ -31,6 +31,7 @@ Public Module InterruptHandlerModule
          Dim Pixel As New Integer
          Dim PixelColor As New Byte
          Dim Position As New Integer
+         Dim RETF As Boolean = False
          Dim Shift As New Integer
          Dim Success As Boolean = False
          Dim Tracing As Boolean = CPU.Tracing
@@ -91,7 +92,7 @@ Public Module InterruptHandlerModule
                         CPU.Memory(AddressesE.VideoMode) = VideoMode
                         CPU.Memory(AddressesE.VideoModeOptions) = CByte(SET_BIT(CPU.Memory(AddressesE.VideoModeOptions), VideoModeBit7, &H7%))
 
-                        CurrentVideoMode = DirectCast(VideoMode, VideoModesE)
+                        MCC.CurrentVideoMode = DirectCast(VideoMode, VideoModesE)
                      End If
 
                      SwitchVideoAdapter()
@@ -130,14 +131,14 @@ Public Module InterruptHandlerModule
                      VideoAdapter.ScrollBuffer(Up:=False, ScrollArea:=New VideoAdapterClass.ScreenAreaStr With {.ULCRow = CPU.Registers(SubRegisters8BitE.CH), .ULCColumn = CPU.Registers(SubRegisters8BitE.CL), .LRCRow = CPU.Registers(SubRegisters8BitE.DH), .LRCColumn = CPU.Registers(SubRegisters8BitE.DL)}, Count:=CPU.Registers(SubRegisters8BitE.AL))
                      Success = True
                   Case &H8%
-                     Select Case CurrentVideoMode
+                     Select Case MCC.CurrentVideoMode
                         Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono
                            CursorPositionUpdate()
                            CPU.Registers(Registers16BitE.AX, NewValue:=CPU.GetWord(AddressesE.Text80x25MonoPage0 + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)))
                            Success = True
                      End Select
                   Case &H9%, &HA%
-                     Select Case CurrentVideoMode
+                     Select Case MCC.CurrentVideoMode
                         Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B, VideoModesE.VGA320x200
                            Character = CByte(CPU.Registers(SubRegisters8BitE.AL))
                            Attribute = CByte(CPU.Registers(SubRegisters8BitE.BL))
@@ -154,7 +155,7 @@ Public Module InterruptHandlerModule
                               Count -= &H1%
                            Loop
                         Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono
-                           Select Case CurrentVideoMode
+                           Select Case MCC.CurrentVideoMode
                               Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray
                                  VideoPageAddress = AddressesE.Text80x25ColorPage0
                               Case VideoModesE.Text80x25Mono
@@ -183,7 +184,7 @@ Public Module InterruptHandlerModule
                      End Select
                      Success = True
                   Case &HC%
-                     Select Case CurrentVideoMode
+                     Select Case MCC.CurrentVideoMode
                         Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B
                            x = CPU.Registers(Registers16BitE.CX)
                            y = CPU.Registers(Registers16BitE.DX)
@@ -216,14 +217,14 @@ Public Module InterruptHandlerModule
                      TeleType(CByte(CPU.Registers(SubRegisters8BitE.AL)))
                      Success = True
                   Case &HF%
-                     VideoMode = CurrentVideoMode
+                     VideoMode = MCC.CurrentVideoMode
                      CPU.Registers(SubRegisters8BitE.AH, NewValue:=MCC.ColumnCount())
                      VideoMode = VideoMode Or (CPU.Memory(AddressesE.VideoModeOptions) >> &H7%)
                      CPU.Registers(SubRegisters8BitE.AL, NewValue:=VideoMode)
                      CPU.Registers(SubRegisters8BitE.BH, NewValue:=CPU.Memory(AddressesE.VideoPage))
                      Success = True
                   Case &H10%
-                     Select Case CurrentVideoMode
+                     Select Case MCC.CurrentVideoMode
                         Case VideoModesE.Text80x25Mono
                            Success = True
                         Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray
@@ -245,7 +246,7 @@ Public Module InterruptHandlerModule
                      End Select
                      Success = True
                   Case &H12%
-                     Select Case CurrentVideoMode
+                     Select Case MCC.CurrentVideoMode
                         Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray
                            Success = True
                         Case VideoModesE.Text80x25Mono
@@ -260,7 +261,7 @@ Public Module InterruptHandlerModule
                      CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1A%)
                      Success = True
                   Case &H1B%
-                     Select Case CurrentVideoMode
+                     Select Case MCC.CurrentVideoMode
                         Case VideoModesE.Text80x25Mono
                         Case Else
                            If CPU.Registers(Registers16BitE.BX) = &H0% Then
@@ -274,7 +275,7 @@ Public Module InterruptHandlerModule
                      End Select
                      Success = True
                   Case &H1C%
-                     Select Case CurrentVideoMode
+                     Select Case MCC.CurrentVideoMode
                         Case VideoModesE.Text80x25Mono
                            Success = True
                      End Select
@@ -359,7 +360,7 @@ Public Module InterruptHandlerModule
                      TerminateProgram($"Program terminated with return code: {CPU.Registers(SubRegisters8BitE.AL):X2}.{NewLine}")
                      Success = True
                   Case Else
-                     Success = HandleMSDOSInterrupt(Vector, AH, Flags)
+                     Success = HandleMSDOSInterrupt(Vector, AH, Flags:=Flags, RETF:=RETF)
                End Select
             Case &H23%
                CPU.ClockToken.Cancel()
@@ -381,13 +382,12 @@ Public Module InterruptHandlerModule
                      Success = True
                End Select
             Case Else
-               Success = HandleMSDOSInterrupt(Vector, AH, Flags)
+               Success = HandleMSDOSInterrupt(Vector, AH, Flags:=Flags, RETF:=RETF)
          End Select
 
-         If IRET Then
-            CPU.PutWord((CPU.Registers((SegmentRegistersE.SS)) << &H4%) + CPU.Registers(Registers16BitE.SP) + &H4%, Flags)
-            If Success Then CPU.ExecuteOpcode(OpcodesE.IRET)
-         End If
+         CPU.PutWord((CPU.Registers((SegmentRegistersE.SS)) << &H4%) + CPU.Registers(Registers16BitE.SP) + &H4%, Flags)
+
+         If Success Then CPU.ExecuteOpcode(If(RETF, OpcodesE.RETF, OpcodesE.IRET))
 
          CPU.Tracing = Tracing
 

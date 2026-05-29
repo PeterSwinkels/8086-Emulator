@@ -46,6 +46,15 @@ Public Module MSDOSModule
       FileSystemItemName = &H1E%    'Null terminated file system item name.
    End Enum
 
+   'This enumeration lists the addresses used in a buffer containing extended error information.
+   Private Enum ExtendedErrorInformationE As Integer
+      ErrorCode = &H0%       'Error code.
+      DriverAddress = &H2%   'Driver address.
+      ActionCode = &H6%      'Action code.
+      ClassCode = &H7%       'Class code.
+      LocusCode = &H8%       'Locus code.
+   End Enum
+
    'This enumeration lists addresses used inside a FCB block.
    Private Enum FCBE As Integer
       ExtendedFCBFlag = -7              'Extended FCB flag.
@@ -92,6 +101,16 @@ Public Module MSDOSModule
       v622 = &H1606%    'v6.22.
    End Enum
 
+   'This structure defines extended error information
+   Private Structure ExtendedErrorStr
+      Public ExtendedErrorCode As Integer   'Defines the extended error code.
+      Public DriverSegment As Integer       'Defines the driver's segment address.
+      Public DriverOffset As Integer        'Defines the driver's offset address.
+      Public ActionCode As Integer          'Defines the action code.
+      Public ClassCode As Integer           'Defines the class code.
+      Public LocusCode As Integer           'Defines the locus code.
+   End Structure
+
    'This structure defines a file system item.
    Private Structure FileSystemItemStr
       Public Name As String        'Defines the file system item's name.
@@ -102,6 +121,7 @@ Public Module MSDOSModule
    Public Const COMMAND_TAIL_MAXIMUM_LENGTH As Integer = &H7E%         'Defines the maximum length of a command tail in a PSP.
    Private Const CARRY_FLAG_INDEX As Integer = &H0%                     'Defines the carry flag's bit index.
    Private Const COUNTRY_INFORMATION_BUFFER_SIZE As Integer = &H28%     'Defines the country information buffer size.
+   Private Const DPT_SIZE As Integer = &H1F                             'Defines the drive parameter table's size.
    Private Const ERROR_ACCESS_DENIED As Integer = &H5%                  'Defines the access denied error code.
    Private Const ERROR_CRC As Integer = &H17%                           'Defines the CRC error code.
    Private Const ERROR_DISK_FULL As Integer = &H70%                     'Defines the disk full error code.
@@ -129,6 +149,8 @@ Public Module MSDOSModule
    Private Const FILE_ACCESS_RW_MASK As Integer = &H3%                  'Defines the read/write bits for file access.
    Private Const HIGHEST_ALLOCATABLE_ADDRESS As Integer = &HA0000%      'Defines the highest address that can be allocated.
    Private Const INT_20H As Integer = &H20CD%                           'Defines the INT 20h instruction.
+   Private Const INT_25H_26H_DISK_NOT_READY As Integer = &H8002%        'Defines the INT 25h/26h disk not ready error code.
+   Private Const INT_26H_WRITE_PROTECT_ERROR As Integer = &H300%        'Defines the INT 26h write protect error code.
    Private Const INVALID_CHARACTERS As String = "*<>?[]| """            'Defines the characters that are invalid in an MS-DOS file system item name.
    Private Const LOWEST_ALLOCATABLE_ADDRESS As Integer = &H600%         'Defines the lowest address that can be allocated.
    Private Const LOWEST_EXECUTABLE_ADDRESS As Integer = &H2000%         'Defines the lowest address used to load an executable.
@@ -147,12 +169,15 @@ Public Module MSDOSModule
    Private Const PSP_PREVIOUS_PSP As Integer = &H38%                    'Defines the offset of the previous PSP in a PSP.
    Private Const PSP_SIZE As Integer = &H100%                           'Defines a PSP's size.
    Private Const PSP_SSSP As Integer = &H2E%                            'Defines the SS:SP values in a PSP.
-   Private Const VERSION As VersionsE = VersionsE.v500                  'Defines the emulated MS-DOS version as 5.00.
+   Private Const VERSION As VersionsE = VersionsE.v622                  'Defines the emulated MS-DOS version.
    Private Const VOLUME_ATTRIBUTE As Integer = &H8%                     'Defines the volume label attribute.
 
    Private ReadOnly DATE_TO_MSDOS_DATE As Func(Of Date, Integer) = Function([Date] As Date) [Date].Day Or ([Date].Month << &H5%) Or (([Date].Year - 1980) << &H9%)   'Converts the specified date to a value suitable for MS-DOS and returns the result.
+   Private ReadOnly DPT() As Byte = Enumerable.Repeat(CByte(&H0%), DPT_SIZE).ToArray()                                                                               'Defines a dummy drive paramter table.
    Private ReadOnly ENVIRONMENT_SEGMENT As Integer = LOWEST_ALLOCATABLE_ADDRESS                                                                                      'Defines the MS-DOS environment's segment.
+   Private ReadOnly FCTT_SEGMENT As Integer = ENVIRONMENT_SEGMENT + &H1%                                                                                             'Defines the filename character translation table's segment.
    Private ReadOnly DBCS_SEGMENT As Integer = ENVIRONMENT_SEGMENT + &H1%                                                                                             'Defines the Double-Byte Character Set table segment.
+   Private ReadOnly DPT_SEGMENT As Integer = ENVIRONMENT_SEGMENT + &H1%                                                                                              'Defines the drive parameter table's segment.
    Private ReadOnly EXE_MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}                                                                                                      'Defines the signature of an MZ executable.
    Private ReadOnly INT_21H_RETF() As Byte = {&HCD%, &H21%, &HCB%}                                                                                                   'Defines the INT 21h and RETF instructions.
    Private ReadOnly LOWEST_FILE_HANDLE As Integer = STDFileHandlesE.STDPRN + &H1%                                                                                    'Defines the lowest possible file handle.
@@ -167,6 +192,7 @@ Public Module MSDOSModule
    Private DTASegment As New Integer                                 'Contains the Disk Transfer Address segment.
    Private EnvironmentText As String = ""                            'Contains the MS-DOS environment text.
    Private ExtendedCTRLBreakCheck As Boolean = False                 'Contains the extended control-break checking status.
+   Private ExtendedErrorInformation As ExtendedErrorStr              'Contains the extended error information.
    Private MemoryAllocationStrategy As MASE = MASE.FirstFit          'Contains the memory allocation strategy used.
    Private MSDOSCurrentDirectory As List(Of String)                  'Contains a list made up of the current directory and its parent directories.
    Private OpenFiles As New List(Of Tuple(Of FileStream, Integer))   'Contains the open file streams and their handles.
@@ -179,6 +205,30 @@ Public Module MSDOSModule
    Private WithEvents PrinterDocumentO As New PrintDocument   'Contains the document with output to STDPRN to be printed.
 
    Private FileSystemItems As New List(Of FileSystemItemStr)  'Contains a list of the current directory's file system items.
+
+   'This procedure handles attempts at absolute disk access.
+   Private Sub AbsoluteDiskAccess(Read As Boolean, ByRef Flags As Integer, ByRef RETF As Boolean)
+      Try
+         Dim DriveReady As Boolean = New DriveInfo(ToChar(CPU.Registers(SubRegisters8BitE.AL) + ToInt32("A"c))).IsReady
+
+         If Read Then
+            If DriveReady Then
+               CPU.Registers(Registers16BitE.AX, NewValue:=&H0%)
+               Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+            Else
+               CPU.Registers(Registers16BitE.AX, NewValue:=INT_25H_26H_DISK_NOT_READY)
+               Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+            End If
+         Else
+            CPU.Registers(Registers16BitE.AX, NewValue:=If(DriveReady, INT_26H_WRITE_PROTECT_ERROR, INT_25H_26H_DISK_NOT_READY))
+            Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+         End If
+
+         RETF = True
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
 
    'This procedure attempts to allocate the specified amount of memory and returns an address if successful.
    Private Function AllocateMemory(Size As Integer) As Integer?
@@ -560,14 +610,16 @@ Public Module MSDOSModule
             Select Case CPU.Registers(SubRegisters8BitE.AL)
                Case &H0%
                   Address = AllocateMemory(Size)
+                  If Address IsNot Nothing Then FreeAllocatedMemory(Address.Value)
                   Size = LargestFreeMemoryBlock() >> &H4%
                   Address = AllocateMemory(Size)
+                  If Address IsNot Nothing Then FreeAllocatedMemory(Address.Value)
                   Flags = SET_BIT(Flags, (Address Is Nothing), CARRY_FLAG_INDEX)
 
                   If Address Is Nothing Then
                      CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_INSUFFICIENT_MEMORY)
                   Else
-                     CPU.Registers(SegmentRegistersE.CS, NewValue:=CInt(Address) >> &H4%)
+                     CPU.Registers(SegmentRegistersE.CS, NewValue:=(CInt(Address) >> &H4%) + (PSP_SIZE >> &H4%))
 
                      Using File.OpenRead(FileName)
                      End Using
@@ -784,10 +836,10 @@ Public Module MSDOSModule
          WriteStringToMemory(FCBFileName.ToString(), FCBAddress + &H1%)
          WriteStringToMemory(FCBExtension.ToString(), FCBAddress + &H9%)
 
-         If Not FCBDriveValid Then
-            CPU.Registers(SubRegisters8BitE.AL, NewValue:=&HFF%)
-         Else
+         If FCBDriveValid Then
             CPU.Registers(SubRegisters8BitE.AL, NewValue:=Abs(CInt(WildcardPresent)))
+         Else
+            CPU.Registers(SubRegisters8BitE.AL, NewValue:=&HFF%)
          End If
 
          CPU.Registers(Registers16BitE.SI, NewValue:=SI)
@@ -1058,7 +1110,6 @@ Public Module MSDOSModule
    'This procedure retrieves the current path.
    Private Sub GetCurrentPath(ByRef Flags As Integer)
       Try
-         Dim DriveNumber As Integer = CPU.Registers(SubRegisters8BitE.DL)
          Dim PreviousCurrentDirectory As String = Directory.GetCurrentDirectory()
 
          Try
@@ -1096,6 +1147,25 @@ Public Module MSDOSModule
          CPU.Registers(SubRegisters8BitE.CL, NewValue:=Minute)
          CPU.Registers(SubRegisters8BitE.DH, NewValue:=Second)
          CPU.Registers(SubRegisters8BitE.DL, NewValue:=Hundredth)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure returns the drive parameter table.
+   Private Sub GetDPT()
+      Try
+         Dim Drive As Integer = CPU.Registers(SubRegisters8BitE.BL)
+         Dim DriveLetter As Char = If(Drive = &H0%, CurrentDirectory.ToCharArray.First, ToChar(Drive + ToInt32("@"c)))
+         Dim DriveInformation As New DriveInfo(DriveLetter)
+
+         If DriveInformation.IsReady Then
+            CPU.Registers(SegmentRegistersE.DS, NewValue:=DPT_SEGMENT)
+            CPU.Registers(Registers16BitE.BX, NewValue:=&H0%)
+            CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
+         Else
+            CPU.Registers(SubRegisters8BitE.AL, NewValue:=&HFF%)
+         End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -1367,7 +1437,7 @@ Public Module MSDOSModule
    End Function
 
    'This procedure handles the specified MS-DOS interrupt and returns whether or not it succeeded.
-   Public Function HandleMSDOSInterrupt(Vector As Integer, AH As Integer, ByRef Flags As Integer) As Boolean
+   Public Function HandleMSDOSInterrupt(Vector As Integer, AH As Integer, ByRef Flags As Integer, ByRef RETF As Boolean) As Boolean
       Try
          Dim Address As New Integer
          Dim Position As New Integer
@@ -1410,7 +1480,7 @@ Public Module MSDOSModule
                      LastBIOSKeyCode(, Clear:=True)
                      Select Case CPU.Registers(SubRegisters8BitE.AL)
                         Case &H1%, &H6%, &H7%, &H8%, &HA%
-                           Success = HandleMSDOSInterrupt(Vector:=&H21%, AH:=CPU.Registers(SubRegisters8BitE.AL), Flags:=Flags)
+                           Success = HandleMSDOSInterrupt(Vector:=&H21%, AH:=CPU.Registers(SubRegisters8BitE.AL), Flags:=Flags, RETF:=RETF)
                      End Select
                   Case &HD%
                      Success = True
@@ -1479,6 +1549,9 @@ Public Module MSDOSModule
                   Case &H30%
                      CPU.Registers(Registers16BitE.AX, NewValue:=VERSION)
                      CPU.Registers(Registers16BitE.BX, NewValue:=MS_DOS)
+                     Success = True
+                  Case &H32%
+                     GetDPT()
                      Success = True
                   Case &H33%
                      Select Case CPU.Registers(SubRegisters8BitE.AL)
@@ -1560,29 +1633,7 @@ Public Module MSDOSModule
                      ManageFileSystemItemAttributes(Flags)
                      Success = True
                   Case &H44%
-                     Select Case CPU.Registers(SubRegisters8BitE.AL)
-                        Case &H0%
-                           Select Case DirectCast(CPU.Registers(Registers16BitE.BX), STDFileHandlesE)
-                              Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
-                                 CPU.Registers(Registers16BitE.DX, NewValue:=&H80%)
-                                 Success = True
-                              Case Else
-                                 CPU.Registers(Registers16BitE.AX, NewValue:=&H0%)
-                                 Success = True
-                           End Select
-                        Case &H1%
-                           Select Case DirectCast(CPU.Registers(Registers16BitE.BX), STDFileHandlesE)
-                              Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
-                                 Success = True
-                              Case Else
-                                 CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_INVALID_HANDLE)
-                                 Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
-                                 Success = True
-                           End Select
-                        Case &H8%
-                           DriveRemovableQuery(Flags)
-                           Success = True
-                     End Select
+                     Success = IOCTL(Flags)
                   Case &H46%
                      ForceDuplicateFileHandle(Flags)
                      Success = True
@@ -1593,7 +1644,6 @@ Public Module MSDOSModule
                      Result = AllocateMemory(CPU.Registers(Registers16BitE.BX) << &H4%)
                      CPU.Registers(Registers16BitE.BX, NewValue:=(LargestFreeMemoryBlock() >> &H4%))
                      Flags = SET_BIT(Flags, (Result Is Nothing), CARRY_FLAG_INDEX)
-
 
                      If Result Is Nothing Then
                         CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_INSUFFICIENT_MEMORY)
@@ -1661,6 +1711,27 @@ Public Module MSDOSModule
                         Case Else
                            Success = True
                      End Select
+                  Case &H59%
+                     CPU.Registers(Registers16BitE.AX, NewValue:=ExtendedErrorInformation.ExtendedErrorCode)
+                     CPU.Registers(SubRegisters8BitE.BH, NewValue:=ExtendedErrorInformation.ClassCode)
+                     CPU.Registers(SubRegisters8BitE.BL, NewValue:=ExtendedErrorInformation.ActionCode)
+                     CPU.Registers(SubRegisters8BitE.CH, NewValue:=ExtendedErrorInformation.LocusCode)
+                     Success = True
+                  Case &H5D%
+                     Select Case CPU.Registers(SubRegisters8BitE.AL)
+                        Case &HA%
+                           Address = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
+
+                           ExtendedErrorInformation.ExtendedErrorCode = CPU.GetWord(Address + ExtendedErrorInformationE.ErrorCode)
+                           ExtendedErrorInformation.DriverOffset = CPU.GetWord(Address + ExtendedErrorInformationE.DriverAddress)
+                           ExtendedErrorInformation.DriverSegment = CPU.GetWord(Address + ExtendedErrorInformationE.DriverAddress + &H2%)
+                           ExtendedErrorInformation.ActionCode = CPU.Memory(Address + ExtendedErrorInformationE.ActionCode)
+                           ExtendedErrorInformation.ClassCode = CPU.Memory(Address + ExtendedErrorInformationE.ClassCode)
+                           ExtendedErrorInformation.LocusCode = CPU.Memory(Address + ExtendedErrorInformationE.LocusCode)
+
+                           CPU.Registers(Registers16BitE.AX, NewValue:=&H0%)
+                           Success = True
+                     End Select
                   Case &H63%
                      Select Case CPU.Registers(SubRegisters8BitE.AL)
                         Case &H0%
@@ -1672,13 +1743,81 @@ Public Module MSDOSModule
                            CPU.Registers(SubRegisters8BitE.AL, NewValue:=&HFF%)
                      End Select
                      Success = True
+                  Case &H65%
+                     Select Case CPU.Registers(SubRegisters8BitE.AL)
+                        Case &H4%
+                           Address = (CPU.Registers(SegmentRegistersE.ES) << &H4%) + CPU.Registers(Registers16BitE.DI)
+                           CPU.Memory(Address) = &H4%
+                           CPU.PutWord(Address + &H1%, &H0%)
+                           CPU.PutWord(Address + &H3%, FCTT_SEGMENT)
+                           Success = True
+                     End Select
                End Select
+            Case &H25%
+               AbsoluteDiskAccess(Read:=True, Flags:=Flags, RETF:=RETF)
+               Success = True
+            Case &H26%
+               AbsoluteDiskAccess(Read:=False, Flags:=Flags, RETF:=RETF)
+               Success = True
             Case &H28%
                Success = True
             Case &H2A%
                Success = True
             Case &H2F%
                Success = True
+         End Select
+
+         Return Success
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return False
+   End Function
+
+   Private Function IOCTL(ByRef Flags As Integer) As Boolean
+      Try
+         Dim Address As New Integer
+         Dim DisplayInformation As New List(Of Byte)
+         Dim Success As Boolean = False
+
+         Select Case CPU.Registers(SubRegisters8BitE.AL)
+            Case &H0%
+               Select Case DirectCast(CPU.Registers(Registers16BitE.BX), STDFileHandlesE)
+                  Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
+                     CPU.Registers(Registers16BitE.DX, NewValue:=&H80%)
+                     Success = True
+                  Case Else
+                     CPU.Registers(Registers16BitE.AX, NewValue:=&H0%)
+                     Success = True
+               End Select
+            Case &H1%
+               Select Case DirectCast(CPU.Registers(Registers16BitE.BX), STDFileHandlesE)
+                  Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
+                     Success = True
+                  Case Else
+                     CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_INVALID_HANDLE)
+                     Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+                     Success = True
+               End Select
+            Case &H8%
+               DriveRemovableQuery(Flags)
+               Success = True
+            Case &HC%
+               Select Case CPU.Registers(SubRegisters8BitE.CL)
+                  Case &H7F%
+                     Address = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
+                     DisplayInformation.AddRange({&H0%, &H0%, &H10%})
+                     DisplayInformation.AddRange({&H0%, ToByte(If(MCC.BlinkingOn, &H1%, &H0%))})
+                     DisplayInformation.Add(ToByte(If(MCC.InTextMode, &H1%, &H2%)))
+                     DisplayInformation.Add(&H0%)
+                     DisplayInformation.Add(ToByte(MCC.ColorCount \ &H2%))
+                     DisplayInformation.AddRange(BitConverter.GetBytes(ToUInt16(MCC.PixelsPerRow)))
+                     DisplayInformation.AddRange(BitConverter.GetBytes(ToUInt16(MCC.PixelsPerColumn)))
+                     DisplayInformation.AddRange(BitConverter.GetBytes(ToUInt16(MCC.ColumnCount)))
+                     DisplayInformation.AddRange(BitConverter.GetBytes(ToUInt16(MCC.RowCount)))
+                     Success = True
+               End Select
          End Select
 
          Return Success
@@ -1774,6 +1913,7 @@ Public Module MSDOSModule
          Verify = False
 
          CPU.PutWord(DBCS_SEGMENT << &H4%, &H0%)
+         WriteBytesToMemory(DPT, DPT_SEGMENT)
          WriteStringToMemory(EnvironmentText, ENVIRONMENT_SEGMENT << &H4%)
 
          UpdateMSDOSPath()

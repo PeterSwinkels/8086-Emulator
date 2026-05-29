@@ -96,6 +96,8 @@ Public Module IOHandlerModule
                Value = MCC.SelectedRegister
             Case IOPortsE.MDA3B1, IOPortsE.MDAData
                Value = MCC.Register()
+            Case IOPortsE.MDAStatus
+               Value = MCC.MDAStatus()
             Case IOPortsE.PICICW2
                Value = PIC.ReadMask()
             Case IOPortsE.PITCounter0 To IOPortsE.PITCounter2

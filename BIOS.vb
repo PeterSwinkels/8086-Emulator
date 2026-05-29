@@ -114,16 +114,16 @@ Public Module BIOSModule
          Next Vector
 
          If MCC.IsMDA Then
-            CurrentVideoMode = VideoModesE.Text80x25Mono
+            MCC.CurrentVideoMode = VideoModesE.Text80x25Mono
             VideoAdapter = New Text80x25MonoClass
             CPU.PutWord(AddressesE.EquipmentFlags, INITIAL_MODE_FLAGS_MDA)
-            CPU.Memory(AddressesE.VideoMode) = CurrentVideoMode
+            CPU.Memory(AddressesE.VideoMode) = MCC.CurrentVideoMode
             CPU.PutWord(AddressesE.CRTControllerBasePort, IOPortsE.MDAIndex)
          Else
-            CurrentVideoMode = VideoModesE.Text80x25Color
+            MCC.CurrentVideoMode = VideoModesE.Text80x25Color
             VideoAdapter = New Text80x25ColorClass
             CPU.PutWord(AddressesE.EquipmentFlags, INITIAL_MODE_FLAGS_NOT_MDA)
-            CPU.Memory(AddressesE.VideoMode) = CurrentVideoMode
+            CPU.Memory(AddressesE.VideoMode) = MCC.CurrentVideoMode
             CPU.PutWord(AddressesE.CRTControllerBasePort, IOPortsE.CGAIndex)
 
             Address = EXTENDED_CHARACTERS_VECTOR * &H4%
@@ -172,9 +172,9 @@ Public Module BIOSModule
 
          CursorPositionUpdate()
 
-         Select Case CurrentVideoMode
+         Select Case MCC.CurrentVideoMode
             Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B, VideoModesE.VGA320x200
-               Select Case CurrentVideoMode
+               Select Case MCC.CurrentVideoMode
                   Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B
                      VideoPageAddress = AddressesE.CGA320x200
                   Case VideoModesE.VGA320x200
@@ -224,7 +224,7 @@ Public Module BIOSModule
                CPU.Memory(AddressesE.CursorPositions) = CByte(Cursor.X)
                CPU.Memory(AddressesE.CursorPositions + &H1%) = CByte(Cursor.Y)
             Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono
-               Select Case CurrentVideoMode
+               Select Case MCC.CurrentVideoMode
                   Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray
                      VideoPageAddress = AddressesE.Text80x25ColorPage0
                   Case VideoModesE.Text80x25Mono

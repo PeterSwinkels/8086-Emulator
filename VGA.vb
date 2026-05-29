@@ -32,9 +32,9 @@ Public Class VGAClass
       With Table
          .AddRange(BitConverter.GetBytes(Offset))
          .AddRange(BitConverter.GetBytes(Segment))
-         .Add(CurrentVideoMode)
+         .Add(MCC.CurrentVideoMode)
          .AddRange(BitConverter.GetBytes(CUShort(MCC.ColumnCount())))
-         .AddRange(BitConverter.GetBytes(CUShort({&H4000%, &H4000%, &H4000%, &H2000%, &H4000%, &H8000%, &H8000%, Nothing, Nothing, Nothing, &H800%, &H800%, &H1000%, &H1000%, Nothing, &H2000%, &HA000%, &HA000%}(CurrentVideoMode))))
+         .AddRange(BitConverter.GetBytes(CUShort({&H4000%, &H4000%, &H4000%, &H2000%, &H4000%, &H8000%, &H8000%, Nothing, Nothing, Nothing, &H800%, &H800%, &H1000%, &H1000%, Nothing, &H2000%, &HA000%, &HA000%}(MCC.CurrentVideoMode))))
          .AddRange({&H0%, &H0%})
          For VideoPage As Integer = &H0% To MAXIMUM_VIDEO_PAGE_COUNT - &H1%
             .AddRange(BitConverter.GetBytes(CUShort(CPU.GetWord(AddressesE.CursorPositions + (VideoPage * &H2%)))))

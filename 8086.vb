@@ -1283,6 +1283,13 @@ Public Class CPU8086Class
             Registers(SegmentRegistersE.CS, NewValue:=Stack())
             Registers(FlagRegistersE.All, NewValue:=Stack())
             PIC.WriteCommand(&H20%)
+            If CBool(Registers(FlagRegistersE.TF)) Then
+               If Not ExecuteOpcode() Then
+                  ExecuteInterrupt(OpcodesE.INT, Vector:=INVALID_OPCODE)
+               End If
+               ExecuteInterrupt(OpcodesE.INT, Vector:=SINGLE_STEP)
+               Registers(FlagRegistersE.TF, NewValue:=False)
+            End If
          Case OpcodesE.INT, OpcodesE.INT3, OpcodesE.INTO
             ExecuteInterrupt(Opcode)
          Case OpcodesE.LAHF
