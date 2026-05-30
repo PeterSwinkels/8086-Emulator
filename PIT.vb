@@ -42,12 +42,12 @@ Public Class PITClass
       Public MSB As Byte?                'Defines a counter's most significant byte.
       Public LastFrequency As Integer    'Contains the last set frequency for comparison.
       Public Latched As Boolean          'Indicates whether or not a counter is latched.
-      Public LatchedValue As Integer     'Contains the latched counter.
+      Public LatchedValue As Double      'Contains the latched counter.
       Public LatchedLSBRead As Boolean   'Indicates LSB/MSB order for latch.
       Public LSB As Byte?                'Defines a counter's least significant byte.
       Public LSBRead As Boolean          'Indicates whether or not a counter's lsb has been read.
-      Public Reload As Integer           'Defines a counter's reload value.
-      Public Value As Integer            'Defines a counter's value.
+      Public Reload As Double            'Defines a counter's reload value.
+      Public Value As Double             'Defines a counter's value.
    End Structure
 
    Private Const BINARY_BCD_MASK As Integer = &H1%   'Defines the binary/BCD bit.
@@ -55,6 +55,8 @@ Public Class PITClass
    Private Const FORMAT_MASK As Integer = &H30%      'Defines the format bits.
    Private Const MODE_MASK As Integer = &HE%         'Defines the mode bits.
    Private Const PIT_FREQUENCY As Double = 1.19318   'Defines the PIT's clock frequency in MHz.
+   Private Const TICK1 As Double = 1.75              'Defines a single tick.
+   Private Const TICK2 As Double = 3.5               'Defines a double tick.
 
    Private ReadOnly Counters(&H0% To &H2%) As CounterStr  'Contains the counters.
 
@@ -129,7 +131,7 @@ Public Class PITClass
 
          If Format = FormatsE.None Then
             .Latched = True
-            .LatchedValue = (.Value And &HFFFF%)
+            .LatchedValue = (CInt(.Value) And &HFFFF%)
             .LatchedLSBRead = False
          Else
             .Mode = DirectCast((NewValue And MODE_MASK) >> &H1%, ModesE)
@@ -152,17 +154,17 @@ Public Class PITClass
          If .Latched Then
             Select Case .Format
                Case FormatsE.LSB
-                  Value = CByte(.LatchedValue And &HFF%)
+                  Value = CByte(CInt(.LatchedValue) And &HFF%)
                   .Latched = False
                Case FormatsE.MSB
-                  Value = CByte((.LatchedValue And &HFF00%) >> &H8%)
+                  Value = CByte((CInt(.LatchedValue) And &HFF00%) >> &H8%)
                   .Latched = False
                Case FormatsE.LSBMSB
                   If Not .LatchedLSBRead Then
-                     Value = CByte(.LatchedValue And &HFF%)
+                     Value = CByte(CInt(.LatchedValue) And &HFF%)
                      .LatchedLSBRead = True
                   Else
-                     Value = CByte((.LatchedValue And &HFF00%) >> &H8%)
+                     Value = CByte((CInt(.LatchedValue) And &HFF00%) >> &H8%)
                      .LatchedLSBRead = False
                      .Latched = False
                   End If
@@ -171,18 +173,18 @@ Public Class PITClass
             Select Case .Format
                Case FormatsE.LSB
                   .LSBRead = False
-                  Value = CByte(.Value And &HFF%)
+                  Value = CByte(CInt(.Value) And &HFF%)
                Case FormatsE.LSBMSB
                   If .LSBRead Then
                      .LSBRead = False
-                     Value = CByte(.Value >> &H8%)
+                     Value = CByte(CInt(.Value) >> &H8%)
                   Else
                      .LSBRead = True
-                     Value = CByte(.Value And &HFF%)
+                     Value = CByte(CInt(.Value) And &HFF%)
                   End If
                Case FormatsE.MSB
                   .LSBRead = False
-                  Value = CByte(.Value >> &H8%)
+                  Value = CByte(CInt(.Value) >> &H8%)
             End Select
          End If
       End With
@@ -195,7 +197,7 @@ Public Class PITClass
       For Each Counter As CountersE In [Enum].GetValues(GetType(CountersE))
          With Counters(Counter)
             If .Mode = ModesE.Mode3 Then
-               .Value -= &H2%
+               .Value -= TICK2
 
                If .Value <= &H0% Then
                   If Not .Mode3Half Then
@@ -216,8 +218,8 @@ Public Class PITClass
             End If
 
             If .Mode = ModesE.Mode2 Then
-               .Value -= &H1%
-               If .Value = &H1% Then
+               .Value -= TICK1
+               If CInt(.Value) = &H1% Then
                   If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
                      PIC.RaiseIRQ(&H0%)
                   End If
@@ -233,7 +235,7 @@ Public Class PITClass
 
             If .Mode = ModesE.Mode0 Then
                If .Value > &H0% Then
-                  .Value -= &H1%
+                  .Value -= TICK1
                   If .Value = &H0% Then
                      If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
                         PIC.RaiseIRQ(&H0%)
@@ -244,7 +246,7 @@ Public Class PITClass
                Continue For
             End If
 
-            .Value -= &H1%
+            .Value -= TICK1
             If .Value <= &H0% Then
                If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
                   PIC.RaiseIRQ(&H0%)

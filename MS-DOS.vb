@@ -1775,6 +1775,7 @@ Public Module MSDOSModule
       Return False
    End Function
 
+   'This procedure performs IOCTL functions.
    Private Function IOCTL(ByRef Flags As Integer) As Boolean
       Try
          Dim Address As New Integer
@@ -1934,14 +1935,14 @@ Public Module MSDOSModule
 
          If Executable.Count >= &H2% AndAlso Executable.GetRange(&H0%, EXE_MZ_SIGNATURE.Length).SequenceEqual(EXE_MZ_SIGNATURE) Then
             Executable = LoadMZEXE(Executable, FileName, LoadAddress)
-            AllocatedAddress = (CPU.Registers(SegmentRegistersE.DS) - (PSP_SIZE >> &H4%)) << &H4%
             Success = Executable.Any
          Else
             LoadCompactExecutable(Executable, FileName, LoadAddress)
-            AllocatedAddress = CPU.Registers(SegmentRegistersE.DS) << &H4%
          End If
 
          If Success Then
+            AllocatedAddress = CPU.Registers(SegmentRegistersE.DS) << &H4%
+
             If Allocations.FindIndex(Function(Allocation) Allocation.Item1 = AllocatedAddress) < 0 Then
                Allocations.Add(Tuple.Create(AllocatedAddress, ((Executable.Count >> &H4%) + &H1%) << &H4%))
                ProcessSegments.Push(Allocations.Last.Item1)
