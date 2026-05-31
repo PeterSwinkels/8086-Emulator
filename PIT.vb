@@ -100,13 +100,9 @@ Public Class PITClass
          If .BCD Then NewValue = CByte(BCDCap(NewValue))
 
          Select Case .Mode
-            Case ModesE.Mode0
+            Case ModesE.Mode0, ModesE.Mode2
                .Value = NewValue
                .Reload = .Value
-               UpdateSpeakerFrequency(Counter)
-            Case ModesE.Mode2
-               .Reload = .Value
-               .Value = NewValue
                UpdateSpeakerFrequency(Counter)
             Case ModesE.Mode3
                NewValue = NewValue And &HFFFE%
@@ -144,6 +140,13 @@ Public Class PITClass
             End If
          End If
       End With
+   End Sub
+
+   'This procedure raises an IRQ if the specified counter is the time of day counter and the CPU is active.
+   Private Sub RaiseIRQ(Counter As CountersE)
+      If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
+         PIC.RaiseIRQ(&H0%)
+      End If
    End Sub
 
    'This procedure reads from the specified counter and returns the result.
@@ -205,9 +208,7 @@ Public Class PITClass
                      .Mode3Half = True
                      UpdateSpeakerFrequency(Counter)
                   Else
-                     If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
-                        PIC.RaiseIRQ(&H0%)
-                     End If
+                     RaiseIRQ(Counter)
                      .Value = .Reload
                      .Mode3Half = False
                      UpdateSpeakerFrequency(Counter)
@@ -220,9 +221,7 @@ Public Class PITClass
             If .Mode = ModesE.Mode2 Then
                .Value -= TICK1
                If CInt(.Value) = &H1% Then
-                  If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
-                     PIC.RaiseIRQ(&H0%)
-                  End If
+                  RaiseIRQ(Counter)
                End If
 
                If .Value <= &H0% Then
@@ -237,9 +236,7 @@ Public Class PITClass
                If .Value > &H0% Then
                   .Value -= TICK1
                   If .Value = &H0% Then
-                     If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
-                        PIC.RaiseIRQ(&H0%)
-                     End If
+                     RaiseIRQ(Counter)
                   End If
                End If
 
@@ -248,9 +245,7 @@ Public Class PITClass
 
             .Value -= TICK1
             If .Value <= &H0% Then
-               If CPU.Clock.Status = TaskStatus.Running AndAlso Counter = PITClass.CountersE.TimeOfDay Then
-                  PIC.RaiseIRQ(&H0%)
-               End If
+               RaiseIRQ(Counter)
                If .Mode = ModesE.Mode2 OrElse .Mode = ModesE.Mode3 Then
                   .Value = .Reload
                Else
