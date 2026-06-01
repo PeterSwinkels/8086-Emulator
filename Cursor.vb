@@ -28,9 +28,10 @@ Public Module CursorModule
    'This procedure ensures the cursor will blink.
    Private Sub CursorBlink_Tick(sender As Object, e As EventArgs) Handles CursorBlink.Tick
       Try
+         Cursor.ScanLineStart = CPU.Memory(AddressesE.CursorScanLines + &H1%)
+         Cursor.ScanLineEnd = CPU.Memory(AddressesE.CursorScanLines)
+
          If Not Cursor.Off Then
-            Cursor.ScanLineStart = CPU.Memory(AddressesE.CursorScanLines + &H1%)
-            Cursor.ScanLineEnd = CPU.Memory(AddressesE.CursorScanLines)
             Cursor.Visible = Not Cursor.Visible
          End If
 

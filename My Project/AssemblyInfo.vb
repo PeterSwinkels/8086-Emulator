@@ -9,7 +9,7 @@ Imports System.Runtime.InteropServices
 ' Review the values of the assembly attributes
 
 <Assembly: AssemblyTitle("8086 Emulator")>
-<Assembly: AssemblyDescription("This program attempts to emulate a 8086 CPU.")>
+<Assembly: AssemblyDescription("This program emulates a 8086 CPU.")>
 <Assembly: AssemblyCompany("Peter Swinkels")>
 <Assembly: AssemblyProduct("8086 Emulator")>
 <Assembly: AssemblyCopyright("2020")>
@@ -31,5 +31,5 @@ Imports System.Runtime.InteropServices
 ' by using the '*' as shown below:
 ' <Assembly: AssemblyVersion("1.0.*")>
 
-<Assembly: AssemblyVersion("1.1.1.1")>
-<Assembly: AssemblyFileVersion("1.1.1.1")>
+<Assembly: AssemblyVersion("1.1.1.2")>
+<Assembly: AssemblyFileVersion("1.1.1.2")>

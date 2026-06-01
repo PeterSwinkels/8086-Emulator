@@ -1346,7 +1346,13 @@ Public Module MSDOSModule
 
          LastBIOSKeyCode(, Clear:=True)
          TeleType(CByte(KeyCode))
-         If KeyCode = CInt(TeletypeE.CR) Then TeleType(TeletypeE.LF)
+         Select Case KeyCode
+            Case TeletypeE.BS
+               TeleType(ToByte(" "c))
+               TeleType(CByte(KeyCode))
+            Case TeletypeE.CR
+               TeleType(TeletypeE.LF)
+         End Select
 
          Return KeyCode
       Catch ExceptionO As Exception
@@ -2194,6 +2200,10 @@ Public Module MSDOSModule
                For Character As Integer = &H0% To Count - &H1%
                   Bytes(Character) = ToByte(GetKeyWithEcho())
                Next Character
+
+               CPU.Registers(Registers16BitE.AX, NewValue:=Count)
+               ReDim Preserve Bytes(&H0% To Count - &H1%)
+               WriteBytesToMemory(Bytes, (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX))
             Case STDFileHandlesE.STDERR, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
                CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_ACCESS_DENIED)
                Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
@@ -2410,6 +2420,7 @@ Public Module MSDOSModule
          Select Case STDHandle
             Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
                Position = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
+
                Select Case STDHandle
                   Case STDFileHandlesE.STDAUX
                      SyncLock SYNCHRONIZER

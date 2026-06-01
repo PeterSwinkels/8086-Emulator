@@ -71,6 +71,16 @@ Public Class PITClass
          .Format = FormatsE.LSBMSB
          .Latched = False
          .Mode = ModesE.Mode3
+         .Mode3Half = False
+         .Reload = &HFFFF%
+         .Value = .Reload
+      End With
+
+      With Counters(CountersE.RAMRefresh)
+         .BCD = False
+         .Format = FormatsE.LSBMSB
+         .Latched = False
+         .Mode = ModesE.Mode2
          .Reload = &HFFFF%
          .Value = .Reload
       End With
@@ -97,6 +107,8 @@ Public Class PITClass
    'This procedure initializes the specified counter and starts it depending on its mode.
    Private Sub InitializeCounter(Counter As CountersE, NewValue As Integer)
       With Counters(Counter)
+         If NewValue = &H0% Then NewValue = &HFFFF%
+
          If .BCD Then NewValue = CByte(BCDCap(NewValue))
 
          Select Case .Mode
@@ -106,11 +118,11 @@ Public Class PITClass
                UpdateSpeakerFrequency(Counter)
             Case ModesE.Mode3
                NewValue = NewValue And &HFFFE%
-               .Reload = NewValue
                .Value = NewValue
+               .Reload = .Value
                .Mode3Half = False
                UpdateSpeakerFrequency(Counter)
-            Case Else
+            Case ModesE.Mode1, ModesE.Mode4, ModesE.Mode5
                .Reload = NewValue
                UpdateSpeakerFrequency(Counter)
          End Select
@@ -199,60 +211,42 @@ Public Class PITClass
    Private Sub UpdateCounters() Handles HighPrecisionTimer.IntervalElapsed
       For Each Counter As CountersE In [Enum].GetValues(GetType(CountersE))
          With Counters(Counter)
-            If .Mode = ModesE.Mode3 Then
-               .Value -= TICK2
-
-               If .Value <= &H0% Then
-                  If Not .Mode3Half Then
-                     .Value = .Reload
-                     .Mode3Half = True
-                     UpdateSpeakerFrequency(Counter)
-                  Else
-                     RaiseIRQ(Counter)
-                     .Value = .Reload
-                     .Mode3Half = False
-                     UpdateSpeakerFrequency(Counter)
+            Select Case .Mode
+               Case ModesE.Mode0
+                  If .Value > &H0% Then
+                     .Value -= TICK1
+                     If .Value = &H0% Then RaiseIRQ(Counter)
                   End If
-               End If
-
-               Continue For
-            End If
-
-            If .Mode = ModesE.Mode2 Then
-               .Value -= TICK1
-               If CInt(.Value) = &H1% Then
-                  RaiseIRQ(Counter)
-               End If
-
-               If .Value <= &H0% Then
-                  .Value = .Reload
-                  UpdateSpeakerFrequency(Counter)
-               End If
-
-               Continue For
-            End If
-
-            If .Mode = ModesE.Mode0 Then
-               If .Value > &H0% Then
+               Case ModesE.Mode2
                   .Value -= TICK1
-                  If .Value = &H0% Then
-                     RaiseIRQ(Counter)
+                  If CInt(.Value) = &H1% Then RaiseIRQ(Counter)
+
+                  If .Value <= &H0% Then
+                     .Value = .Reload
+                     UpdateSpeakerFrequency(Counter)
                   End If
-               End If
+               Case ModesE.Mode3
+                  .Value -= TICK2
 
-               Continue For
-            End If
-
-            .Value -= TICK1
-            If .Value <= &H0% Then
-               RaiseIRQ(Counter)
-               If .Mode = ModesE.Mode2 OrElse .Mode = ModesE.Mode3 Then
-                  .Value = .Reload
-               Else
-                  .Value = &H0%
-               End If
-            End If
-
+                  If .Value <= &H0% Then
+                     If Not .Mode3Half Then
+                        .Value = .Reload
+                        .Mode3Half = True
+                        UpdateSpeakerFrequency(Counter)
+                     Else
+                        RaiseIRQ(Counter)
+                        .Value = .Reload
+                        .Mode3Half = False
+                        UpdateSpeakerFrequency(Counter)
+                     End If
+                  End If
+               Case Else
+                  .Value -= TICK1
+                  If .Value <= &H0% Then
+                     RaiseIRQ(Counter)
+                     .Value = &H0%
+                  End If
+            End Select
          End With
       Next Counter
    End Sub
