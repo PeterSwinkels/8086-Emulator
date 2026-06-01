@@ -1,4 +1,4 @@
-﻿'This module's imports and settings.
+﻿'This class's imports and settings.
 Option Compare Binary
 Option Explicit On
 Option Infer Off
@@ -20,8 +20,8 @@ Imports System.Text
 Imports System.Threading.Tasks
 Imports System.Windows.Forms
 
-'This module handles MS-DOS related functions.
-Public Module MSDOSModule
+'This class contains the emulated MS-DOS.
+Public Class MSDOSClass
    'This enumeration lists the country information item offsets.
    Private Enum CountryCodesE As Integer
       DateTimeFormat = &H0%         'Date and time format.
@@ -1328,8 +1328,9 @@ Public Module MSDOSModule
       Return Nothing
    End Function
 
-   'This procedure reads a key with echo and returns the result.
-   Private Function GetKeyWithEcho() As Integer
+
+   'This procedure reads a key and returns the result.
+   Private Function GetKey() As Integer
       Try
          Dim KeyCode As New Integer
 
@@ -1345,11 +1346,45 @@ Public Module MSDOSModule
          Loop While (KeyCode = Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
 
          LastBIOSKeyCode(, Clear:=True)
+
+         Return KeyCode
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return Nothing
+   End Function
+
+   'This procedure reads a key with echo and returns the result.
+   Private Function GetKeyWithEcho() As Integer
+      Try
+         Static Extended As New Integer?
+         Dim KeyCode As New Integer
+
+         If Extended Is Nothing Then
+            Do
+               If CPU.Clock.Status = TaskStatus.Running Then
+                  CPU.ExecuteHardwareInterrupts()
+               End If
+
+               Application.DoEvents()
+               If LastBIOSKeyCode() IsNot Nothing Then
+                  KeyCode = LastBIOSKeyCode().Value
+                  If (KeyCode And &HFF%) = &H0% Then
+                     Extended = KeyCode >> &H8%
+                  End If
+                  KeyCode = KeyCode And &HFF%
+               End If
+            Loop While (KeyCode = Nothing AndAlso Extended Is Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
+
+            LastBIOSKeyCode(, Clear:=True)
+         Else
+            KeyCode = Extended.Value
+            Extended = New Integer?
+         End If
+
          TeleType(CByte(KeyCode))
          Select Case KeyCode
-            Case TeletypeE.BS
-               TeleType(ToByte(" "c))
-               TeleType(CByte(KeyCode))
             Case TeletypeE.CR
                TeleType(TeletypeE.LF)
          End Select
@@ -2190,16 +2225,44 @@ Public Module MSDOSModule
    Private Sub ReadFile(ByRef Flags As Integer)
       Try
          Dim Bytes() As Byte = {}
+         Dim Character As New Integer
          Dim Count As Integer = CPU.Registers(Registers16BitE.CX)
+         Dim KeyCode As New Byte
          Dim OpenFileToBeRead As Tuple(Of FileStream, Integer) = Nothing
 
          ReDim Bytes(&H0% To Count - &H1%)
 
          Select Case DirectCast(CPU.Registers(Registers16BitE.BX), STDFileHandlesE)
             Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDIN
-               For Character As Integer = &H0% To Count - &H1%
-                  Bytes(Character) = ToByte(GetKeyWithEcho())
-               Next Character
+               Character = &H0%
+               Do While Character < Count - &H1%
+                  KeyCode = ToByte(GetKey())
+                  Select Case KeyCode
+                     Case TeletypeE.BS
+                        If Character > &H0% Then
+                           TeleType(TeletypeE.BS)
+                           TeleType(ToByte(" "c))
+                           TeleType(TeletypeE.BS)
+                           Character -= &H1%
+                        End If
+                     Case TeletypeE.CR
+                        Bytes(Character) = KeyCode
+                        Character += &H1%
+                        TeleType(TeletypeE.CR)
+                        TeleType(TeletypeE.LF)
+
+                        If Character + &H1% < Count Then
+                           Character += &H1%
+                           Bytes(Character) = TeletypeE.LF
+                        End If
+                        Count = Character + &H1%
+                        Exit Do
+                     Case Else
+                        Bytes(Character) = KeyCode
+                        Character += &H1%
+                        TeleType(KeyCode)
+                  End Select
+               Loop
 
                CPU.Registers(Registers16BitE.AX, NewValue:=Count)
                ReDim Preserve Bytes(&H0% To Count - &H1%)
@@ -2506,4 +2569,4 @@ Public Module MSDOSModule
          DisplayException(ExceptionO.Message)
       End Try
    End Sub
-End Module
+End Class

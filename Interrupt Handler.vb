@@ -343,36 +343,36 @@ Public Module InterruptHandlerModule
                Success = True
             Case &H20%, &H22%
                CPU.ClockToken.Cancel()
-               TerminateProgram($"Program terminated.{NewLine}")
+               MSDOS.TerminateProgram($"Program terminated.{NewLine}")
                Success = True
             Case &H21%
                Select Case AH
                   Case &H0%
                      CPU.ClockToken.Cancel()
-                     TerminateProgram($"Program terminated.{NewLine}")
+                     MSDOS.TerminateProgram($"Program terminated.{NewLine}")
                      Success = True
                   Case &H31%
                      CPU.ClockToken.Cancel()
-                     TerminateProgram($"Terminate and stay resident.{NewLine}")
+                     MSDOS.TerminateProgram($"Terminate and stay resident.{NewLine}")
                      Success = True
                   Case &H4C%
                      CPU.ClockToken.Cancel()
-                     TerminateProgram($"Program terminated with return code: {CPU.Registers(SubRegisters8BitE.AL):X2}.{NewLine}")
+                     MSDOS.TerminateProgram($"Program terminated with return code: {CPU.Registers(SubRegisters8BitE.AL):X2}.{NewLine}")
                      Success = True
                   Case Else
-                     Success = HandleMSDOSInterrupt(Vector, AH, Flags:=Flags, RETF:=RETF)
+                     Success = MSDOS.HandleMSDOSInterrupt(Vector, AH, Flags:=Flags, RETF:=RETF)
                End Select
             Case &H23%
                CPU.ClockToken.Cancel()
-               TerminateProgram($"CTRL+Break.{NewLine}")
+               MSDOS.TerminateProgram($"CTRL+Break.{NewLine}")
                Success = True
             Case &H24%
                CPU.ClockToken.Cancel()
-               TerminateProgram($"INT 24h - Critical error.{NewLine}")
+               MSDOS.TerminateProgram($"INT 24h - Critical error.{NewLine}")
                Success = True
             Case &H27%
                CPU.ClockToken.Cancel()
-               TerminateProgram($"Terminate and stay resident.{NewLine}")
+               MSDOS.TerminateProgram($"Terminate and stay resident.{NewLine}")
                Success = True
             Case &H33%
                Select Case AH
@@ -382,7 +382,7 @@ Public Module InterruptHandlerModule
                      Success = True
                End Select
             Case Else
-               Success = HandleMSDOSInterrupt(Vector, AH, Flags:=Flags, RETF:=RETF)
+               Success = MSDOS.HandleMSDOSInterrupt(Vector, AH, Flags:=Flags, RETF:=RETF)
          End Select
 
          CPU.PutWord((CPU.Registers((SegmentRegistersE.SS)) << &H4%) + CPU.Registers(Registers16BitE.SP) + &H4%, Flags)

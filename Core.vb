@@ -5,6 +5,7 @@ Option Infer Off
 Option Strict On
 
 Imports Emulator8086Program.CPU8086Class
+Imports Emulator8086Program.MSDOSClass
 Imports System
 Imports System.Collections.Generic
 Imports System.Convert
@@ -49,6 +50,7 @@ Public Module CoreModule
 
    Public AssemblyModeOn As Boolean = False             'Indicates whether input is interpreted as assembly language.
    Public Output As TextBox = Nothing                   'Contains a reference to an output.
+   Public MSDOS As New MSDOSClass                       'Contains a reference to the emulated MS-DOS.
    Public PIC As New PICClass                           'Contains a reference to the 8259 Programmable Interrupt Controller.
    Public PIT As New PITClass                           'Contains a reference to the 8253 Programmable Interval Timer class.
    Public PPI As New PPIClass                           'Contains the 8255 Programmable Peripheral Interface .
@@ -652,10 +654,10 @@ Public Module CoreModule
                         Output.AppendText($"{My.Resources.Help}{NewLine}")
                      Case "ARG"
                         If Not Operands = Nothing Then
-                           CommandTail = $" {If(Operands.Length > COMMAND_TAIL_MAXIMUM_LENGTH, Operands.Substring(1, COMMAND_TAIL_MAXIMUM_LENGTH), Operands)}"
+                           MSDOS.CommandTail = $" {If(Operands.Length > COMMAND_TAIL_MAXIMUM_LENGTH, Operands.Substring(1, COMMAND_TAIL_MAXIMUM_LENGTH), Operands)}"
                         End If
 
-                        Output.AppendText($"Command tail set to: ""{CommandTail}""{NewLine}")
+                        Output.AppendText($"Command tail set to: ""{MSDOS.CommandTail}""{NewLine}")
                      Case "C"
                         Output.Clear()
                      Case "CD"
@@ -663,7 +665,7 @@ Public Module CoreModule
                            Output.AppendText($"{CurrentDirectory()}{NewLine}")
                         Else
                            CurrentDirectory = Operands
-                           UpdateMSDOSPath()
+                           MSDOS.UpdateMSDOSPath()
                         End If
                      Case "E"
                         If CPU.Clock.Status = TaskStatus.Running Then
@@ -687,7 +689,7 @@ Public Module CoreModule
                         Output.AppendText($"CX = 0{NewLine}")
                      Case "EXE"
                         FileName = If(Operands Is Nothing, RequestFileName("Load Executable.",, EXECUTABLE_FILTER, UseCurrentDiretory:=True), Operands)
-                        If Not FileName = Nothing Then Success = LoadMSDOSProgram(FileName)
+                        If Not FileName = Nothing Then Success = MSDOS.LoadMSDOSProgram(FileName)
                      Case "HLT"
                         If Operands Is Nothing Then
                            Output.AppendText($"HLT = {If(CPU.HLTEnabled, "ON", "OFF")}.{NewLine}")
@@ -809,11 +811,13 @@ Public Module CoreModule
                      Case "R"
                         Output.AppendText($"{GetRegisterValues()}{NewLine}")
                      Case "RESET"
+                        KeyScancode = Nothing
                         LastBIOSKeyCode(, Clear:=True)
 
                         PC_SPEAKER.SetFrequency(Nothing)
                         PC_SPEAKER.Enabled = False
 
+                        MSDOS = New MSDOSClass
                         PIC = New PICClass
                         PIT.HighPrecisionTimer.ClockToken.Cancel()
                         PIT = New PITClass
@@ -824,7 +828,7 @@ Public Module CoreModule
 
                         CursorPositionUpdate()
                         LoadBIOS()
-                        LoadMSDOS()
+                        MSDOS.LoadMSDOS()
                         Output.AppendText($"CPU reset.{NewLine}")
                      Case "S"
                         CPU.Tracing = False
