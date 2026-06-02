@@ -2235,7 +2235,7 @@ Public Class MSDOSClass
          Select Case DirectCast(CPU.Registers(Registers16BitE.BX), STDFileHandlesE)
             Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDIN
                Character = &H0%
-               Do While Character < Count - &H1%
+               Do While Character < Count
                   KeyCode = ToByte(GetKey())
                   Select Case KeyCode
                      Case TeletypeE.BS
@@ -2244,6 +2244,8 @@ Public Class MSDOSClass
                            TeleType(ToByte(" "c))
                            TeleType(TeletypeE.BS)
                            Character -= &H1%
+                        ElseIf Count = &H1% Then
+                           TeleType(TeletypeE.BS)
                         End If
                      Case TeletypeE.CR
                         Bytes(Character) = KeyCode
@@ -2506,6 +2508,9 @@ Public Class MSDOSClass
 
                      PrinterDocumentO.Print()
                   Case Else
+                     ''------------------------------------------------>>>
+                     Diagnostics.Debug.WriteLine(CPU.Registers(FlagRegistersE.CF) & " " & CPU.Registers(Registers16BitE.CX)) ''
+                     ''------------------------------------------------>>>
                      For Character As Integer = &H0% To Count - &H1%
                         TeleType(CPU.Memory(Position And ADDRESS_MASK))
                         Position += &H1%

@@ -1152,7 +1152,7 @@ Public Class CPU8086Class
                      AdjustFlags(.Value1, .Value2, .NewValue, .Is8Bit, Subtraction:=False)
                   Case OpcodesE.AND_TGT_REG8 To OpcodesE.AND_AX_WORD
                      .NewValue = .Value1 And .Value2
-                     AdjustFlags(.Value1, .Value2, .NewValue, .Is8Bit)
+                     AdjustFlags(.Value1, .Value2, .NewValue, .Is8Bit,,, ResetCFOF:=True)
                   Case OpcodesE.CMP_TGT_REG8 To OpcodesE.CMP_AX_WORD, OpcodesE.SUB_TGT_REG8 To OpcodesE.SUB_AX_WORD
                      .NewValue = .Value1 - .Value2
                      AdjustFlags(.Value1, .Value2, .NewValue, .Is8Bit)
@@ -1160,7 +1160,7 @@ Public Class CPU8086Class
                      .NewValue = .Value2
                   Case OpcodesE.OR_TGT_REG8 To OpcodesE.OR_AX_WORD
                      .NewValue = .Value1 Or .Value2
-                     AdjustFlags(.Value1, .Value2, .NewValue, .Is8Bit)
+                     AdjustFlags(.Value1, .Value2, .NewValue, .Is8Bit,,, ResetCFOF:=True)
                   Case OpcodesE.SBB_TGT_REG8 To OpcodesE.SBB_AX_WORD
                      If CBool(Registers(FlagRegistersE.CF)) Then .Value2 += &H1%
                      .NewValue = .Value1 - .Value2
@@ -1170,7 +1170,7 @@ Public Class CPU8086Class
                      AdjustFlags(.Value1, .Value2, .NewValue, .Is8Bit)
                   Case OpcodesE.XOR_TGT_REG8 To OpcodesE.XOR_AX_WORD
                      .NewValue = .Value1 Xor .Value2
-                     AdjustFlags(.Value1, .Value2, .NewValue, .Is8Bit)
+                     AdjustFlags(.Value1, .Value2, .NewValue, .Is8Bit,,, ResetCFOF:=True)
                End Select
 
                Select Case Opcode
