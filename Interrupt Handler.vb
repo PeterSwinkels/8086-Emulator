@@ -60,14 +60,14 @@ Public Module InterruptHandlerModule
 
                   CPU.Memory(AddressesE.KeyboardBufferHead) = ToByte(CPU.Memory(AddressesE.KeyboardBufferHead) + &H2)
 
-                  If CPU.Memory(AddressesE.KeyboardBufferHead) = KEY_BUFFER_END Then
+                  If CPU.Memory(AddressesE.KeyboardBufferHead) >= KEY_BUFFER_END Then
                      CPU.Memory(AddressesE.KeyboardBufferHead) = KEY_BUFFER_START
                   End If
 
-                  If CPU.Memory(AddressesE.KeyboardBufferHead) = CPU.Memory(AddressesE.KeyboardBufferTail) Then
+                  If CPU.Memory(AddressesE.KeyboardBufferHead) >= CPU.Memory(AddressesE.KeyboardBufferTail) Then
                      CPU.Memory(AddressesE.KeyboardBufferTail) = ToByte(CPU.Memory(AddressesE.KeyboardBufferTail) + &H2)
 
-                     If CPU.Memory(AddressesE.KeyboardBufferTail) = KEY_BUFFER_END Then
+                     If CPU.Memory(AddressesE.KeyboardBufferTail) >= KEY_BUFFER_END Then
                         CPU.Memory(AddressesE.KeyboardBufferTail) = KEY_BUFFER_START
                      End If
                   End If
@@ -307,7 +307,7 @@ Public Module InterruptHandlerModule
                      Loop While (CPU.Registers(Registers16BitE.AX) = &H0%) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
 
                      CPU.Memory(AddressesE.KeyboardBufferTail) = ToByte(CPU.Memory(AddressesE.KeyboardBufferTail) + &H2)
-                     If CPU.Memory(AddressesE.KeyboardBufferTail) = KEY_BUFFER_END Then
+                     If CPU.Memory(AddressesE.KeyboardBufferTail) >= KEY_BUFFER_END Then
                         CPU.Memory(AddressesE.KeyboardBufferTail) = KEY_BUFFER_START
                      End If
 
@@ -377,7 +377,7 @@ Public Module InterruptHandlerModule
             Case &H33%
                Select Case AH
                   Case &H0%
-                     CPU.Registers(Registers16BitE.AX, NewValue:=MOUSE_DRIVER_INSTALLED)
+                     CPU.Registers(Registers16BitE.AX, NewValue:=MOUSE_DRIVER_NOT_INSTALLED)
                      CPU.Registers(Registers16BitE.BX, NewValue:=MOUSE_BUTTON_COUNT)
                      Success = True
                End Select

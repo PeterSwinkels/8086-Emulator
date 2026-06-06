@@ -1,4 +1,4 @@
-'This class's imports and settings.
+﻿'This class's imports and settings.
 Option Compare Binary
 Option Explicit On
 Option Infer Off
@@ -15,16 +15,12 @@ Public Class ScreenWindow
    Private Const WM_SYSKEYDOWN As Integer = &H104   'Defines the system key down window message.
    Private Const WM_SYSKEYUP As Integer = &H105     'Defines the system key up window message.
 
-   Private RenderBuffer As Bitmap = Nothing         'Off-screen buffer for rendering.
-   Private RenderLock As New Object()               'Synchronization lock for render buffer access.
-   Private NeedsRender As Boolean = True            'Flag indicating render buffer needs update.
-
    'This procedure initializes this window.
    Public Sub New()
       Try
          InitializeComponent()
 
-         ToolTip.SetToolTip(Me, "This is where the emulation's screen output is displayed and keyboard input is accepted.")
+         ToolTip.SetToolTip(Me, "This is where the emulation’s screen output is displayed and keyboard input is accepted.")
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -50,57 +46,26 @@ Public Class ScreenWindow
       End Try
    End Sub
 
-   'This procedure updates the render buffer with current video adapter content.
-   Public Sub UpdateRenderBuffer()
-      Try
-         SyncLock RenderLock
-            Dim VideoMode As VideoModesE = VideoAdapterToVideoMode()
-            Dim ResolutionNeeded As Size = If(VideoAdapter Is Nothing, New Size(320, 200), VideoAdapter.Resolution)
-
-            Me.Text = $"Screen {If([Enum].IsDefined(GetType(VideoModesE), VideoMode), $"{VideoMode} (0x{CInt(VideoMode).ToString("X")})", "Unknown mode.")}"
-
-            ' Create or recreate render buffer if needed
-            If RenderBuffer Is Nothing OrElse RenderBuffer.Size <> ResolutionNeeded Then
-               If RenderBuffer IsNot Nothing Then RenderBuffer.Dispose()
-               RenderBuffer = New Bitmap(ResolutionNeeded.Width, ResolutionNeeded.Height)
-               Using g As Graphics = Graphics.FromImage(RenderBuffer)
-                  g.Clear(Color.Black)
-               End Using
-            End If
-
-            ' Render video adapter content to buffer
-            If VideoAdapter IsNot Nothing Then
-               VideoAdapter.Display(RenderBuffer, CPU.Memory, CODE_PAGE_437)
-            End If
-
-            NeedsRender = False
-         End SyncLock
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
-   End Sub
-
-   'This procedure marks the render buffer as needing an update.
-   Public Sub InvalidateRenderBuffer()
-      Try
-         SyncLock RenderLock
-            NeedsRender = True
-         End SyncLock
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
-   End Sub
-
    'This procedure gives the video adapter the command to update the screen's content.
    Private Sub ScreenWindow_Paint(sender As Object, e As PaintEventArgs) Handles MyBase.Paint
       Try
-         SyncLock RenderLock
-            If RenderBuffer IsNot Nothing Then
-               e.Graphics.DrawImageUnscaled(RenderBuffer, 0, 0)
-            Else
-               e.Graphics.Clear(Color.Black)
+         Dim VideoMode As VideoModesE = VideoAdapterToVideoMode()
+
+         Me.Text = $"Screen {If([Enum].IsDefined(GetType(VideoModesE), VideoMode), $"{VideoMode} (0x{CInt(VideoMode).ToString("X")})", "Unknown mode.")}"
+
+         If VideoAdapter Is Nothing Then
+            Me.ClientSize = New Size(320, 200)
+            Me.BackColor = Color.Black
+         Else
+            Me.ClientSize = VideoAdapter.Resolution
+
+            If Me.BackgroundImage Is Nothing Then
+               Me.BackgroundImage = New Bitmap(Me.ClientSize.Width, Me.ClientSize.Height)
+               Graphics.FromImage(Me.BackgroundImage).Clear(Color.Black)
             End If
-         End SyncLock
+
+            VideoAdapter.Display(Me.BackgroundImage, CPU.Memory, CODE_PAGE_437)
+         End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

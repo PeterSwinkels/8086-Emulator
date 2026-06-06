@@ -21,7 +21,12 @@ Public Module IOHandlerModule
       PITCounter1 = &H41%               'RAM refresh counter.
       PITCounter2 = &H42%               'Cassette and speaker.
       PITModeControl = &H43%            'Mode control register.
-      Port49 = &H49%                    'I/O port 49h.
+      Port49h = &H49%                   'Port 49h.
+      Port2C0h = &H2C0%                 'Port 2C0h.
+      Port2C1h = &H2C1%                 'Port 2C1h.
+      Port2C3h = &H2C3%                 'Port 2C3h.
+      Port388h = &H388%                 'Port 388h.
+      Port389h = &H389%                 'Port 389h.
       KeyboardIO = &H60%                'Keyboard I/O register.
       PPIPortB = &H61%                  'Port B output.
       PPIPortC = &H62%                  'Port C input.
@@ -55,6 +60,7 @@ Public Module IOHandlerModule
       MDAColor = &H3B9%                 'Color select register.
       MDAStatus = &H3BA%                'Status register.
       MDALightPenStrobeReset = &H3BB%   'Light pen strobe reset.
+      HGCConfigurationSwitch = &H3BF%   'Hercules Graphics Card (HGC) "Configuration Switch".
       VGAVideoDACPELAddress = &H3C8%    'VGA video DAC PEL address.
       VGAVideoDAC = &H3C9%              'VGA video DAC.
       CGA3D0 = &H3D0%                   '6845 CGA.
@@ -104,7 +110,7 @@ Public Module IOHandlerModule
                Value = PIT.ReadCounter(DirectCast(Port And PIT_IO_PORT_MASK, PITClass.CountersE))
             Case IOPortsE.PITModeControl
                Value = &H0%
-            Case IOPortsE.Port49
+            Case IOPortsE.Port49h, IOPortsE.Port2C0h To IOPortsE.Port2C1h, IOPortsE.Port388h
                Value = &HFF%
             Case IOPortsE.PPIPortB
                Value = PPI.PortB()
@@ -151,6 +157,8 @@ Public Module IOHandlerModule
                MCC.ColorSelect(Value)
             Case IOPortsE.CGAMode
                Success = True
+            Case IOPortsE.HGCConfigurationSwitch
+               Success = True
             Case IOPortsE.Joystick
                Success = True
             Case IOPortsE.MDA3B0, IOPortsE.MDAIndex, IOPortsE.MDA3B6
@@ -180,6 +188,8 @@ Public Module IOHandlerModule
                PIT.WriteCounter(DirectCast(Port And PIT_IO_PORT_MASK, PITClass.CountersE), NewValue:=CByte(Value))
             Case IOPortsE.PITModeControl
                PIT.ModeControl(NewValue:=Value)
+            Case IOPortsE.Port2C0h To IOPortsE.Port2C1h, IOPortsE.Port2C3h, IOPortsE.Port388h To IOPortsE.Port389h
+               Success = True
             Case IOPortsE.VGAVideoDAC
                VGA.WriteToDAC(Value)
             Case IOPortsE.VGAVideoDACPELAddress

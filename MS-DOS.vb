@@ -159,7 +159,8 @@ Public Class MSDOSClass
    Private Const PSP_COMMAND_TAIL As Integer = &H80%                    'Defines the offset of the command tail in a PSP.
    Private Const PSP_ENVIRONMENT_SEGMENT As Integer = &H2C%             'Defines the segment of the MS-DOS environment in a PSP.
    Private Const PSP_INT_20H As Integer = &H0%                          'Defines a call to the INT 20h handler in a PSP.
-   Private Const PSP_INT_21H As Integer = &H50%                         'Defines a call to the INT 21h handler in a PSP.
+   Private Const PSP_INT_21H_RF As Integer = &H50%                      'Defines the call to the INT 21h handler in a PSP. (RETF)
+   Private Const PSP_INT_21H_RN As Integer = &H5%                       'Defines the call to the INT 21h handler in a PSP. (RETN)
    Private Const PSP_INT_22H As Integer = &HA%                          'Defines the offset of the INT 22h handler in a PSP.
    Private Const PSP_INT_23H As Integer = &HE%                          'Defines the offset of the INT 23h handler in a PSP.
    Private Const PSP_INT_24H As Integer = &H12%                         'Defines the offset of the INT 24h handler in a PSP.
@@ -179,6 +180,7 @@ Public Class MSDOSClass
    Private ReadOnly DBCS_SEGMENT As Integer = ENVIRONMENT_SEGMENT + &H1%                                                                                             'Defines the Double-Byte Character Set table segment.
    Private ReadOnly DPT_SEGMENT As Integer = ENVIRONMENT_SEGMENT + &H1%                                                                                              'Defines the drive parameter table's segment.
    Private ReadOnly EXE_MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}                                                                                                      'Defines the signature of an MZ executable.
+   Private ReadOnly INT_21H_RETN() As Byte = {&H88%, &HCC%, &HCD%, &H21%, &HC3%}                                                                                     'Defines the MOV AH,CL, INT 21h and RETN instructions.
    Private ReadOnly INT_21H_RETF() As Byte = {&HCD%, &H21%, &HCB%}                                                                                                   'Defines the INT 21h and RETF instructions.
    Private ReadOnly LOWEST_FILE_HANDLE As Integer = STDFileHandlesE.STDPRN + &H1%                                                                                    'Defines the lowest possible file handle.
    Private ReadOnly TIME_TO_MSDOS_TIME As Func(Of Date, Integer) = Function([Time] As Date) Time.Second Or (Time.Minute << &H5%) Or (Time.Hour << &HB%)              'Converts the specified time to a value suitable for MS-DOS and returns the result.
@@ -193,6 +195,7 @@ Public Class MSDOSClass
    Private EnvironmentText As String = ""                            'Contains the MS-DOS environment text.
    Private ExtendedCTRLBreakCheck As Boolean = False                 'Contains the extended control-break checking status.
    Private ExtendedErrorInformation As ExtendedErrorStr              'Contains the extended error information.
+   Private ExtendedKeyCode As New Integer?                           'Contains an extended keycode.
    Private MemoryAllocationStrategy As MASE = MASE.FirstFit          'Contains the memory allocation strategy used.
    Private MSDOSCurrentDirectory As List(Of String)                  'Contains a list made up of the current directory and its parent directories.
    Private OpenFiles As New List(Of Tuple(Of FileStream, Integer))   'Contains the open file streams and their handles.
@@ -415,6 +418,25 @@ Public Class MSDOSClass
       Return False
    End Function
 
+   'This procedure returns the converted search pattern specified.
+   Private Function ConvertSearchPattern(SearchPattern As String) As String
+      Dim NewSearchPattern As New StringBuilder
+      Dim PreviousCharacter As New Char
+
+      For Each Character As Char In SearchPattern.ToCharArray()
+         If Character = "?"c Then
+            If Not PreviousCharacter = "?"c Then
+               NewSearchPattern.Append("*"c)
+            End If
+         Else
+            NewSearchPattern.Append(Character)
+         End If
+         PreviousCharacter = Character
+      Next Character
+
+      Return NewSearchPattern.ToString()
+   End Function
+
    'This procedure creates a directory.
    Private Sub CreateDirectory(ByRef Flags As Integer)
       Try
@@ -484,7 +506,8 @@ Public Class MSDOSClass
          CPU.PutWord(Address + PSP_ENVIRONMENT_SEGMENT, ENVIRONMENT_SEGMENT)
          CPU.PutWord(Address + PSP_PREVIOUS_PSP, &HFFFF%)
          CPU.PutWord(Address + PSP_PREVIOUS_PSP + &H2%, &HFFFF%)
-         WriteBytesToMemory(INT_21H_RETF, Address + PSP_INT_21H)
+         WriteBytesToMemory(INT_21H_RETN, Address + PSP_INT_21H_RN)
+         WriteBytesToMemory(INT_21H_RETF, Address + PSP_INT_21H_RF)
          CPU.Memory(Address + PSP_COMMAND_TAIL) = ToByte(CommandTail.Length)
          WriteStringToMemory($"{CommandTail}{ToChar(&HD%)}", Address + PSP_COMMAND_TAIL + &H1%)
       Catch ExceptionO As Exception
@@ -528,7 +551,6 @@ Public Class MSDOSClass
    'This procedure performs direct console input without echo.
    Private Sub DirectConsoleInput(ByRef Flags As Integer)
       Dim KeyCode As New Integer?
-      Static ExtendedKeyCode As New Integer?
 
       If ExtendedKeyCode Is Nothing Then
          Do
@@ -552,16 +574,14 @@ Public Class MSDOSClass
    'This procedure performs direct console I/O.
    Private Sub DirectConsoleIO(ByRef Flags As Integer)
       Dim KeyCode As New Integer?
-      Static ExtendedKeyCode As New Integer?
 
       Select Case CPU.Registers(SubRegisters8BitE.DL)
          Case &H0% To &HFE%
             TeleType(CByte(CPU.Registers(SubRegisters8BitE.DL)))
          Case &HFF%
             If ExtendedKeyCode Is Nothing Then
-               Do
-                  KeyCode = LastBIOSKeyCode()
-               Loop Until KeyCode.HasValue OrElse CPU.ClockToken.IsCancellationRequested
+               KeyCode = LastBIOSKeyCode()
+
                If KeyCode IsNot Nothing AndAlso (KeyCode.Value And &HFF%) = Nothing Then
                   ExtendedKeyCode = KeyCode >> &H8%
                End If
@@ -710,20 +730,31 @@ Public Class MSDOSClass
    End Sub
 
    'This procedure attempts to find files matching a given pattern using an FCB.
-   Private Sub FCBFindFile()
+   Private Sub FCBFindFile(IsFirst As Boolean)
       Try
          Dim Attributes As New Integer?
-         Dim Extension As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim(ToChar(&H0%)).Trim()
-         Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim(ToChar(&H0%)).Trim()
-         Dim SearchPattern As String = $"{FileName}.{Extension}"
+         Dim Extension As String = Nothing
+         Dim FileName As String = Nothing
+         Dim SearchPattern As String = Nothing
+         Static Index As New Integer
 
-         If CPU.Memory((CPU.Registers(SegmentRegistersE.DS) << &H4%) + ((CPU.Registers(Registers16BitE.DX) + FCBE.ExtendedFCBFlag) And &HFFF%)) = EXTENDED_FCB Then
-            Attributes = CPU.Memory((CPU.Registers(SegmentRegistersE.DS) << &H4%) + ((CPU.Registers(Registers16BitE.DX) + FCBE.Attribute) And &HFFF%))
+         If IsFirst Then
+            FileName = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim(ToChar(&H0%)).Trim()
+            Extension = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim(ToChar(&H0%)).Trim()
+            SearchPattern = $"{FileName}.{Extension}"
+
+            If CPU.Memory((CPU.Registers(SegmentRegistersE.DS) << &H4%) + ((CPU.Registers(Registers16BitE.DX) + FCBE.ExtendedFCBFlag) And &HFFF%)) = EXTENDED_FCB Then
+               Attributes = CPU.Memory((CPU.Registers(SegmentRegistersE.DS) << &H4%) + ((CPU.Registers(Registers16BitE.DX) + FCBE.Attribute) And &HFFF%))
+            Else
+               Attributes = &H0%
+            End If
+
+            FileSystemItems = GetFileSystemItems(CurrentDirectory(), SearchPattern, Attributes)
          End If
 
-         FileSystemItems = GetFileSystemItems(CurrentDirectory(), SearchPattern, Attributes)
-         If FileSystemItems.Any Then
-            WriteDTA(FileSystemItems.First.Name, Not FileSystemItems.First.IsFile)
+         Index = If(IsFirst, 0, Index + 1)
+         If FileSystemItems.Any AndAlso Index < FileSystemItems.Count Then
+            FCBWriteDTA(FileSystemItems(Index).Name, Not FileSystemItems(Index).IsFile)
          Else
             CPU.Registers(SubRegisters8BitE.AL, NewValue:=&HFF%)
          End If
@@ -1010,6 +1041,32 @@ Public Class MSDOSClass
       End Try
    End Sub
 
+   'This procedure writes information for the specified file system item to the DTA as FCB entry.
+   Private Sub FCBWriteDTA(FilePath As String, IsDirectory As Boolean)
+      Try
+         Dim DTAAddress As Integer = (DTASegment << &H4%) + DTAOffset
+         Dim FileSize As Long = If(IsDirectory, Nothing, New FileInfo(FilePath).Length)
+         Dim ItemName As String = Path.GetFileName(GetShortName(FileSystemItems, FilePath))
+         Dim Extension As String = Path.GetExtension(ItemName)
+
+         If Extension.StartsWith("."c) Then Extension = Extension.Substring(1)
+
+         CPU.Memory(DTAAddress + FCBE.ExtendedFCBFlag) = EXTENDED_FCB
+         CPU.Memory(DTAAddress + FCBE.Attribute) = ToByte(File.GetAttributes(FilePath))
+         CPU.Memory(DTAAddress + FCBE.Drive) = &H0%
+         WriteStringToMemory($"{Path.GetFileNameWithoutExtension(ItemName),-8}", DTAAddress + FCBE.Filename)
+         WriteStringToMemory($"{Extension,-3}", DTAAddress + FCBE.Extension)
+         CPU.PutWord(DTAAddress + FCBE.CurrentBlock, &H0%)
+         CPU.PutWord(DTAAddress + FCBE.RecordSize, &H80%)
+         CPU.PutWord(DTAAddress + FCBE.FileSize, CInt(FileSize And &HFFFF%))
+         CPU.PutWord(DTAAddress + FCBE.FileSize + &H2%, CInt(FileSize) >> &H10%)
+         CPU.PutWord(DTAAddress + FCBE.FileDate, DATE_TO_MSDOS_DATE(File.GetLastWriteTime(FilePath)))
+         CPU.PutWord(DTAAddress + FCBE.FileTime, TIME_TO_MSDOS_TIME(File.GetLastWriteTime(FilePath)))
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
    'This procedure attempts to find files matching a given pattern.
    Private Sub FindFile(ByRef Flags As Integer, Optional IsFirst As Boolean = False)
       Try
@@ -1022,27 +1079,17 @@ Public Class MSDOSClass
             If IsFirst Then
                SearchPattern = GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)})
                Attributes = CPU.Registers(Registers16BitE.CX)
-
                FileSystemItems = GetFileSystemItems(CurrentDirectory(), SearchPattern, Attributes)
+            End If
 
-               If FileSystemItems.Any Then
-                  Index = 0
-                  FileSystemItem = FileSystemItems(Index)
-                  WriteDTA(FileSystemItem.Name, Not FileSystemItem.IsFile)
-                  Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
-               Else
-                  CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_FILE_NOT_FOUND)
-                  Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
-               End If
+            Index = If(IsFirst, 0, Index + 1)
+            If FileSystemItems.Any AndAlso Index < FileSystemItems.Count Then
+               FileSystemItem = FileSystemItems(Index)
+               WriteDTA(FileSystemItem.Name, Not FileSystemItem.IsFile)
+               Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
             Else
-               If Index >= FileSystemItems.Count Then
-                  CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_FILE_NOT_FOUND)
-                  Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
-               Else
-                  Index += 1
-                  FileSystemItem = FileSystemItems(Index)
-                  WriteDTA(FileSystemItem.Name, Not FileSystemItem.IsFile)
-               End If
+               CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_FILE_NOT_FOUND)
+               Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
             End If
          Catch MSDOSException As Exception
             CPU.Registers(Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
@@ -1202,13 +1249,12 @@ Public Class MSDOSClass
       Try
          Dim NewFileSystemItems As List(Of FileSystemItemStr) = Nothing
 
+         SearchPattern = ConvertSearchPattern(SearchPattern)
+
          If Attributes IsNot Nothing AndAlso Attributes.Value = VOLUME_ATTRIBUTE Then
             FileSystemItems = New List(Of FileSystemItemStr)({New FileSystemItemStr With {.Name = New DriveInfo(CurrentDirectory).VolumeLabel, .ShortName = "", .IsFile = False}})
          ElseIf Not SearchPattern = Nothing Then
-            NewFileSystemItems = New List(Of FileSystemItemStr)
-
-            NewFileSystemItems.Add(New FileSystemItemStr With {.Name = ".", .ShortName = "", .IsFile = False})
-            NewFileSystemItems.Add(New FileSystemItemStr With {.Name = "..", .ShortName = "", .IsFile = False})
+            NewFileSystemItems = New List(Of FileSystemItemStr)({New FileSystemItemStr With {.Name = ".", .ShortName = "", .IsFile = False}, New FileSystemItemStr With {.Name = "..", .ShortName = "", .IsFile = False}})
 
             For Each Item As String In Directory.GetDirectories(SearchPath, Path.GetFileName(SearchPattern))
                NewFileSystemItems.Add(New FileSystemItemStr With {.Name = Item, .ShortName = "", .IsFile = False})
@@ -1358,10 +1404,9 @@ Public Class MSDOSClass
    'This procedure reads a key with echo and returns the result.
    Private Function GetKeyWithEcho() As Integer
       Try
-         Static Extended As New Integer?
          Dim KeyCode As New Integer
 
-         If Extended Is Nothing Then
+         If ExtendedKeyCode Is Nothing Then
             Do
                If CPU.Clock.Status = TaskStatus.Running Then
                   CPU.ExecuteHardwareInterrupts()
@@ -1371,16 +1416,16 @@ Public Class MSDOSClass
                If LastBIOSKeyCode() IsNot Nothing Then
                   KeyCode = LastBIOSKeyCode().Value
                   If (KeyCode And &HFF%) = &H0% Then
-                     Extended = KeyCode >> &H8%
+                     ExtendedKeyCode = KeyCode >> &H8%
                   End If
                   KeyCode = KeyCode And &HFF%
                End If
-            Loop While (KeyCode = Nothing AndAlso Extended Is Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
+            Loop While (KeyCode = Nothing AndAlso ExtendedKeyCode Is Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
 
             LastBIOSKeyCode(, Clear:=True)
          Else
-            KeyCode = Extended.Value
-            Extended = New Integer?
+            KeyCode = ExtendedKeyCode.Value
+            ExtendedKeyCode = New Integer?
          End If
 
          TeleType(CByte(KeyCode))
@@ -1402,6 +1447,7 @@ Public Class MSDOSClass
       Try
          Dim LongName As String = ""
          Dim LongNames As List(Of FileSystemItemStr) = Nothing
+
 
          If ShortName.EndsWith(".") Then ShortName = ShortName.Substring(0, ShortName.Length - 1)
 
@@ -1518,6 +1564,10 @@ Public Class MSDOSClass
                      CPU.Registers(SubRegisters8BitE.AL, NewValue:=If(LastBIOSKeyCode() Is Nothing, &H0%, &HFF%))
                      Success = True
                   Case &HC%
+                     CPU.Memory(AddressesE.KeyboardBufferHead) = INITIAL_KEYBOARD_HEAD_TAIL
+                     CPU.Memory(AddressesE.KeyboardBufferTail) = INITIAL_KEYBOARD_HEAD_TAIL
+                     ExtendedKeyCode = New Integer?
+                     KeyScancode = Nothing
                      LastBIOSKeyCode(, Clear:=True)
                      Select Case CPU.Registers(SubRegisters8BitE.AL)
                         Case &H1%, &H6%, &H7%, &H8%, &HA%
@@ -1534,7 +1584,10 @@ Public Class MSDOSClass
                   Case &H10%
                      Success = True
                   Case &H11%
-                     FCBFindFile()
+                     FCBFindFile(IsFirst:=True)
+                     Success = True
+                  Case &H12%
+                     FCBFindFile(IsFirst:=False)
                      Success = True
                   Case &H13%
                      FCBDeleteFile()
@@ -1947,6 +2000,7 @@ Public Class MSDOSClass
          DTAOffset = New Integer
          DTASegment = New Integer
          EnvironmentText = $"COMSPEC={ToChar(BootDrive + ToInt32("A"c))}:\COMMAND.COM{ToChar(&H0%)}PATH={ToChar(&H0%)}{ToChar(&H0%)}"
+         ExtendedKeyCode = New Integer?
          OpenFiles.Clear()
          PrinterBuffer.Clear()
          ProcessIDs = New List(Of Integer)
@@ -1990,6 +2044,8 @@ Public Class MSDOSClass
             End If
 
             DTASegment = (CPU.Registers(SegmentRegistersE.CS) << &H4%) + PSP_COMMAND_TAIL
+            DTAOffset = &H0%
+
             ProcessIDs.Add(LoadAddress >> &H4%)
             WritePathToEnvironmentBlock(FileName)
          End If
@@ -2191,9 +2247,8 @@ Public Class MSDOSClass
    Private Function ReadCharacter() As Integer
       Try
          Dim KeyCode As New Integer?
-         Static ExtendedKeyCode As New Integer
 
-         If ExtendedKeyCode = Nothing Then
+         If ExtendedKeyCode Is Nothing Then
             Do
                If CPU.Clock.Status = TaskStatus.Running Then
                   CPU.ExecuteHardwareInterrupts()
@@ -2205,11 +2260,11 @@ Public Class MSDOSClass
                   ExtendedKeyCode = (KeyCode.Value >> &H8%)
                   KeyCode = (KeyCode And &HFF%)
                End If
-            Loop While (KeyCode Is Nothing) AndAlso (ExtendedKeyCode = Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
+            Loop While (KeyCode Is Nothing) AndAlso (ExtendedKeyCode Is Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
 
             LastBIOSKeyCode(, Clear:=True)
          Else
-            KeyCode = ExtendedKeyCode
+            KeyCode = ExtendedKeyCode.Value
             ExtendedKeyCode = New Integer
          End If
 
@@ -2234,37 +2289,37 @@ Public Class MSDOSClass
 
          Select Case DirectCast(CPU.Registers(Registers16BitE.BX), STDFileHandlesE)
             Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDIN
-               Character = &H0%
-               Do While Character < Count
-                  KeyCode = ToByte(GetKey())
-                  Select Case KeyCode
-                     Case TeletypeE.BS
-                        If Character > &H0% Then
+               If Count = 1 Then
+                  Bytes(Character) = ToByte(GetKey())
+               Else
+                  Character = &H0%
+                  Do While Character < Count
+                     KeyCode = ToByte(GetKey())
+                     Select Case DirectCast(KeyCode, TeletypeE)
+                        Case TeletypeE.BS
                            TeleType(TeletypeE.BS)
                            TeleType(ToByte(" "c))
                            TeleType(TeletypeE.BS)
                            Character -= &H1%
-                        ElseIf Count = &H1% Then
-                           TeleType(TeletypeE.BS)
-                        End If
-                     Case TeletypeE.CR
-                        Bytes(Character) = KeyCode
-                        Character += &H1%
-                        TeleType(TeletypeE.CR)
-                        TeleType(TeletypeE.LF)
-
-                        If Character + &H1% < Count Then
+                        Case TeletypeE.CR
+                           Bytes(Character) = KeyCode
                            Character += &H1%
-                           Bytes(Character) = TeletypeE.LF
-                        End If
-                        Count = Character + &H1%
-                        Exit Do
-                     Case Else
-                        Bytes(Character) = KeyCode
-                        Character += &H1%
-                        TeleType(KeyCode)
-                  End Select
-               Loop
+                           TeleType(TeletypeE.CR)
+                           TeleType(TeletypeE.LF)
+
+                           If Character + &H1% < Count Then
+                              Character += &H1%
+                              Bytes(Character) = TeletypeE.LF
+                           End If
+                           Count = Character
+                           Exit Do
+                        Case Else
+                           Bytes(Character) = KeyCode
+                           Character += &H1%
+                           TeleType(KeyCode)
+                     End Select
+                  Loop
+               End If
 
                CPU.Registers(Registers16BitE.AX, NewValue:=Count)
                ReDim Preserve Bytes(&H0% To Count - &H1%)
@@ -2508,9 +2563,6 @@ Public Class MSDOSClass
 
                      PrinterDocumentO.Print()
                   Case Else
-                     ''------------------------------------------------>>>
-                     Diagnostics.Debug.WriteLine(CPU.Registers(FlagRegistersE.CF) & " " & CPU.Registers(Registers16BitE.CX)) ''
-                     ''------------------------------------------------>>>
                      For Character As Integer = &H0% To Count - &H1%
                         TeleType(CPU.Memory(Position And ADDRESS_MASK))
                         Position += &H1%
