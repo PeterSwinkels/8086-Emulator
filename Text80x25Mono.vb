@@ -55,87 +55,92 @@ Public Class Text80x25MonoClass
    'This procedure draws the specified video buffer's context on the specified image.
    Public Sub Display(Screen As Image, Memory() As Byte, CodePage() As Integer) Implements VideoAdapterClass.Display
       Dim Attribute As New Byte
-      Dim BitmapO As Bitmap = DirectCast(Screen, Bitmap)
       Dim Character As New Char
       Dim CharacterColor As Brush = Nothing
       Dim CharacterFont As Font = Nothing
       Dim ColorO As New Color
+      Dim GraphicsO As Graphics = Graphics.FromImage(Screen)
       Dim Target As New Point(0, 0)
       Dim VideoPageAddress As Integer = AddressesE.Text80x25MonoPage0
 
-      With Graphics.FromImage(Screen)
-         .Clear(Color.Black)
+      Try
+         With GraphicsO
+            .Clear(Color.Black)
 
-         For Position As Integer = VideoPageAddress To VideoPageAddress + TEXT_80_X_25_MONO_BUFFER_SIZE Step &H2%
-            Character = ToChar(CodePage(Memory(Position)))
-            Attribute = Memory(Position + &H1%)
+            For Position As Integer = VideoPageAddress To VideoPageAddress + TEXT_80_X_25_MONO_BUFFER_SIZE Step &H2%
+               Character = ToChar(CodePage(Memory(Position)))
+               Attribute = Memory(Position + &H1%)
 
-            If Attribute > &H0% AndAlso Not BLACK_ATTRIBUTES.Contains(Attribute) Then
-               If MCC.BlinkingOn Then
-                  Select Case (Attribute And NON_BLINK_ATTRIBUTES)
-                     Case BLACK_ON_GREEN, DARK_GREEN_ON_GREEN
-                        .FillRectangle(New SolidBrush(Color.Green), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
-                  End Select
+               If Attribute > &H0% AndAlso Not BLACK_ATTRIBUTES.Contains(Attribute) Then
+                  If MCC.BlinkingOn Then
+                     Select Case (Attribute And NON_BLINK_ATTRIBUTES)
+                        Case BLACK_ON_GREEN, DARK_GREEN_ON_GREEN
+                           .FillRectangle(New SolidBrush(Color.Green), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
+                     End Select
+                  Else
+                     Select Case (Attribute And NON_BLINK_ATTRIBUTES)
+                        Case BLACK_ON_GREEN, DARK_GREEN_ON_GREEN
+                           .FillRectangle(New SolidBrush(If((Attribute And BLINK_BITMASK) = &H0%, Color.Green, Color.Lime)), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
+                        Case Else
+                           If (Attribute And BLINK_BITMASK) = BLINK_BITMASK Then
+                              .FillRectangle(New SolidBrush(Color.DarkGreen), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
+                           End If
+                     End Select
+                  End If
+               End If
+
+               If Target.X < TEXT_SCREEN_SIZE.Width - CHARACTER_SIZE.Width Then
+                  Target.X += CHARACTER_SIZE.Width
                Else
-                  Select Case (Attribute And NON_BLINK_ATTRIBUTES)
-                     Case BLACK_ON_GREEN, DARK_GREEN_ON_GREEN
-                        .FillRectangle(New SolidBrush(If((Attribute And BLINK_BITMASK) = &H0%, Color.Green, Color.Lime)), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
-                     Case Else
-                        If (Attribute And BLINK_BITMASK) = BLINK_BITMASK Then
-                           .FillRectangle(New SolidBrush(Color.DarkGreen), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
-                        End If
-                  End Select
+                  Target.X = 0
+                  If Target.Y < TEXT_SCREEN_SIZE.Height Then Target.Y += CHARACTER_SIZE.Height
                End If
-            End If
+            Next Position
 
-            If Target.X < TEXT_SCREEN_SIZE.Width - CHARACTER_SIZE.Width Then
-               Target.X += CHARACTER_SIZE.Width
-            Else
-               Target.X = 0
-               If Target.Y < TEXT_SCREEN_SIZE.Height Then Target.Y += CHARACTER_SIZE.Height
-            End If
-         Next Position
+            Target = New Point(0, 0)
 
-         Target = New Point(0, 0)
+            For Position As Integer = VideoPageAddress To VideoPageAddress + TEXT_80_X_25_MONO_BUFFER_SIZE Step &H2%
+               Character = ToChar(CodePage(Memory(Position)))
+               Attribute = Memory(Position + &H1%)
 
-         For Position As Integer = VideoPageAddress To VideoPageAddress + TEXT_80_X_25_MONO_BUFFER_SIZE Step &H2%
-            Character = ToChar(CodePage(Memory(Position)))
-            Attribute = Memory(Position + &H1%)
+               If Attribute > &H0% AndAlso Not BLACK_ATTRIBUTES.Contains(Attribute) Then
+                  If (Attribute And NON_BLINK_ATTRIBUTES) = BLACK_ON_GREEN Then
+                     CharacterColor = New SolidBrush(Color.Black)
+                  ElseIf (Attribute And NON_BLINK_ATTRIBUTES) = DARK_GREEN_ON_GREEN Then
+                     CharacterColor = New SolidBrush(Color.DarkGreen)
+                  ElseIf (Attribute And BRIGHT_BITMASK) = &H0% Then
+                     CharacterColor = New SolidBrush(Color.Green)
+                  Else
+                     CharacterColor = New SolidBrush(Color.Lime)
+                  End If
 
-            If Attribute > &H0% AndAlso Not BLACK_ATTRIBUTES.Contains(Attribute) Then
-               If (Attribute And NON_BLINK_ATTRIBUTES) = BLACK_ON_GREEN Then
-                  CharacterColor = New SolidBrush(Color.Black)
-               ElseIf (Attribute And NON_BLINK_ATTRIBUTES) = DARK_GREEN_ON_GREEN Then
-                  CharacterColor = New SolidBrush(Color.DarkGreen)
-               ElseIf (Attribute And BRIGHT_BITMASK) = &H0% Then
-                  CharacterColor = New SolidBrush(Color.Green)
+                  If (Attribute And UNDERLINE_BITMASK) = &H1% Then
+                     CharacterFont = FONT_UNDERLINE
+                  Else
+                     CharacterFont = FONT_NORMAL
+                  End If
+
+                  If ((Attribute And BLINK_BITMASK) = &H0%) OrElse BlinkCharactersVisible OrElse Not MCC.BlinkingOn Then
+                     .DrawString(Character, CharacterFont, CharacterColor, Target.X - CInt(CHARACTER_SIZE.Width / 4), Target.Y)
+                  End If
+               End If
+
+               If Target.X < TEXT_SCREEN_SIZE.Width - CHARACTER_SIZE.Width Then
+                  Target.X += CHARACTER_SIZE.Width
                Else
-                  CharacterColor = New SolidBrush(Color.Lime)
+                  Target.X = 0
+                  If Target.Y < TEXT_SCREEN_SIZE.Height Then Target.Y += CHARACTER_SIZE.Height
                End If
+            Next Position
 
-               If (Attribute And UNDERLINE_BITMASK) = &H1% Then
-                  CharacterFont = FONT_UNDERLINE
-               Else
-                  CharacterFont = FONT_NORMAL
-               End If
-
-               If ((Attribute And BLINK_BITMASK) = &H0%) OrElse BlinkCharactersVisible OrElse Not MCC.BlinkingOn Then
-                  .DrawString(Character, CharacterFont, CharacterColor, Target.X - CInt(CHARACTER_SIZE.Width / 4), Target.Y)
-               End If
+            If (Not Cursor.Off) AndAlso Cursor.Visible Then
+               .FillRectangle(New SolidBrush(Color.Lime), Cursor.X * CHARACTER_SIZE.Width, (Cursor.Y * CHARACTER_SIZE.Height) + (Cursor.ScanLineStart * PIXELS_PER_SCANLINE), CHARACTER_SIZE.Width, (Cursor.ScanLineEnd * PIXELS_PER_SCANLINE) - (Cursor.ScanLineStart * PIXELS_PER_SCANLINE))
             End If
-
-            If Target.X < TEXT_SCREEN_SIZE.Width - CHARACTER_SIZE.Width Then
-               Target.X += CHARACTER_SIZE.Width
-            Else
-               Target.X = 0
-               If Target.Y < TEXT_SCREEN_SIZE.Height Then Target.Y += CHARACTER_SIZE.Height
-            End If
-         Next Position
-
-         If (Not Cursor.Off) AndAlso Cursor.Visible Then
-            .FillRectangle(New SolidBrush(Color.Lime), Cursor.X * CHARACTER_SIZE.Width, (Cursor.Y * CHARACTER_SIZE.Height) + (Cursor.ScanLineStart * PIXELS_PER_SCANLINE), CHARACTER_SIZE.Width, (Cursor.ScanLineEnd * PIXELS_PER_SCANLINE) - (Cursor.ScanLineStart * PIXELS_PER_SCANLINE))
-         End If
-      End With
+         End With
+      Catch
+      Finally
+         GraphicsO.Dispose()
+      End Try
    End Sub
 
    'This procedure is ignored.

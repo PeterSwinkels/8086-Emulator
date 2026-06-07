@@ -170,7 +170,7 @@ Public Class MSDOSClass
    Private Const PSP_PREVIOUS_PSP As Integer = &H38%                    'Defines the offset of the previous PSP in a PSP.
    Private Const PSP_SIZE As Integer = &H100%                           'Defines a PSP's size.
    Private Const PSP_SSSP As Integer = &H2E%                            'Defines the SS:SP values in a PSP.
-   Private Const VERSION As VersionsE = VersionsE.v622                  'Defines the emulated MS-DOS version.
+   Private Const VERSION As VersionsE = VersionsE.v500                  'Defines the emulated MS-DOS version.
    Private Const VOLUME_ATTRIBUTE As Integer = &H8%                     'Defines the volume label attribute.
 
    Private ReadOnly DATE_TO_MSDOS_DATE As Func(Of Date, Integer) = Function([Date] As Date) [Date].Day Or ([Date].Month << &H5%) Or (([Date].Year - 1980) << &H9%)   'Converts the specified date to a value suitable for MS-DOS and returns the result.
@@ -308,7 +308,7 @@ Public Class MSDOSClass
          Dim Maximum As Integer = CPU.Memory(Address)
          Dim KeyCode As New Integer
 
-         Do Until Buffer.Count = Maximum
+         Do Until Buffer.Count = Maximum OrElse CPU.ClockToken.IsCancellationRequested
             If CPU.Clock.Status = TaskStatus.Running Then
                CPU.ExecuteHardwareInterrupts()
             End If
@@ -594,9 +594,7 @@ Public Class MSDOSClass
 
             Flags = SET_BIT(Flags, (KeyCode Is Nothing), ZERO_FLAG_INDEX)
 
-            If KeyCode IsNot Nothing Then
-               CPU.Registers(SubRegisters8BitE.AL, NewValue:=KeyCode)
-            End If
+            CPU.Registers(SubRegisters8BitE.AL, NewValue:=If(KeyCode Is Nothing, &H0%, KeyCode))
       End Select
    End Sub
 
@@ -952,6 +950,34 @@ Public Class MSDOSClass
          End Using
 
          WriteBytesToMemory(Buffer, (DTASegment << &H4%) + DTAOffset)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure writes randomly to a file using an FCB block.
+   Private Sub FCBRandomWriteFile()
+      Try
+         Dim Extension As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim()
+         Dim FCBOffset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
+         Dim CurrentBlock As Integer = CPU.GetWord(FCBOffset + FCBE.CurrentBlock)
+         Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim()
+         Dim RecordSize As Integer = CPU.GetWord(FCBOffset + FCBE.RecordSize)
+         Dim RelativeRecordFromStart As Integer = GetDWord(FCBOffset + FCBE.RelativeRecordFromStart)
+         Dim Buffer() As Byte = CPU.Memory.ToList.GetRange((DTASegment << &H4%) + DTAOffset, RecordSize).ToArray()
+
+         FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
+
+         Try
+            Using FileO As New FileStream(GetLongName(FileSystemItems, $"{FileName}.{Extension}"), FileMode.Open, FileAccess.Write)
+               FileO.Seek(RelativeRecordFromStart * RecordSize, SeekOrigin.Begin)
+               FileO.Write(Buffer, &H0%, Buffer.Count)
+            End Using
+
+            CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
+         Catch
+            CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1%)
+         End Try
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -1506,7 +1532,7 @@ Public Class MSDOSClass
                      Index += 1
                      Appendage = $"~{Index}"
                      ShortName = $"{BaseName.Substring(0, 8 - Appendage.Length)}{Appendage}{Extension}"
-                  Loop While NewFileSystemItems.Any(Function(Item) Item.ShortName = ShortName)
+                  Loop While NewFileSystemItems.Any(Function(Item) Item.ShortName = ShortName) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
                Else
                   ShortName = $"{BaseName}{Extension}"
                End If
@@ -1551,7 +1577,7 @@ Public Class MSDOSClass
                      Success = True
                   Case &H9%
                      Position = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
-                     Do Until ToChar(CPU.Memory(Position And ADDRESS_MASK)) = "$"c
+                     Do Until ToChar(CPU.Memory(Position And ADDRESS_MASK)) = "$"c OrElse CPU.ClockToken.IsCancellationRequested
                         TeleType(CPU.Memory(Position And ADDRESS_MASK))
                         Position += &H1%
                      Loop
@@ -1610,6 +1636,9 @@ Public Class MSDOSClass
                      Success = True
                   Case &H21%
                      FCBRandomReadFile()
+                     Success = True
+                  Case &H22%
+                     FCBRandomWriteFile()
                      Success = True
                   Case &H25%
                      Address = CPU.Registers(SubRegisters8BitE.AL) * &H4%
@@ -2110,7 +2139,7 @@ Public Class MSDOSClass
                   CPU.PutWord(RelocationItemFlatAddress, RelocationItem)
 
                   Position += &H4%
-               Loop Until Position >= (RelocationTable + RelocationTableSize)
+               Loop Until Position >= (RelocationTable + RelocationTableSize) OrElse CPU.ClockToken.IsCancellationRequested
             End If
          Else
             SyncLock SYNCHRONIZER

@@ -6,6 +6,7 @@ Option Strict On
 
 Imports System
 Imports System.Drawing
+Imports System.Threading.Tasks
 Imports System.Windows.Forms
 
 'This class contains the screen output window.
@@ -47,7 +48,7 @@ Public Class ScreenWindow
    End Sub
 
    'This procedure gives the video adapter the command to update the screen's content.
-   Private Sub ScreenWindow_Paint(sender As Object, e As PaintEventArgs) Handles MyBase.Paint
+   Private Async Sub ScreenWindow_Paint(sender As Object, e As PaintEventArgs) Handles MyBase.Paint
       Try
          Dim VideoMode As VideoModesE = VideoAdapterToVideoMode()
 
@@ -64,7 +65,8 @@ Public Class ScreenWindow
                Graphics.FromImage(Me.BackgroundImage).Clear(Color.Black)
             End If
 
-            VideoAdapter.Display(Me.BackgroundImage, CPU.Memory, CODE_PAGE_437)
+            Await Task.Run(Sub() VideoAdapter.Display(Me.BackgroundImage, CPU.Memory, CODE_PAGE_437))
+
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)

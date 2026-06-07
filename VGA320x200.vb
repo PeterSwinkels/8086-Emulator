@@ -32,13 +32,18 @@ Public Class VGA320x200Class
    Public Sub Display(Screen As Image, Memory() As Byte, CodePage() As Integer) Implements VideoAdapterClass.Display
       Dim GraphicsO As Graphics = Graphics.FromImage(Screen)
 
-      With GraphicsO
-         For y As Integer = 0 To HEIGHT - 1
-            For x As Integer = 0 To WIDTH - 1
-               .FillRectangle(VGA.VGAPaintBrushes(Memory(AddressesE.VGA320x200 + ((y * WIDTH) + x))), x * SCALING, y * SCALING, SCALING, SCALING)
-            Next x
-         Next y
-      End With
+      Try
+         With GraphicsO
+            For y As Integer = 0 To HEIGHT - 1
+               For x As Integer = 0 To WIDTH - 1
+                  .FillRectangle(VGA.VGAPaintBrushes(Memory(AddressesE.VGA320x200 + ((y * WIDTH) + x))), x * SCALING, y * SCALING, SCALING, SCALING)
+               Next x
+            Next y
+         End With
+      Catch
+      Finally
+         GraphicsO.Dispose()
+      End Try
    End Sub
 
    'This procedure draws the specified character.

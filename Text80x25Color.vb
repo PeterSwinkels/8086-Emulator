@@ -48,58 +48,63 @@ Public Class Text80x25ColorClass
    'This procedure draws the specified video buffer's context on the specified image.
    Public Sub Display(Screen As Image, Memory() As Byte, CodePage() As Integer) Implements VideoAdapterClass.Display
       Dim Attribute As New Byte
-      Dim BitmapO As Bitmap = DirectCast(Screen, Bitmap)
       Dim Character As New Char
       Dim CharacterColor As Brush = Nothing
       Dim ColorO As New Color
+      Dim GraphicsO As Graphics = Graphics.FromImage(Screen)
       Dim Target As New Point(0, 0)
       Dim VideoPageAddress As Integer = AddressesE.Text80x25ColorPage0
 
-      With Graphics.FromImage(Screen)
-         .Clear(Color.Black)
+      Try
+         With GraphicsO
+            .Clear(Color.Black)
 
-         For Position As Integer = VideoPageAddress To VideoPageAddress + TEXT_80_X_25_COLOR_BUFFER_SIZE Step &H2%
-            Character = ToChar(CodePage(Memory(Position)))
-            If MCC.BlinkingOn Then
-               Attribute = ToByte((Memory(Position + &H1%) And &H7F%) \ &H10%)
-            Else
-               Attribute = ToByte(Memory(Position + &H1%) \ &H10%)
+            For Position As Integer = VideoPageAddress To VideoPageAddress + TEXT_80_X_25_COLOR_BUFFER_SIZE Step &H2%
+               Character = ToChar(CodePage(Memory(Position)))
+               If MCC.BlinkingOn Then
+                  Attribute = ToByte((Memory(Position + &H1%) And &H7F%) \ &H10%)
+               Else
+                  Attribute = ToByte(Memory(Position + &H1%) \ &H10%)
+               End If
+               .FillRectangle(New SolidBrush(COLORS(Attribute)), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
+
+               If Target.X < TEXT_SCREEN_SIZE.Width - CHARACTER_SIZE.Width Then
+                  Target.X += CHARACTER_SIZE.Width
+               Else
+                  Target.X = 0
+                  If Target.Y < TEXT_SCREEN_SIZE.Height Then Target.Y += CHARACTER_SIZE.Height
+               End If
+            Next Position
+
+            Target = New Point(0, 0)
+
+            For Position As Integer = VideoPageAddress To VideoPageAddress + TEXT_80_X_25_MONO_BUFFER_SIZE Step &H2%
+               Character = ToChar(CodePage(Memory(Position)))
+               Attribute = Memory(Position + &H1%)
+
+               CharacterColor = New SolidBrush(COLORS(Attribute And &HF%))
+
+               If ((Attribute And BLINK_BITMASK) = &H0%) OrElse BlinkCharactersVisible OrElse Not MCC.BlinkingOn Then
+                  .DrawString(Character, FONT, CharacterColor, Target.X - CInt(CHARACTER_SIZE.Width / 4), Target.Y)
+               End If
+
+               If Target.X < TEXT_SCREEN_SIZE.Width - CHARACTER_SIZE.Width Then
+                  Target.X += CHARACTER_SIZE.Width
+               Else
+                  Target.X = 0
+                  If Target.Y < TEXT_SCREEN_SIZE.Height Then Target.Y += CHARACTER_SIZE.Height
+               End If
+            Next Position
+
+            If (Not Cursor.Off) AndAlso Cursor.Visible Then
+               Attribute = ToByte(Memory((AddressesE.Text80x25MonoPage0 + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)) + &H1%) And &HF%)
+               .FillRectangle(New SolidBrush(COLORS(Attribute)), Cursor.X * CHARACTER_SIZE.Width, (Cursor.Y * CHARACTER_SIZE.Height) + (Cursor.ScanLineStart * PIXELS_PER_SCANLINE), CHARACTER_SIZE.Width, (Cursor.ScanLineEnd * PIXELS_PER_SCANLINE) - (Cursor.ScanLineStart * PIXELS_PER_SCANLINE))
             End If
-            .FillRectangle(New SolidBrush(COLORS(Attribute)), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
-
-            If Target.X < TEXT_SCREEN_SIZE.Width - CHARACTER_SIZE.Width Then
-               Target.X += CHARACTER_SIZE.Width
-            Else
-               Target.X = 0
-               If Target.Y < TEXT_SCREEN_SIZE.Height Then Target.Y += CHARACTER_SIZE.Height
-            End If
-         Next Position
-
-         Target = New Point(0, 0)
-
-         For Position As Integer = VideoPageAddress To VideoPageAddress + TEXT_80_X_25_MONO_BUFFER_SIZE Step &H2%
-            Character = ToChar(CodePage(Memory(Position)))
-            Attribute = Memory(Position + &H1%)
-
-            CharacterColor = New SolidBrush(COLORS(Attribute And &HF%))
-
-            If ((Attribute And BLINK_BITMASK) = &H0%) OrElse BlinkCharactersVisible OrElse Not MCC.BlinkingOn Then
-               .DrawString(Character, FONT, CharacterColor, Target.X - CInt(CHARACTER_SIZE.Width / 4), Target.Y)
-            End If
-
-            If Target.X < TEXT_SCREEN_SIZE.Width - CHARACTER_SIZE.Width Then
-               Target.X += CHARACTER_SIZE.Width
-            Else
-               Target.X = 0
-               If Target.Y < TEXT_SCREEN_SIZE.Height Then Target.Y += CHARACTER_SIZE.Height
-            End If
-         Next Position
-
-         If (Not Cursor.Off) AndAlso Cursor.Visible Then
-            Attribute = ToByte(Memory((AddressesE.Text80x25MonoPage0 + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)) + &H1%) And &HF%)
-            .FillRectangle(New SolidBrush(COLORS(Attribute)), Cursor.X * CHARACTER_SIZE.Width, (Cursor.Y * CHARACTER_SIZE.Height) + (Cursor.ScanLineStart * PIXELS_PER_SCANLINE), CHARACTER_SIZE.Width, (Cursor.ScanLineEnd * PIXELS_PER_SCANLINE) - (Cursor.ScanLineStart * PIXELS_PER_SCANLINE))
-         End If
-      End With
+         End With
+      Catch
+      Finally
+         GraphicsO.Dispose()
+      End Try
    End Sub
 
    'This procedure is ignored.

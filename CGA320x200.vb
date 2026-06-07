@@ -55,6 +55,7 @@ Public Class CGA320x200Class
                Next y1
             Next y2
          End With
+      Catch
       Finally
          GraphicsO.Dispose()
       End Try
