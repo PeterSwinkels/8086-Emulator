@@ -197,7 +197,7 @@ Public Module BIOSModule
                         VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
                      End If
                   Case TeletypeE.TAB
-                     Cursor.X = ((((Cursor.X + &H1%) \ &H8%) + &H1%) * &H8%) - &H1%
+                     Cursor.X = ((Cursor.X \ &H8%) + &H1%) * &H8%
                      If Cursor.X >= MCC.ColumnCount() - &H1% Then
                         Cursor.X = &H0%
                         If Cursor.Y < MCC.RowCount() - &H1% Then
@@ -248,7 +248,8 @@ Public Module BIOSModule
                         VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
                      End If
                   Case TeletypeE.TAB
-                     Cursor.X = ((((Cursor.X + &H1%) \ &H8%) + &H1%) * &H8%) - &H1%
+                     Cursor.X = ((Cursor.X \ &H8%) + &H1%) * &H8%
+
                      If Cursor.X >= MCC.ColumnCount() - &H1% Then
                         Cursor.X = &H0%
                         If Cursor.Y < MCC.RowCount() - &H1% Then

@@ -158,6 +158,8 @@ Public Class MSDOSClass
    Private Const PSP_BYTES_AVAILABLE As Integer = &H6%                  'Defines the number of bytes available in a block of memory less the space used by the PSP.
    Private Const PSP_COMMAND_TAIL As Integer = &H80%                    'Defines the offset of the command tail in a PSP.
    Private Const PSP_ENVIRONMENT_SEGMENT As Integer = &H2C%             'Defines the segment of the MS-DOS environment in a PSP.
+   Private Const PSP_FCB_1 As Integer = &H5C%                           'Defines the first default FCB in a PSP.
+   Private Const PSP_FCB_2 As Integer = &H6C%                           'Defines the second default FCB in a PSP.
    Private Const PSP_INT_20H As Integer = &H0%                          'Defines a call to the INT 20h handler in a PSP.
    Private Const PSP_INT_21H_RF As Integer = &H50%                      'Defines the call to the INT 21h handler in a PSP. (RETF)
    Private Const PSP_INT_21H_RN As Integer = &H5%                       'Defines the call to the INT 21h handler in a PSP. (RETN)
@@ -506,6 +508,8 @@ Public Class MSDOSClass
          CPU.PutWord(Address + PSP_ENVIRONMENT_SEGMENT, ENVIRONMENT_SEGMENT)
          CPU.PutWord(Address + PSP_PREVIOUS_PSP, &HFFFF%)
          CPU.PutWord(Address + PSP_PREVIOUS_PSP + &H2%, &HFFFF%)
+         WriteBytesToMemory(DefaultFCB(), Address + PSP_FCB_1)
+         WriteBytesToMemory(DefaultFCB(), Address + PSP_FCB_2)
          WriteBytesToMemory(INT_21H_RETN, Address + PSP_INT_21H_RN)
          WriteBytesToMemory(INT_21H_RETF, Address + PSP_INT_21H_RF)
          CPU.Memory(Address + PSP_COMMAND_TAIL) = ToByte(CommandTail.Length)
@@ -514,6 +518,16 @@ Public Class MSDOSClass
          DisplayException(ExceptionO.Message)
       End Try
    End Sub
+
+   'This procedure returns a default FCB.
+   Private Function DefaultFCB() As Byte()
+      Dim FCB As New List(Of Byte)({&H0%})
+
+      FCB.AddRange(Enumerable.Repeat(CByte(&H20%), &HB%).ToArray())
+      FCB.AddRange(Enumerable.Repeat(CByte(&H0%), &H18%).ToArray())
+
+      Return FCB.ToArray()
+   End Function
 
    'This procedure deletes a directory.
    Private Sub DeleteDirectory(ByRef Flags As Integer)

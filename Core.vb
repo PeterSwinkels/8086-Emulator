@@ -49,6 +49,7 @@ Public Module CoreModule
    Private WithEvents Disassembler As New DisassemblerClass   'Contains a reference to the disassembler class.
 
    Public AssemblyModeOn As Boolean = False             'Indicates whether input is interpreted as assembly language.
+   Public DMA As New DMAClass                           'Contains a reference to the 8237 DMA controller.
    Public Output As TextBox = Nothing                   'Contains a reference to an output.
    Public MSDOS As New MSDOSClass                       'Contains a reference to the emulated MS-DOS.
    Public PIC As New PICClass                           'Contains a reference to the 8259 Programmable Interrupt Controller.
