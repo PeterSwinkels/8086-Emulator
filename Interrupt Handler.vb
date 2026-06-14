@@ -120,7 +120,7 @@ Public Module InterruptHandlerModule
                      Success = True
                   Case &H5%
                      VideoPage = CByte(CPU.Registers(SubRegisters8BitE.AL))
-                     If VideoPage < MAXIMUM_VIDEO_PAGE_COUNT Then
+                     If VideoPage < MCC.VideoPageCount() Then
                         CPU.Memory(AddressesE.VideoPage) = VideoPage
                      End If
                      Success = True
@@ -134,7 +134,7 @@ Public Module InterruptHandlerModule
                      Select Case MCC.CurrentVideoMode
                         Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono
                            CursorPositionUpdate()
-                           CPU.Registers(Registers16BitE.AX, NewValue:=CPU.GetWord(AddressesE.Text80x25MonoPage0 + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)))
+                           CPU.Registers(Registers16BitE.AX, NewValue:=CPU.GetWord(AddressesE.Text80x25MonoBuffer + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)))
                            Success = True
                      End Select
                   Case &H9%, &HA%
@@ -155,12 +155,7 @@ Public Module InterruptHandlerModule
                               Count -= &H1%
                            Loop
                         Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono
-                           Select Case MCC.CurrentVideoMode
-                              Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray
-                                 VideoPageAddress = AddressesE.Text80x25ColorPage0
-                              Case VideoModesE.Text80x25Mono
-                                 VideoPageAddress = AddressesE.Text80x25MonoPage0
-                           End Select
+                           VideoPageAddress = MCC.VideoPageAddress()
                            Character = CByte(CPU.Registers(SubRegisters8BitE.AL))
                            Attribute = CByte(CPU.Registers(SubRegisters8BitE.BL))
                            Count = CPU.Registers(Registers16BitE.CX)
@@ -191,7 +186,7 @@ Public Module InterruptHandlerModule
 
                            AL = CByte(CPU.Registers(SubRegisters8BitE.AL))
                            PixelColor = CByte(AL And &H3%)
-                           Position = AddressesE.CGA320x200 + If((y And 1) = 0, 0, CGA_320_x_200_BUFFER_SIZE \ 2) + (y \ 2) * 80 + (x \ 4)
+                           Position = AddressesE.CGABuffer + If((y And 1) = 0, 0, VideoPageSizesE.CGA320x200A \ 2) + (y \ 2) * 80 + (x \ 4)
                            Pixel = x And &H3%
                            Shift = (&H3% - Pixel) * &H2%
                            Mask = CByte(&H3% << Shift)
@@ -208,7 +203,7 @@ Public Module InterruptHandlerModule
                            x = CPU.Registers(Registers16BitE.CX)
                            y = CPU.Registers(Registers16BitE.DX)
                            AL = CByte(CPU.Registers(SubRegisters8BitE.AL))
-                           Position = AddressesE.VGA320x200 + ((y * 320) + x)
+                           Position = AddressesE.VGABuffer + ((y * 320) + x)
                            CPU.Memory(Position) = CByte(AL)
                      End Select
 

@@ -319,4 +319,39 @@ Public Class MCCClass
       Return Count
    End Function
 
+   'This procedure returns the address for the current video mode's active page.
+   Public Function VideoPageAddress() As Integer
+      Dim Address As New Integer
+
+      Select Case CurrentVideoMode
+         Case VideoModesE.Text80x25Mono
+            Address = AddressesE.Text80x25MonoBuffer
+         Case VideoModesE.CGA320x200A,
+              VideoModesE.CGA320x200B,
+              VideoModesE.CGA640x200
+            Address = AddressesE.CGABuffer
+         Case VideoModesE.EGA320x200
+            Address = AddressesE.VGABuffer + (CPU.Memory(AddressesE.VideoPage) * VideoPageSizesE.EGA320x200)
+         Case VideoModesE.EGA640x200
+            Address = AddressesE.VGABuffer + (CPU.Memory(AddressesE.VideoPage) * VideoPageSizesE.EGA640x200)
+         Case VideoModesE.EGA640x350
+            Address = AddressesE.VGABuffer + (CPU.Memory(AddressesE.VideoPage) * VideoPageSizesE.EGA640x350)
+         Case VideoModesE.EGA640x350Mono
+            Address = AddressesE.VGABuffer + (CPU.Memory(AddressesE.VideoPage) * VideoPageSizesE.EGA640x350Mono)
+         Case VideoModesE.Text40x25Color
+            Address = AddressesE.VGABuffer + (CPU.Memory(AddressesE.VideoPage) * VideoPageSizesE.Text40x25Color)
+         Case VideoModesE.Text40x25Mono
+            Address = AddressesE.VGABuffer + (CPU.Memory(AddressesE.VideoPage) * VideoPageSizesE.Text40x25Mono)
+         Case VideoModesE.Text80x25Color
+            Address = AddressesE.VGABuffer + (CPU.Memory(AddressesE.VideoPage) * VideoPageSizesE.Text80x25Color)
+         Case VideoModesE.Text80x25Gray
+            Address = AddressesE.VGABuffer + (CPU.Memory(AddressesE.VideoPage) * VideoPageSizesE.Text80x25Gray)
+         Case VideoModesE.VGA320x200,
+              VideoModesE.VGA640x480,
+              VideoModesE.VGA640x480Mono
+            Address = AddressesE.VGABuffer
+      End Select
+
+      Return Address
+   End Function
 End Class

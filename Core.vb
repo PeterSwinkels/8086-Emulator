@@ -5,7 +5,6 @@ Option Infer Off
 Option Strict On
 
 Imports Emulator8086Program.CPU8086Class
-Imports Emulator8086Program.MSDOSClass
 Imports System
 Imports System.Collections.Generic
 Imports System.Convert
@@ -655,7 +654,7 @@ Public Module CoreModule
                         Output.AppendText($"{My.Resources.Help}{NewLine}")
                      Case "ARG"
                         If Not Operands = Nothing Then
-                           MSDOS.CommandTail = $" {If(Operands.Length > COMMAND_TAIL_MAXIMUM_LENGTH, Operands.Substring(1, COMMAND_TAIL_MAXIMUM_LENGTH), Operands)}"
+                           MSDOS.SetCommandTail(Operands)
                         End If
 
                         Output.AppendText($"Command tail set to: ""{MSDOS.CommandTail}""{NewLine}")
@@ -1023,6 +1022,18 @@ Public Module CoreModule
       End Try
    End Sub
 
+   'This procedure removes the specified characters from the specified text.
+   Public Sub RemoveCharacters(ByRef Text As String, Characters As String)
+      Try
+         For Each Character As Char In Characters
+            Text = Text.Replace(Character, "")
+         Next Character
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+
    'This procedure displays a file dialog requesting the user to specify a file and returns the user's selection.
    Private Function RequestFileName(Title As String, Optional Save As Boolean = False, Optional Filter As String = Nothing, Optional UseCurrentDiretory As Boolean = False) As String
       Try
@@ -1043,7 +1054,6 @@ Public Module CoreModule
 
       Return Nothing
    End Function
-
 
    'This procedure runs the commands in the specified script file.
    Public Sub RunCommandScript(FileName As String)

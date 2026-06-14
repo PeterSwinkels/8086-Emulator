@@ -41,9 +41,9 @@ Public Class Text80x25MonoClass
 
    'This procedure clears video adapter's buffer.
    Public Sub ClearBuffer() Implements VideoAdapterClass.ClearBuffer
-      Dim Count As Integer = TEXT_80_X_25_MONO_BUFFER_SIZE \ &H2%
+      Dim Count As Integer = VideoPageSizesE.Text80x25Mono \ &H2%
       Dim Position As Integer = &H0%
-      Dim VideoPageAddress As Integer = AddressesE.Text80x25MonoPage0
+      Dim VideoPageAddress As Integer = AddressesE.Text80x25MonoBuffer
 
       Do While Count > &H0%
          CPU.PutWord(VideoPageAddress + Position, &H200%)
@@ -59,15 +59,17 @@ Public Class Text80x25MonoClass
       Dim CharacterColor As Brush = Nothing
       Dim CharacterFont As Font = Nothing
       Dim ColorO As New Color
-      Dim GraphicsO As Graphics = Graphics.FromImage(Screen)
+      Dim GraphicsO As Graphics = Nothing
       Dim Target As New Point(0, 0)
-      Dim VideoPageAddress As Integer = AddressesE.Text80x25MonoPage0
+      Dim VideoPageAddress As Integer = AddressesE.Text80x25MonoBuffer
 
       Try
+         GraphicsO = Graphics.FromImage(Screen)
+
          With GraphicsO
             .Clear(Color.Black)
 
-            For Position As Integer = VideoPageAddress To VideoPageAddress + TEXT_80_X_25_MONO_BUFFER_SIZE Step &H2%
+            For Position As Integer = VideoPageAddress To VideoPageAddress + VideoPageSizesE.Text80x25Mono Step &H2%
                Character = ToChar(CodePage(Memory(Position)))
                Attribute = Memory(Position + &H1%)
 
@@ -99,7 +101,7 @@ Public Class Text80x25MonoClass
 
             Target = New Point(0, 0)
 
-            For Position As Integer = VideoPageAddress To VideoPageAddress + TEXT_80_X_25_MONO_BUFFER_SIZE Step &H2%
+            For Position As Integer = VideoPageAddress To VideoPageAddress + VideoPageSizesE.Text80x25Mono Step &H2%
                Character = ToChar(CodePage(Memory(Position)))
                Attribute = Memory(Position + &H1%)
 
@@ -139,7 +141,7 @@ Public Class Text80x25MonoClass
          End With
       Catch
       Finally
-         GraphicsO.Dispose()
+         If GraphicsO IsNot Nothing Then GraphicsO.Dispose()
       End Try
    End Sub
 
@@ -166,7 +168,7 @@ Public Class Text80x25MonoClass
       Dim Attribute As Integer = CByte(CPU.Registers(SubRegisters8BitE.BH))
       Dim CharacterCell As New Integer
       Dim Position As New Integer
-      Dim VideoPageAddress As Integer = AddressesE.Text80x25MonoPage0
+      Dim VideoPageAddress As Integer = AddressesE.Text80x25MonoBuffer
 
       If Count = &H0% OrElse Count > MCC.RowCount() Then
          For Row As Integer = ScrollArea.ULCRow To ScrollArea.LRCRow

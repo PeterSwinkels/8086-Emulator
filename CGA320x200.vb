@@ -20,11 +20,11 @@ Public Class CGA320x200Class
 
    'This procedure clears video adapter's buffer.
    Public Sub ClearBuffer() Implements VideoAdapterClass.ClearBuffer
-      Dim Count As Integer = (CGA_320_x_200_BUFFER_SIZE \ &H2%)
+      Dim Count As Integer = (VideoPageSizesE.CGA320x200A \ &H2%)
       Dim Position As Integer = &H0%
 
       Do While Count > &H0%
-         CPU.PutWord(AddressesE.CGA320x200 + Position, &H0%)
+         CPU.PutWord(AddressesE.CGABuffer + Position, &H0%)
          Count -= &H1%
          Position += &H2%
       Loop
@@ -33,15 +33,17 @@ Public Class CGA320x200Class
    'This procedure draws the specified video buffer's context on the specified image.
    Public Sub Display(Screen As Image, Memory() As Byte, CodePage() As Integer) Implements VideoAdapterClass.Display
       Dim BaseX As New Integer
-      Dim GraphicsO As Graphics = Graphics.FromImage(Screen)
+      Dim GraphicsO As Graphics = Nothing
       Dim Index As New Integer
       Dim Position As New Integer
       Dim Shift As New Integer
 
       Try
+         GraphicsO = Graphics.FromImage(Screen)
+
          With GraphicsO
             For y2 As Integer = 0 To 1
-               Position = AddressesE.CGA320x200 + If(y2 = 0, &H0%, CGA_320_x_200_BUFFER_SIZE \ &H2%)
+               Position = AddressesE.CGABuffer + If(y2 = 0, &H0%, VideoPageSizesE.CGA320x200A \ &H2%)
                For y1 As Integer = 0 To HEIGHT - 1 Step 2
                   For x As Integer = 0 To WIDTH - 1 Step PIXELS_PER_BYTE
                      BaseX = x + (PIXELS_PER_BYTE - &H1%)
@@ -57,7 +59,7 @@ Public Class CGA320x200Class
          End With
       Catch
       Finally
-         GraphicsO.Dispose()
+         If GraphicsO IsNot Nothing Then GraphicsO.Dispose()
       End Try
    End Sub
 
@@ -78,7 +80,7 @@ Public Class CGA320x200Class
       Attribute = Attribute And &H3%
 
       For Each ScanLine As Byte In Character
-         Position = AddressesE.CGA320x200 + If((y And &H1%) = &H0%, &H0%, CGA_320_x_200_BUFFER_SIZE \ &H2%) + ((y \ 2) * CGA_320_X_200_BYTES_PER_ROW)
+         Position = AddressesE.CGABuffer + If((y And &H1%) = &H0%, &H0%, VideoPageSizesE.CGA320x200A \ &H2%) + ((y \ 2) * CGA_320_X_200_BYTES_PER_ROW)
 
          RemainingBits = ScanLine
          For Bit As Integer = &H7% To &H0% Step -&H1%
@@ -142,30 +144,30 @@ Public Class CGA320x200Class
                Case True
                   For Row As Integer = ScrollArea.ULCRow * (CGA_320_X_200_LINES_PER_CHARACTER \ &H2%) To (ScrollArea.LRCRow * (CGA_320_X_200_LINES_PER_CHARACTER \ &H2%)) + ((CGA_320_X_200_LINES_PER_CHARACTER \ &H2%) - &H1%)
                      For Column As Integer = ScrollArea.ULCColumn * &H2% To (ScrollArea.LRCColumn * &H2%) + &H1%
-                        Address = AddressesE.CGA320x200 + ((Row * CGA_320_X_200_BYTES_PER_ROW) + Column)
+                        Address = AddressesE.CGABuffer + ((Row * CGA_320_X_200_BYTES_PER_ROW) + Column)
                         CharacterByte1 = CPU.Memory(Address)
-                        CharacterByte2 = CPU.Memory((CGA_320_x_200_BUFFER_SIZE \ &H2%) + Address)
+                        CharacterByte2 = CPU.Memory((VideoPageSizesE.CGA320x200A \ &H2%) + Address)
                         CPU.Memory(Address) = Attribute
-                        CPU.Memory((CGA_320_x_200_BUFFER_SIZE \ &H2%) + Address) = Attribute
+                        CPU.Memory((VideoPageSizesE.CGA320x200A \ &H2%) + Address) = Attribute
                         If Row > ScrollArea.ULCRow * (CGA_320_X_200_LINES_PER_CHARACTER \ &H2%) Then
-                           NewAddress = AddressesE.CGA320x200 + ((Row - &H1%) * CGA_320_X_200_BYTES_PER_ROW) + Column
+                           NewAddress = AddressesE.CGABuffer + ((Row - &H1%) * CGA_320_X_200_BYTES_PER_ROW) + Column
                            CPU.Memory(NewAddress) = CharacterByte1
-                           CPU.Memory((CGA_320_x_200_BUFFER_SIZE \ &H2%) + NewAddress) = CharacterByte2
+                           CPU.Memory((VideoPageSizesE.CGA320x200A \ &H2%) + NewAddress) = CharacterByte2
                         End If
                      Next Column
                   Next Row
                Case False
                   For Row As Integer = (ScrollArea.LRCRow * (CGA_320_X_200_LINES_PER_CHARACTER \ &H2%)) + ((CGA_320_X_200_LINES_PER_CHARACTER \ &H2%) - &H1%) To ScrollArea.ULCRow * (CGA_320_X_200_LINES_PER_CHARACTER \ &H2%) Step -&H1%
                      For Column As Integer = ScrollArea.ULCColumn * &H2% To (ScrollArea.LRCColumn * &H2%) + &H1%
-                        Address = AddressesE.CGA320x200 + ((Row * CGA_320_X_200_BYTES_PER_ROW) + Column)
+                        Address = AddressesE.CGABuffer + ((Row * CGA_320_X_200_BYTES_PER_ROW) + Column)
                         CharacterByte1 = CPU.Memory(Address)
-                        CharacterByte2 = CPU.Memory((CGA_320_x_200_BUFFER_SIZE \ &H2%) + Address)
+                        CharacterByte2 = CPU.Memory((VideoPageSizesE.CGA320x200A \ &H2%) + Address)
                         CPU.Memory(Address) = Attribute
-                        CPU.Memory((CGA_320_x_200_BUFFER_SIZE \ &H2%) + Address) = Attribute
+                        CPU.Memory((VideoPageSizesE.CGA320x200A \ &H2%) + Address) = Attribute
                         If Row < ScrollArea.LRCRow * (CGA_320_X_200_LINES_PER_CHARACTER \ &H2%) Then
-                           NewAddress = AddressesE.CGA320x200 + ((Row + &H1%) * CGA_320_X_200_BYTES_PER_ROW) + Column
+                           NewAddress = AddressesE.CGABuffer + ((Row + &H1%) * CGA_320_X_200_BYTES_PER_ROW) + Column
                            CPU.Memory(NewAddress) = CharacterByte1
-                           CPU.Memory((CGA_320_x_200_BUFFER_SIZE \ &H2%) + NewAddress) = CharacterByte2
+                           CPU.Memory((VideoPageSizesE.CGA320x200A \ &H2%) + NewAddress) = CharacterByte2
                         End If
                      Next Column
                   Next Row

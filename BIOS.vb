@@ -16,8 +16,8 @@ Public Module BIOSModule
       BIOS = &HF0000%                        'BIOS.
       BIOSMemorySize = &H413%                'BIOS Memory size.
       BIOSStack = &HF3000%                   'BIOS stack segment.
-      CGA320x200 = &HB8000%                  '320x200 CGA video buffer.
-      CGACurrentPalette = &H466%              'CGA current palette.
+      CGABuffer = &HB8000%                   'CGA video buffer.
+      CGACurrentPalette = &H466%             'CGA current palette.
       Characters = &HFFA6E%                  'Character bitmaps.
       Clock = &H46C%                         'Clock.
       ClockRollover = &H470%                 'Clock rollover flag.
@@ -33,9 +33,8 @@ Public Module BIOSModule
       KeyboardBufferTail = &H41C%            'Keyboard buffer tail offset.
       KeyboardBuffer = &H41E%                'Keyboard buffer.
       MachineID = &HFFFFE%                   'Machine ID.
-      Text80x25ColorPage0 = &HB8000%         '80x25 color text video buffer.
-      Text80x25MonoPage0 = &HB0000%          '80x25 monochrome text video buffer.
-      VGA320x200 = &HA0000%                  '320x200 VGA video buffer.
+      Text80x25MonoBuffer = &HB0000%         '80x25 monochrome text video buffer.
+      VGABuffer = &HA0000%                   'VGA video buffer.
       VideoMode = &H449%                     'Current video mode.
       VideoModeOptions = &H487%              'Video mode options.
       VideoPage = &H462%                     'Current video page.
@@ -73,8 +72,26 @@ Public Module BIOSModule
       VGA640x480Mono = &H11%   '640x480 monochrome VGA.
    End Enum
 
+   'This enumeration lists the video page sizes for the video modes.
+   Public Enum VideoPageSizesE As Integer
+      CGA320x200A = &H4000%       '320x200 CGA.
+      CGA320x200B = &H4000%       '320x200 CGA.
+      CGA640x200 = &H4000%        '640x200 CGA.
+      EGA320x200 = &H7D00%        '320x200 EGA.
+      EGA640x200 = &HFA00%        '640x200 EGA.
+      EGA640x350 = &H1B580%       '640x350 EGA.
+      EGA640x350Mono = &H6D60%    '640x350 monochrome EGA.
+      Text40x25Color = &H7D0%     '40x25 color text.
+      Text40x25Mono = &H7D0%      '40x25 monochrome text.
+      Text80x25Color = &HFA0%     '80x25 color text.
+      Text80x25Gray = &HFA0%      '80x25 gray text.
+      Text80x25Mono = &HFA0%      '80x25 monochrome text.
+      VGA320x200 = &HFA00%        '320x200 VGA.
+      VGA640x480 = &H25800%       '640x480 VGA.
+      VGA640x480Mono = &H25800%   '640x480 monochrome VGA.
+   End Enum
+
    Public Const BIOS_SEGMENT As Integer = &H40%                              'Defines the BIOS segment.
-   Public Const CGA_320_x_200_BUFFER_SIZE As Integer = &H4000%               'Defines the 320x200 CGA mode video memory's size.
    Public Const CGA_320_X_200_BYTES_PER_ROW As Integer = &H50%               'Defines the number of bytes per row used by 320x200 CGA mode 
    Public Const CGA_320_X_200_LINES_PER_CHARACTER As Integer = &H8%          'Defines the number of lines per character used by 320x200 CGA mode 
    Public Const CGA_320_X_200_PIXELS_PER_BYTE As Integer = &H4%              'Defines the number of pixels per byte used by 320x200 CGA mode.
@@ -88,9 +105,6 @@ Public Module BIOSModule
    Public Const MAXIMUM_CLOCK_VALUE As Integer = &H1800B0%                   'Defines the highest value reached by the clock just before midnight.
    Public Const MAXIMUM_VIDEO_PAGE_COUNT As Integer = &H8%                   'Defines the maximum number of video pages.
    Public Const TEXT_80_X_25_BYTES_PER_ROW As Integer = &HA0%                'Defines the number of bytes per row used by 80x25 monochrome text mode 
-   Public Const TEXT_80_X_25_COLOR_BUFFER_SIZE As Integer = &HFA0%           'Defines the 80x25 color text mode video memory's size.
-   Public Const TEXT_80_X_25_MONO_BUFFER_SIZE As Integer = &HFA0%            'Defines the 80x25 monochrome text mode video memory's size.
-   Public Const VGA_320_x_200_BUFFER_SIZE As Integer = &HFA00%               'Defines the 320x200 VGA mode video memory's size.
    Public Const VGA_320_X_200_BYTES_PER_ROW As Integer = &H140%              'Defines the number of bytes per row used by 320x200 VGA mode 
    Public Const VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE As Integer = &H8%    'Defines the number of per character side used by 320x200 VGA mode 
    Private Const BIOS_MEMORY_SIZE As Integer = &H280%                         'Defines the BIOS memory size in 1kb blocks.
@@ -165,122 +179,68 @@ Public Module BIOSModule
    'This procedure emulates character output in Teletype mode.
    Public Sub TeleType(Character As Byte, Optional Attribute As Integer? = Nothing)
       Try
-         Dim ScrollArea As New VideoAdapterClass.ScreenAreaStr With {.ULCColumn = &H0%, .ULCRow = &H0%, .LRCColumn = MCC.ColumnCount() - &H1%, .LRCRow = MCC.RowCount()}
-         Dim ScrollAttribute As New Byte
-         Dim VideoPage As Integer = CPU.Registers(SubRegisters8BitE.BH)
-         Dim VideoPageAddress As New Integer
+         Dim ScrollAttribute As New Byte?
+         Dim VideoPageAddress As Integer = MCC.VideoPageAddress()
 
          CursorPositionUpdate()
 
          Select Case MCC.CurrentVideoMode
-            Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B, VideoModesE.VGA320x200
-               Select Case MCC.CurrentVideoMode
-                  Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B
-                     VideoPageAddress = AddressesE.CGA320x200
-                  Case VideoModesE.VGA320x200
-                     VideoPageAddress = AddressesE.VGA320x200
-               End Select
-
-               Attribute = CPU.Registers(SubRegisters8BitE.BL)
-
-               Select Case DirectCast(Character, TeletypeE)
-                  Case TeletypeE.BEL
-                     Task.Run(Sub() Console.Beep())
-                  Case TeletypeE.BS
-                     If Cursor.X > &H0% Then Cursor.X -= &H1%
-                  Case TeletypeE.CR
-                     Cursor.X = &H0%
-                  Case TeletypeE.LF
-                     If Cursor.Y < MCC.RowCount() - &H1% Then
-                        Cursor.Y += &H1%
-                     Else
-                        VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
-                     End If
-                  Case TeletypeE.TAB
-                     Cursor.X = ((Cursor.X \ &H8%) + &H1%) * &H8%
-                     If Cursor.X >= MCC.ColumnCount() - &H1% Then
-                        Cursor.X = &H0%
-                        If Cursor.Y < MCC.RowCount() - &H1% Then
-                           Cursor.Y += &H1%
-                        Else
-                           VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
-                        End If
-                     End If
-                  Case Else
-                     VideoAdapter.DrawCharacter(Character, Attribute.Value)
-
-                     If Cursor.X < MCC.ColumnCount() - &H1% Then
-                        Cursor.X += &H1%
-                     Else
-                        Cursor.X = &H0%
-                        If Cursor.Y < MCC.RowCount() - &H1% Then
-                           Cursor.Y += &H1%
-                        Else
-                           VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
-                        End If
-                     End If
-               End Select
-
-               CPU.Memory(AddressesE.CursorPositions) = CByte(Cursor.X)
-               CPU.Memory(AddressesE.CursorPositions + &H1%) = CByte(Cursor.Y)
             Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono
-               Select Case MCC.CurrentVideoMode
-                  Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray
-                     VideoPageAddress = AddressesE.Text80x25ColorPage0
-                  Case VideoModesE.Text80x25Mono
-                     VideoPageAddress = AddressesE.Text80x25MonoPage0
-               End Select
-
                ScrollAttribute = CPU.Memory(VideoPageAddress + ((Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%)) + &H1%)
-               CPU.Registers(SubRegisters8BitE.BH, NewValue:=ScrollAttribute)
+            Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B, VideoModesE.VGA320x200
+               Attribute = CPU.Registers(SubRegisters8BitE.BL)
+         End Select
 
-               Select Case DirectCast(Character, TeletypeE)
-                  Case TeletypeE.BEL
-                     Task.Run(Sub() Console.Beep())
-                  Case TeletypeE.BS
-                     If Cursor.X > &H0% Then Cursor.X -= &H1%
-                  Case TeletypeE.CR
-                     Cursor.X = &H0%
-                  Case TeletypeE.LF
-                     If Cursor.Y < MCC.RowCount() - &H1% Then
-                        Cursor.Y += &H1%
-                     Else
-                        VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
-                     End If
-                  Case TeletypeE.TAB
-                     Cursor.X = ((Cursor.X \ &H8%) + &H1%) * &H8%
+         Select Case DirectCast(Character, TeletypeE)
+            Case TeletypeE.BEL
+               Task.Run(Sub() Console.Beep())
+            Case TeletypeE.BS
+               If Cursor.X > &H0% Then Cursor.X -= &H1%
+            Case TeletypeE.CR
+               Cursor.X = &H0%
+            Case TeletypeE.LF
+               If Cursor.Y < MCC.RowCount() - &H1% Then
+                  Cursor.Y += &H1%
+               Else
+                  ScrollUp(ScrollAttribute)
+               End If
+            Case TeletypeE.TAB
+               Cursor.X = ((Cursor.X \ &H8%) + &H1%) * &H8%
 
-                     If Cursor.X >= MCC.ColumnCount() - &H1% Then
-                        Cursor.X = &H0%
-                        If Cursor.Y < MCC.RowCount() - &H1% Then
-                           Cursor.Y += &H1%
-                        Else
-                           VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
-                        End If
-                     End If
-                  Case Else
+               If Cursor.X >= MCC.ColumnCount() - &H1% Then
+                  Cursor.X = &H0%
+                  If Cursor.Y < MCC.RowCount() - &H1% Then
+                     Cursor.Y += &H1%
+                  Else
+                     ScrollUp(ScrollAttribute)
+                  End If
+               End If
+            Case Else
+               Select Case MCC.CurrentVideoMode
+                  Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B, VideoModesE.VGA320x200
+                     VideoAdapter.DrawCharacter(Character, Attribute.Value)
+                  Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono
                      CPU.Memory(VideoPageAddress + (Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%)) = Character
                      If Attribute IsNot Nothing Then
                         CPU.Memory(VideoPageAddress + (Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%) + &H1%) = CByte(Attribute.Value)
                      End If
-
-                     If Cursor.X < MCC.ColumnCount() - &H1% Then
-                        Cursor.X += &H1%
-                     Else
-                        Cursor.X = &H0%
-                        If Cursor.Y < MCC.RowCount() - &H1% Then
-                           Cursor.Y += &H1%
-                        Else
-                           VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
-                        End If
-                     End If
                End Select
+
+               If Cursor.X < MCC.ColumnCount() - &H1% Then
+                  Cursor.X += &H1%
+               Else
+                  Cursor.X = &H0%
+                  If Cursor.Y < MCC.RowCount() - &H1% Then
+                     Cursor.Y += &H1%
+                  Else
+                     ScrollUp(ScrollAttribute)
+                  End If
+               End If
          End Select
 
          CPU.Memory(AddressesE.CursorPositions) = CByte(Cursor.X)
          CPU.Memory(AddressesE.CursorPositions + &H1%) = CByte(Cursor.Y)
          CursorPositionUpdate()
-         CPU.Registers(SubRegisters8BitE.BH, NewValue:=VideoPage)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -302,6 +262,24 @@ Public Module BIOSModule
          SyncLock SYNCHRONIZER
             CPU.DoSystemTimerTick = True
          End SyncLock
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure gives the command to scroll the screen buffer up.
+   Private Sub ScrollUp(ScrollAttribute As Byte?)
+      Try
+         Dim BH As Byte = CByte(CPU.Registers(SubRegisters8BitE.BH))
+         Dim ScrollArea As New VideoAdapterClass.ScreenAreaStr With {.ULCColumn = &H0%, .ULCRow = &H0%, .LRCColumn = MCC.ColumnCount() - &H1%, .LRCRow = MCC.RowCount()}
+
+         If ScrollAttribute IsNot Nothing Then
+            CPU.Registers(SubRegisters8BitE.BH, NewValue:=ScrollAttribute)
+         End If
+
+         VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
+
+         CPU.Registers(SubRegisters8BitE.BH, NewValue:=BH)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

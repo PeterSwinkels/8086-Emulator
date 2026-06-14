@@ -118,8 +118,8 @@ Public Class MSDOSClass
       Public IsFile As Boolean     'Indicates whether or not the item is a file.
    End Structure
 
-   Public Const COMMAND_TAIL_MAXIMUM_LENGTH As Integer = &H7E%         'Defines the maximum length of a command tail in a PSP.
    Private Const CARRY_FLAG_INDEX As Integer = &H0%                     'Defines the carry flag's bit index.
+   Private Const COMMAND_TAIL_MAXIMUM_LENGTH As Integer = &H7E%         'Defines the maximum length of a command tail in a PSP.
    Private Const COUNTRY_INFORMATION_BUFFER_SIZE As Integer = &H28%     'Defines the country information buffer size.
    Private Const DPT_SIZE As Integer = &H1F                             'Defines the drive parameter table's size.
    Private Const ERROR_ACCESS_DENIED As Integer = &H5%                  'Defines the access denied error code.
@@ -151,7 +151,7 @@ Public Class MSDOSClass
    Private Const INT_20H As Integer = &H20CD%                           'Defines the INT 20h instruction.
    Private Const INT_25H_26H_DISK_NOT_READY As Integer = &H8002%        'Defines the INT 25h/26h disk not ready error code.
    Private Const INT_26H_WRITE_PROTECT_ERROR As Integer = &H300%        'Defines the INT 26h write protect error code.
-   Private Const INVALID_CHARACTERS As String = "*<>?[]| """            'Defines the characters that are invalid in an MS-DOS file system item name.
+   Private Const INVALID_FILENAME_CHARACTERS As String = "*<>?[]| """   'Defines the characters that are invalid in an MS-DOS file system item name.
    Private Const LOWEST_ALLOCATABLE_ADDRESS As Integer = &H600%         'Defines the lowest address that can be allocated.
    Private Const LOWEST_EXECUTABLE_ADDRESS As Integer = &H2000%         'Defines the lowest address used to load an executable.
    Private Const MS_DOS As Integer = &HFF00%                            'Defines a value indicating that the operating system is MS-DOS.
@@ -184,28 +184,30 @@ Public Class MSDOSClass
    Private ReadOnly EXE_MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}                                                                                                      'Defines the signature of an MZ executable.
    Private ReadOnly INT_21H_RETN() As Byte = {&H88%, &HCC%, &HCD%, &H21%, &HC3%}                                                                                     'Defines the MOV AH,CL, INT 21h and RETN instructions.
    Private ReadOnly INT_21H_RETF() As Byte = {&HCD%, &H21%, &HCB%}                                                                                                   'Defines the INT 21h and RETF instructions.
+   Private ReadOnly INVALID_PSP_FCB_CHARACTERS As String = $";,= {ToChar(&H9%)}"                                                                                     'Defines the invalid characters for a PSP's FCB.
    Private ReadOnly LOWEST_FILE_HANDLE As Integer = STDFileHandlesE.STDPRN + &H1%                                                                                    'Defines the lowest possible file handle.
    Private ReadOnly TIME_TO_MSDOS_TIME As Func(Of Date, Integer) = Function([Time] As Date) Time.Second Or (Time.Minute << &H5%) Or (Time.Hour << &HB%)              'Converts the specified time to a value suitable for MS-DOS and returns the result.
 
-   Public CommandTail As String = ""                                'Contains the command tail used in a new PSP.
-   Private Allocations As New List(Of Tuple(Of Integer, Integer))    'Contains the memory allocations.
-   Private AvailableDevices As Boolean = True                        'Contains the AVAILDEV flag.
-   Private BootDrive As Integer = &H0%                               'Contains the boot drive.
-   Private CTRLBreakCheck As Boolean = False                         'Contains the control-break checking status.
-   Private DTAOffset As New Integer                                  'Contains the Disk Transfer Address offset.
-   Private DTASegment As New Integer                                 'Contains the Disk Transfer Address segment.
-   Private EnvironmentText As String = ""                            'Contains the MS-DOS environment text.
-   Private ExtendedCTRLBreakCheck As Boolean = False                 'Contains the extended control-break checking status.
-   Private ExtendedErrorInformation As ExtendedErrorStr              'Contains the extended error information.
-   Private ExtendedKeyCode As New Integer?                           'Contains an extended keycode.
-   Private MemoryAllocationStrategy As MASE = MASE.FirstFit          'Contains the memory allocation strategy used.
-   Private MSDOSCurrentDirectory As List(Of String)                  'Contains a list made up of the current directory and its parent directories.
-   Private OpenFiles As New List(Of Tuple(Of FileStream, Integer))   'Contains the open file streams and their handles.
-   Private PrinterBuffer As New StringBuilder                        'Contains the printer buffer.
-   Private ProcessIDs As New List(Of Integer)                        'Contains the list process's ids.
-   Private ProcessSegments As New Stack(Of Integer)                  'Contains the segments allocated to processes.
-   Private SwitchCharacter As Char = "-"c                            'Contains the switch character.
-   Private Verify As Boolean = False                                 'Contains the verify flag.
+   Public CommandTail As String = ""                                           'Contains the command tail used in a new PSP.
+   Private Allocations As New List(Of Tuple(Of Integer, Integer))               'Contains the memory allocations.
+   Private AvailableDevices As Boolean = True                                   'Contains the AVAILDEV flag.
+   Private BootDrive As Integer = &H0%                                          'Contains the boot drive.
+   Private CTRLBreakCheck As Boolean = False                                    'Contains the control-break checking status.
+   Private DTAOffset As New Integer                                             'Contains the Disk Transfer Address offset.
+   Private DTASegment As New Integer                                            'Contains the Disk Transfer Address segment.
+   Private EnvironmentText As String = ""                                       'Contains the MS-DOS environment text.
+   Private ExtendedCTRLBreakCheck As Boolean = False                            'Contains the extended control-break checking status.
+   Private ExtendedErrorInformation As ExtendedErrorStr                         'Contains the extended error information.
+   Private ExtendedKeyCode As New Integer?                                      'Contains an extended keycode.
+   Private MemoryAllocationStrategy As MASE = MASE.FirstFit                     'Contains the memory allocation strategy used.
+   Private MSDOSCurrentDirectory As List(Of String)                             'Contains a list made up of the current directory and its parent directories.
+   Private OpenFiles As New List(Of Tuple(Of FileStream, Integer))              'Contains the open file streams and their handles.
+   Private PrinterBuffer As New StringBuilder                                   'Contains the printer buffer.
+   Private ProcessIDs As New List(Of Integer)                                   'Contains the list process's ids.
+   Private ProcessSegments As New Stack(Of Integer)                             'Contains the segments allocated to processes.
+   Private PSPFCB As New List(Of List(Of Byte))({DefaultFCB(), DefaultFCB()})   'Contains the first and second default FCBs.
+   Private SwitchCharacter As Char = "-"c                                       'Contains the switch character.
+   Private Verify As Boolean = False                                            'Contains the verify flag.
 
    Private WithEvents PrinterDocumentO As New PrintDocument   'Contains the document with output to STDPRN to be printed.
 
@@ -445,7 +447,7 @@ Public Class MSDOSClass
          Dim PathName As String = GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)})
 
          Try
-            If INVALID_CHARACTERS.Intersect(PathName).Count > 0 OrElse PathName.Count(Function(Character) Character = "."c) > 1 Then
+            If INVALID_FILENAME_CHARACTERS.Intersect(PathName).Count > 0 OrElse PathName.Count(Function(Character) Character = "."c) > 1 Then
                Throw New ArgumentException
             End If
 
@@ -468,7 +470,7 @@ Public Class MSDOSClass
          Dim NextHandle As New Integer?
 
          Try
-            If INVALID_CHARACTERS.Intersect(FileName).Count > 0 OrElse FileName.Count(Function(Character) Character = "."c) > 1 Then
+            If INVALID_FILENAME_CHARACTERS.Intersect(FileName).Count > 0 OrElse FileName.Count(Function(Character) Character = "."c) > 1 Then
                Throw New ArgumentException
             End If
 
@@ -508,8 +510,8 @@ Public Class MSDOSClass
          CPU.PutWord(Address + PSP_ENVIRONMENT_SEGMENT, ENVIRONMENT_SEGMENT)
          CPU.PutWord(Address + PSP_PREVIOUS_PSP, &HFFFF%)
          CPU.PutWord(Address + PSP_PREVIOUS_PSP + &H2%, &HFFFF%)
-         WriteBytesToMemory(DefaultFCB(), Address + PSP_FCB_1)
-         WriteBytesToMemory(DefaultFCB(), Address + PSP_FCB_2)
+         WriteBytesToMemory(PSPFCB(0).ToArray(), Address + PSP_FCB_1)
+         WriteBytesToMemory(PSPFCB(1).ToArray(), Address + PSP_FCB_2)
          WriteBytesToMemory(INT_21H_RETN, Address + PSP_INT_21H_RN)
          WriteBytesToMemory(INT_21H_RETF, Address + PSP_INT_21H_RF)
          CPU.Memory(Address + PSP_COMMAND_TAIL) = ToByte(CommandTail.Length)
@@ -520,13 +522,13 @@ Public Class MSDOSClass
    End Sub
 
    'This procedure returns a default FCB.
-   Private Function DefaultFCB() As Byte()
+   Private Function DefaultFCB() As List(Of Byte)
       Dim FCB As New List(Of Byte)({&H0%})
 
       FCB.AddRange(Enumerable.Repeat(CByte(&H20%), &HB%).ToArray())
       FCB.AddRange(Enumerable.Repeat(CByte(&H0%), &H18%).ToArray())
 
-      Return FCB.ToArray()
+      Return FCB
    End Function
 
    'This procedure deletes a directory.
@@ -686,7 +688,7 @@ Public Class MSDOSClass
          Dim FilePath As String = $"{FileName}.{Extension}"
 
          Try
-            If INVALID_CHARACTERS.Intersect(FilePath).Count > 0 OrElse FilePath.Count(Function(Character) Character = "."c) > 1 Then
+            If INVALID_FILENAME_CHARACTERS.Intersect(FilePath).Count > 0 OrElse FilePath.Count(Function(Character) Character = "."c) > 1 Then
                Throw New ArgumentException
             End If
 
@@ -837,7 +839,7 @@ Public Class MSDOSClass
                   Exit For
                End If
                Character = FilePattern.Chars(Index)
-               If $".\/{INVALID_CHARACTERS}".Contains(Character) Then
+               If $".\/{INVALID_FILENAME_CHARACTERS}".Contains(Character) Then
                   If Character = "."c Then IsPeriod = True
                   Exit For
                End If
@@ -853,7 +855,7 @@ Public Class MSDOSClass
 
                   Character = FilePattern.Chars(Index + FCBFileName.Length + 1)
 
-                  If $".\/{INVALID_CHARACTERS}".Contains(Character) Then
+                  If $".\/{INVALID_FILENAME_CHARACTERS}".Contains(Character) Then
                      Exit For
                   End If
 
@@ -1323,22 +1325,28 @@ Public Class MSDOSClass
          Dim BytesPerSector As New Integer
          Dim Drive As Integer = CPU.Registers(SubRegisters8BitE.DL)
          Dim DriveLetter As Char = If(Drive = &H0%, CurrentDirectory.ToCharArray.First, ToChar(Drive + ToInt32("@"c)))
-         Dim DriveInformation As New DriveInfo(DriveLetter)
+         Dim DriveInformation As DriveInfo = Nothing
          Dim FreeClusterCount As New Integer
          Dim SectorsPerCluster As New Integer
          Dim TotalClusterCount As New Integer
 
-         If DriveInformation.IsReady Then
-            SizeToBCS(DriveInformation.TotalSize, BytesPerSector, TotalClusterCount, SectorsPerCluster)
-            SizeToBCS(DriveInformation.TotalFreeSpace, BytesPerSector, FreeClusterCount, SectorsPerCluster)
+         Try
+            DriveInformation = New DriveInfo(DriveLetter)
 
-            CPU.Registers(Registers16BitE.AX, NewValue:=SectorsPerCluster)
-            CPU.Registers(Registers16BitE.CX, NewValue:=BytesPerSector)
-            CPU.Registers(Registers16BitE.DX, NewValue:=TotalClusterCount)
-            CPU.Registers(Registers16BitE.BX, NewValue:=FreeClusterCount)
-         Else
+            If DriveInformation.IsReady Then
+               SizeToBCS(DriveInformation.TotalSize, BytesPerSector, TotalClusterCount, SectorsPerCluster)
+               SizeToBCS(DriveInformation.TotalFreeSpace, BytesPerSector, FreeClusterCount, SectorsPerCluster)
+
+               CPU.Registers(Registers16BitE.AX, NewValue:=SectorsPerCluster)
+               CPU.Registers(Registers16BitE.CX, NewValue:=BytesPerSector)
+               CPU.Registers(Registers16BitE.DX, NewValue:=TotalClusterCount)
+               CPU.Registers(Registers16BitE.BX, NewValue:=FreeClusterCount)
+            Else
+               CPU.Registers(Registers16BitE.AX, NewValue:=&HFFFF%)
+            End If
+         Catch
             CPU.Registers(Registers16BitE.AX, NewValue:=&HFFFF%)
-         End If
+         End Try
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -2395,7 +2403,7 @@ Public Class MSDOSClass
          Dim NewName As String = GetStringZ(CPU.Registers(SegmentRegistersE.ES), CPU.Registers(Registers16BitE.DI)).Trim({ToChar(&H0%)})
          Dim OldName As String = GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)})
 
-         If INVALID_CHARACTERS.Intersect(NewName).Count > 0 OrElse NewName.Count(Function(Character) Character = "."c) > 1 Then
+         If INVALID_FILENAME_CHARACTERS.Intersect(NewName).Count > 0 OrElse NewName.Count(Function(Character) Character = "."c) > 1 Then
             Throw New ArgumentException
          End If
 
@@ -2437,6 +2445,80 @@ Public Class MSDOSClass
                   Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
                End Try
          End Select
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure sets the specified command tail.
+   Public Sub SetCommandTail(NewCommandTail As String)
+      Try
+         Dim FCBDrive() As Byte = {&H0%, &H0%}
+         Dim FCBExtension() As String = {"", ""}
+         Dim FCBFileName() As String = {"", ""}
+
+         CommandTail = NewCommandTail
+
+         For Each RedirectionCharacter As Char In "<>|"
+            If CommandTail.Contains(RedirectionCharacter) Then
+               CommandTail = CommandTail.Substring(0, CommandTail.IndexOf(RedirectionCharacter))
+               Exit For
+            End If
+         Next RedirectionCharacter
+
+         If CommandTail.Contains(" "c) Then
+            FCBFileName(0) = CommandTail.Substring(0, CommandTail.IndexOf(" "c)).ToUpper()
+            FCBFileName(1) = CommandTail.Substring(CommandTail.IndexOf(" "c) + 1).ToUpper()
+            If FCBFileName(1).Contains(" "c) Then
+               FCBFileName(1) = FCBFileName(1).Substring(0, FCBFileName(1).IndexOf(" "c)).ToUpper()
+            End If
+         ElseIf CommandTail.Trim().StartsWith("*"c) Then
+            FCBFileName(0) = CommandTail.Substring(0, CommandTail.IndexOf("*"c) + 1).ToUpper()
+            FCBFileName(1) = CommandTail.Substring(CommandTail.IndexOf("*"c) + 1).ToUpper()
+            If FCBFileName(1).Contains(" "c) Then
+               FCBFileName(1) = FCBFileName(1).Substring(0, FCBFileName(1).IndexOf(" "c)).ToUpper()
+            End If
+         Else
+            FCBFileName(0) = CommandTail.ToUpper()
+         End If
+
+         For FCB As Integer = 0 To 1
+            RemoveCharacters(FCBFileName(FCB), INVALID_PSP_FCB_CHARACTERS)
+
+            If FCBFileName(FCB).Contains(":"c) Then
+               FCBDrive(FCB) = ToByte(FCBFileName(FCB).ToCharArray().First) - ToByte("@"c)
+               FCBFileName(FCB) = FCBFileName(FCB).Substring(FCBFileName(FCB).IndexOf(":"c) + 1)
+            End If
+
+            If FCBFileName(FCB).Contains("."c) Then
+               FCBExtension(FCB) = FCBFileName(FCB).Substring(FCBFileName(FCB).IndexOf("."c) + 1)
+               FCBFileName(FCB) = FCBFileName(FCB).Substring(0, FCBFileName(FCB).IndexOf("."c))
+            End If
+
+            If FCBFileName(FCB).Length > 8 Then FCBFileName(FCB) = FCBFileName(FCB).Substring(0, 8)
+            If FCBExtension(FCB).Length > 3 Then FCBExtension(FCB) = FCBExtension(FCB).Substring(0, 3)
+
+            If FCBFileName(FCB).EndsWith("*"c) Then
+               RemoveCharacters(FCBFileName(FCB), "*"c)
+               FCBFileName(FCB) = $"{FCBFileName(FCB)}{New String("?"c, 8 - FCBFileName(FCB).Length)}"
+            End If
+            If FCBExtension(FCB).EndsWith("*"c) Then
+               RemoveCharacters(FCBExtension(FCB), "*"c)
+               FCBExtension(FCB) = $"{FCBExtension(FCB)}{New String("?"c, 8 - FCBExtension(FCB).Length)}"
+            End If
+
+            FCBFileName(FCB) = $"{FCBFileName(FCB),-8}"
+            FCBExtension(FCB) = $"{FCBExtension(FCB),-3}"
+
+            PSPFCB(FCB) = {FCBDrive(FCB)}.ToList()
+            PSPFCB(FCB).AddRange(From Character In FCBFileName(FCB) Select ToByte(Character))
+            PSPFCB(FCB).AddRange(From Character In FCBExtension(FCB) Select ToByte(Character))
+            PSPFCB(FCB).AddRange(Enumerable.Repeat(CByte(&H0%), &H18%).ToArray())
+         Next FCB
+
+         If CommandTail.Length > COMMAND_TAIL_MAXIMUM_LENGTH Then
+            CommandTail = CommandTail.Substring(0, COMMAND_TAIL_MAXIMUM_LENGTH - 1)
+         End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
