@@ -177,7 +177,7 @@ Public Class MSDOSClass
 
    Private ReadOnly DATE_TO_MSDOS_DATE As Func(Of Date, Integer) = Function([Date] As Date) [Date].Day Or ([Date].Month << &H5%) Or (([Date].Year - 1980) << &H9%)   'Converts the specified date to a value suitable for MS-DOS and returns the result.
    Private ReadOnly DPT() As Byte = Enumerable.Repeat(CByte(&H0%), DPT_SIZE).ToArray()                                                                               'Defines a dummy drive paramter table.
-   Private ReadOnly ENVIRONMENT_SEGMENT As Integer = LOWEST_ALLOCATABLE_ADDRESS                                                                                      'Defines the MS-DOS environment's segment.
+   Private ReadOnly ENVIRONMENT_SEGMENT As Integer = LOWEST_ALLOCATABLE_ADDRESS >> &H4%                                                                              'Defines the MS-DOS environment's segment.
    Private ReadOnly FCTT_SEGMENT As Integer = ENVIRONMENT_SEGMENT + &H1%                                                                                             'Defines the filename character translation table's segment.
    Private ReadOnly DBCS_SEGMENT As Integer = ENVIRONMENT_SEGMENT + &H1%                                                                                             'Defines the Double-Byte Character Set table segment.
    Private ReadOnly DPT_SEGMENT As Integer = ENVIRONMENT_SEGMENT + &H1%                                                                                              'Defines the drive parameter table's segment.
@@ -390,8 +390,14 @@ Public Class MSDOSClass
    'This procedure changes the current drive.
    Private Sub ChangeDrive()
       Try
-         Directory.SetCurrentDirectory($"{ToChar(CPU.Registers(SubRegisters8BitE.DL) + ToByte("A"c))}:")
-      Catch
+         CPU.Registers(SubRegisters8BitE.AL, NewValue:=ToInt32(GetHighestDriveLetter()) - ToInt32("@"c))
+
+         Try
+            Directory.SetCurrentDirectory($"{ToChar(CPU.Registers(SubRegisters8BitE.DL) + ToByte("A"c))}:")
+         Catch
+         End Try
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
       End Try
    End Sub
 
@@ -424,21 +430,27 @@ Public Class MSDOSClass
 
    'This procedure returns the converted search pattern specified.
    Private Function ConvertSearchPattern(SearchPattern As String) As String
-      Dim NewSearchPattern As New StringBuilder
-      Dim PreviousCharacter As New Char
+      Try
+         Dim NewSearchPattern As New StringBuilder
+         Dim PreviousCharacter As New Char
 
-      For Each Character As Char In SearchPattern.ToCharArray()
-         If Character = "?"c Then
-            If Not PreviousCharacter = "?"c Then
-               NewSearchPattern.Append("*"c)
+         For Each Character As Char In SearchPattern.ToCharArray()
+            If Character = "?"c Then
+               If Not PreviousCharacter = "?"c Then
+                  NewSearchPattern.Append("*"c)
+               End If
+            Else
+               NewSearchPattern.Append(Character)
             End If
-         Else
-            NewSearchPattern.Append(Character)
-         End If
-         PreviousCharacter = Character
-      Next Character
+            PreviousCharacter = Character
+         Next Character
 
-      Return NewSearchPattern.ToString()
+         Return NewSearchPattern.ToString()
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return ""
    End Function
 
    'This procedure creates a directory.
@@ -492,7 +504,23 @@ Public Class MSDOSClass
       End Try
    End Sub
 
-   'This procedure creates a PSP.
+   'This procedure creates a MCB at the specified address.
+   Private Sub CreateMCB(Address As Integer, IsLast As Boolean, Owner As Integer, Size As Integer, Name As String)
+      Try
+         Dim MCB As New List(Of Byte)({ToByte(If(IsLast, "Z"c, "M"c))})
+
+         MCB.AddRange(BitConverter.GetBytes(ToUInt16(Owner)))
+         MCB.AddRange(BitConverter.GetBytes(ToUInt16(Ceiling(Size / &H10%))))
+         MCB.AddRange({&H0%, &H0%, &H0%})
+         MCB.AddRange(From Character In If(Name.Length > 8, Name.Substring(0, 8), $"{Name,-8}") Select ToByte(Character))
+
+         WriteBytesToMemory(MCB.ToArray(), Address)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure creates a PSP at the specified address.
    Private Sub CreatePSP(Address As Integer)
       Try
          CPU.PutWord(Address + PSP_INT_20H, INT_20H)
@@ -1894,7 +1922,7 @@ Public Class MSDOSClass
                            Address = (CPU.Registers(SegmentRegistersE.ES) << &H4%) + CPU.Registers(Registers16BitE.DI)
                            CPU.Memory(Address) = &H4%
                            CPU.PutWord(Address + &H1%, &H0%)
-                           CPU.PutWord(Address + &H3%, FCTT_SEGMENT)
+                           CPU.PutWord(Address + &H3%, FCTT_SEGMENT << &H4%)
                            Success = True
                      End Select
                End Select
@@ -2011,6 +2039,28 @@ Public Class MSDOSClass
       Return Nothing
    End Function
 
+   'This function returns the highest letter assigned to a disk drive.
+   Private Function GetHighestDriveLetter() As Char
+      Try
+         Dim HighestLetter As Char = "A"c
+
+         For Letter As Integer = ToInt32("A"c) To ToInt32("Z"c)
+            Try
+               If New DriveInfo(ToChar(Letter)).IsReady Then
+                  HighestLetter = ToChar(Letter)
+               End If
+            Catch
+            End Try
+         Next Letter
+
+         Return HighestLetter
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return New Char
+   End Function
+
    'This procedure loads a MS-DOS compact executable.
    Private Sub LoadCompactExecutable(Executable As List(Of Byte), FileName As String, LoadAddress As Integer)
       Try
@@ -2060,7 +2110,7 @@ Public Class MSDOSClass
          Verify = False
 
          CPU.PutWord(DBCS_SEGMENT << &H4%, &H0%)
-         WriteBytesToMemory(DPT, DPT_SEGMENT)
+         WriteBytesToMemory(DPT, DPT_SEGMENT << &H4%)
          WriteStringToMemory(EnvironmentText, ENVIRONMENT_SEGMENT << &H4%)
 
          UpdateMSDOSPath()
@@ -2076,7 +2126,9 @@ Public Class MSDOSClass
       Try
          Dim AllocatedAddress As New Integer
          Dim Executable As New List(Of Byte)(File.ReadAllBytes(FileName))
+         Dim EXEPath As String = Path.GetDirectoryName(FileName)
          Dim LoadAddress As Integer = CPU.Registers(SegmentRegistersE.CS) << &H4%
+         Dim MCBName As String = GetShortName(GetFileSystemItems(If(EXEPath = Nothing, CurrentDirectory(), EXEPath), FileName), FileName)
          Dim Success As Boolean = True
 
          If Executable.Count >= &H2% AndAlso Executable.GetRange(&H0%, EXE_MZ_SIGNATURE.Length).SequenceEqual(EXE_MZ_SIGNATURE) Then
@@ -2098,6 +2150,10 @@ Public Class MSDOSClass
             DTAOffset = &H0%
 
             ProcessIDs.Add(LoadAddress >> &H4%)
+
+            If MCBName.Contains("."c) Then MCBName = MCBName.Substring(0, MCBName.IndexOf("."c))
+            CreateMCB((ENVIRONMENT_SEGMENT - &H1%) << &H4%, IsLast:=True, ProcessIDs.Last, Executable.Count, MCBName)
+
             WritePathToEnvironmentBlock(FileName)
          End If
 
