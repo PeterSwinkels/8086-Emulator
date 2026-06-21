@@ -9,8 +9,6 @@ Imports System
 Imports System.Collections.Generic
 Imports System.Convert
 Imports System.DateTime
-Imports System.Drawing
-Imports System.Drawing.Printing
 Imports System.Environment
 Imports System.IO
 Imports System.Linq
@@ -175,18 +173,19 @@ Public Class MSDOSClass
    Private Const VERSION As VersionsE = VersionsE.v500                  'Defines the emulated MS-DOS version.
    Private Const VOLUME_ATTRIBUTE As Integer = &H8%                     'Defines the volume label attribute.
 
-   Private ReadOnly DATE_TO_MSDOS_DATE As Func(Of Date, Integer) = Function([Date] As Date) [Date].Day Or ([Date].Month << &H5%) Or (([Date].Year - 1980) << &H9%)   'Converts the specified date to a value suitable for MS-DOS and returns the result.
-   Private ReadOnly DPT() As Byte = Enumerable.Repeat(CByte(&H0%), DPT_SIZE).ToArray()                                                                               'Defines a dummy drive paramter table.
-   Private ReadOnly ENVIRONMENT_SEGMENT As Integer = LOWEST_ALLOCATABLE_ADDRESS >> &H4%                                                                              'Defines the MS-DOS environment's segment.
-   Private ReadOnly FCTT_SEGMENT As Integer = ENVIRONMENT_SEGMENT + &H1%                                                                                             'Defines the filename character translation table's segment.
-   Private ReadOnly DBCS_SEGMENT As Integer = ENVIRONMENT_SEGMENT + &H1%                                                                                             'Defines the Double-Byte Character Set table segment.
-   Private ReadOnly DPT_SEGMENT As Integer = ENVIRONMENT_SEGMENT + &H1%                                                                                              'Defines the drive parameter table's segment.
-   Private ReadOnly EXE_MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}                                                                                                      'Defines the signature of an MZ executable.
-   Private ReadOnly INT_21H_RETN() As Byte = {&H88%, &HCC%, &HCD%, &H21%, &HC3%}                                                                                     'Defines the MOV AH,CL, INT 21h and RETN instructions.
-   Private ReadOnly INT_21H_RETF() As Byte = {&HCD%, &H21%, &HCB%}                                                                                                   'Defines the INT 21h and RETF instructions.
-   Private ReadOnly INVALID_PSP_FCB_CHARACTERS As String = $";,= {ToChar(&H9%)}"                                                                                     'Defines the invalid characters for a PSP's FCB.
-   Private ReadOnly LOWEST_FILE_HANDLE As Integer = STDFileHandlesE.STDPRN + &H1%                                                                                    'Defines the lowest possible file handle.
-   Private ReadOnly TIME_TO_MSDOS_TIME As Func(Of Date, Integer) = Function([Time] As Date) Time.Second Or (Time.Minute << &H5%) Or (Time.Hour << &HB%)              'Converts the specified time to a value suitable for MS-DOS and returns the result.
+   Private ReadOnly DATE_TO_MSDOS_DATE As Func(Of Date, Integer) = Function([Date] As Date) [Date].Day Or ([Date].Month << &H5%) Or (([Date].Year - 1980) << &H9%)                                                                      'Converts the specified date to a value suitable for MS-DOS and returns the result.
+   Private ReadOnly DEVICE_FILES As New List(Of String)({"AUX", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "CON", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9", "NUL", "PRN"})   'Contains the list of device file names.
+   Private ReadOnly DPT() As Byte = Enumerable.Repeat(CByte(&H0%), DPT_SIZE).ToArray()                                                                                                                                                  'Defines a dummy drive paramter table.
+   Private ReadOnly ENVIRONMENT_SEGMENT As Integer = LOWEST_ALLOCATABLE_ADDRESS >> &H4%                                                                                                                                                 'Defines the MS-DOS environment's segment.
+   Private ReadOnly FCTT_SEGMENT As Integer = ENVIRONMENT_SEGMENT + &H1%                                                                                                                                                                'Defines the filename character translation table's segment.
+   Private ReadOnly DBCS_SEGMENT As Integer = ENVIRONMENT_SEGMENT + &H1%                                                                                                                                                                'Defines the Double-Byte Character Set table segment.
+   Private ReadOnly DPT_SEGMENT As Integer = ENVIRONMENT_SEGMENT + &H1%                                                                                                                                                                 'Defines the drive parameter table's segment.
+   Private ReadOnly EXE_MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}                                                                                                                                                                         'Defines the signature of an MZ executable.
+   Private ReadOnly INT_21H_RETN() As Byte = {&H88%, &HCC%, &HCD%, &H21%, &HC3%}                                                                                                                                                        'Defines the MOV AH,CL, INT 21h and RETN instructions.
+   Private ReadOnly INT_21H_RETF() As Byte = {&HCD%, &H21%, &HCB%}                                                                                                                                                                      'Defines the INT 21h and RETF instructions.
+   Private ReadOnly INVALID_PSP_FCB_CHARACTERS As String = $";,= {ToChar(&H9%)}"                                                                                                                                                        'Defines the invalid characters for a PSP's FCB.
+   Private ReadOnly LOWEST_FILE_HANDLE As Integer = STDFileHandlesE.STDPRN + &H1%                                                                                                                                                       'Defines the lowest possible file handle.
+   Private ReadOnly TIME_TO_MSDOS_TIME As Func(Of Date, Integer) = Function([Time] As Date) Time.Second Or (Time.Minute << &H5%) Or (Time.Hour << &HB%)                                                                                 'Converts the specified time to a value suitable for MS-DOS and returns the result.
 
    Public CommandTail As String = ""                                           'Contains the command tail used in a new PSP.
    Private Allocations As New List(Of Tuple(Of Integer, Integer))               'Contains the memory allocations.
@@ -202,14 +201,11 @@ Public Class MSDOSClass
    Private MemoryAllocationStrategy As MASE = MASE.FirstFit                     'Contains the memory allocation strategy used.
    Private MSDOSCurrentDirectory As List(Of String)                             'Contains a list made up of the current directory and its parent directories.
    Private OpenFiles As New List(Of Tuple(Of FileStream, Integer))              'Contains the open file streams and their handles.
-   Private PrinterBuffer As New StringBuilder                                   'Contains the printer buffer.
    Private ProcessIDs As New List(Of Integer)                                   'Contains the list process's ids.
    Private ProcessSegments As New Stack(Of Integer)                             'Contains the segments allocated to processes.
    Private PSPFCB As New List(Of List(Of Byte))({DefaultFCB(), DefaultFCB()})   'Contains the first and second default FCBs.
    Private SwitchCharacter As Char = "-"c                                       'Contains the switch character.
    Private Verify As Boolean = False                                            'Contains the verify flag.
-
-   Private WithEvents PrinterDocumentO As New PrintDocument   'Contains the document with output to STDPRN to be printed.
 
    Private FileSystemItems As New List(Of FileSystemItemStr)  'Contains a list of the current directory's file system items.
 
@@ -318,15 +314,15 @@ Public Class MSDOSClass
             End If
 
             KeyCode = ReadCharacter() And &HFF%
-            Select Case KeyCode
-               Case &H8%
+            Select Case DirectCast(ToByte(KeyCode), TeletypeE)
+               Case TeletypeE.BS
                   If Buffer.Count > &H0% Then
-                     TeleType(TeletypeE.BS)
-                     TeleType(ToByte(" "c))
-                     TeleType(TeletypeE.BS)
+                     Teletype(TeletypeE.BS)
+                     Teletype(ToByte(" "c))
+                     Teletype(TeletypeE.BS)
                      Buffer.RemoveAt(Buffer.Count - &H1%)
                   End If
-               Case &HD%
+               Case TeletypeE.CR
                   Buffer.Add(ToByte(KeyCode))
                   CPU.Memory(Address + &H1%) = ToByte(Buffer.Count)
                   WriteBytesToMemory(Buffer.ToArray(), Address + &H2%)
@@ -334,12 +330,12 @@ Public Class MSDOSClass
                Case Else
                   If Buffer.Count < Maximum - &H1% Then
                      Buffer.Add(ToByte(KeyCode))
-                     TeleType(Buffer.Last)
+                     Teletype(Buffer.Last)
                      If KeyCode = &H0% Then
                         If Buffer.Count < Maximum - &H1% Then
                            KeyCode = ReadCharacter()
                            Buffer.Add(ToByte(KeyCode))
-                           TeleType(Buffer.Last)
+                           Teletype(Buffer.Last)
                         End If
                      End If
                   End If
@@ -707,6 +703,19 @@ Public Class MSDOSClass
       End Try
    End Sub
 
+   'This procedure closes a file using an FCB.
+   Private Sub FCBCloseFile()
+      Try
+         Dim Extension As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim()
+         Dim FCBOffset As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
+         Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim()
+
+         CPU.Registers(SubRegisters8BitE.AL, NewValue:=If(File.Exists(GetLongName(GetFileSystemItems(CurrentDirectory, "*.*"), $"{FileName}.{Extension}")), &H0%, &HFF%))
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
    'This procedure creates a file using an FCB.
    Private Sub FCBCreateFile()
       Try
@@ -721,13 +730,17 @@ Public Class MSDOSClass
             End If
 
             CPU.PutWord(FCBOffset + FCBE.CurrentBlock, &H0%)
-            CPU.PutWord(FCBOffset + FCBE.FileDate, DATE_TO_MSDOS_DATE(DateTime.Today))
+            CPU.PutWord(FCBOffset + FCBE.FileDate, DATE_TO_MSDOS_DATE(Today))
             CPU.PutWord(FCBOffset + FCBE.FileSize, &H0%)
             CPU.PutWord(FCBOffset + FCBE.FileSize + &H2%, &H0%)
-            CPU.PutWord(FCBOffset + FCBE.FileTime, TIME_TO_MSDOS_TIME(DateTime.Today))
+            CPU.PutWord(FCBOffset + FCBE.FileTime, TIME_TO_MSDOS_TIME(Today))
             CPU.PutWord(FCBOffset + FCBE.RecordSize, &H80%)
 
-            File.Create(FilePath)
+            If Not IsDeviceFile(FilePath) Then
+               Using FileO As FileStream = File.Create(FilePath)
+               End Using
+            End If
+
             CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
          Catch
             CPU.Registers(SubRegisters8BitE.AL, NewValue:=&HFF%)
@@ -814,19 +827,29 @@ Public Class MSDOSClass
          Dim FilePath As String = Nothing
          Dim FileSize As New Long
 
-         FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
-         FilePath = GetLongName(FileSystemItems, $"{FileName}.{Extension}")
+         If IsDeviceFile(FileName) Then
+            FilePath = FileName
+         Else
+            FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
+            FilePath = GetLongName(FileSystemItems, $"{FileName}.{Extension}")
+         End If
 
          Try
-            FileSize = New FileInfo(FilePath).Length
+            If IsDeviceFile(FilePath) Then
+               FileSize = &H0%
+               CPU.PutWord(FCBOffset + FCBE.FileDate, DATE_TO_MSDOS_DATE(Today))
+               CPU.PutWord(FCBOffset + FCBE.FileTime, TIME_TO_MSDOS_TIME(Today))
+            Else
+               FileSize = New FileInfo(FilePath).Length
+               CPU.PutWord(FCBOffset + FCBE.FileDate, DATE_TO_MSDOS_DATE(File.GetLastWriteTime(FilePath)))
+               CPU.PutWord(FCBOffset + FCBE.FileTime, TIME_TO_MSDOS_TIME(File.GetLastWriteTime(FilePath)))
+            End If
 
             CPU.PutWord(FCBOffset + FCBE.CurrentBlock, &H0%)
             CPU.Memory(FCBOffset + FCBE.RelativeRecordInBlock) = &H0%
             PutDWord(FCBOffset + FCBE.RelativeRecordFromStart, &H0%)
-            CPU.PutWord(FCBOffset + FCBE.FileDate, DATE_TO_MSDOS_DATE(File.GetLastWriteTime(FilePath)))
             CPU.PutWord(FCBOffset + FCBE.FileSize, CInt(FileSize And &HFFFF%))
             CPU.PutWord(FCBOffset + FCBE.FileSize + &H2%, CInt(FileSize) >> &H10%)
-            CPU.PutWord(FCBOffset + FCBE.FileTime, TIME_TO_MSDOS_TIME(File.GetLastWriteTime(FilePath)))
             CPU.PutWord(FCBOffset + FCBE.RecordSize, &H80%)
 
             CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
@@ -934,30 +957,34 @@ Public Class MSDOSClass
 
          If RecordSize >= &H40% Then RelativeRecordFromStart = RelativeRecordFromStart And &HFFFFFF%
 
-         FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
+         If IsDeviceFile(FileName) Then
+            CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1%)
+         Else
+            FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
 
-         Using FileO As New FileStream(GetLongName(FileSystemItems, $"{FileName}.{Extension}"), FileMode.Open, FileAccess.Read)
-            If RelativeRecordFromStart * RecordSize > FileO.Length Then
-               CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1%)
-            ElseIf (RelativeRecordFromStart * RecordSize) + (RecordSize * Count) > FileO.Length Then
-               FileO.Seek(RelativeRecordFromStart * RecordSize, SeekOrigin.Begin)
-               ReDim Buffer(0 To CInt(FileO.Length - (RelativeRecordFromStart * RecordSize)) - 1)
-               FileO.Read(Buffer, 0, Buffer.Count)
-               CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H3%)
-               Count = CInt(Ceiling(Buffer.Count / RecordSize))
-               RelativeRecordFromStart += 1
-            Else
-               FileO.Seek(RelativeRecordFromStart * RecordSize, SeekOrigin.Begin)
-               ReDim Buffer(0 To (RecordSize * Count) - 1)
-               FileO.Read(Buffer, 0, Buffer.Count)
-               CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
-               RelativeRecordFromStart += Count
-            End If
-         End Using
+            Using FileO As New FileStream(GetLongName(FileSystemItems, $"{FileName}.{Extension}"), FileMode.Open, FileAccess.Read)
+               If RelativeRecordFromStart * RecordSize > FileO.Length Then
+                  CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1%)
+               ElseIf (RelativeRecordFromStart * RecordSize) + (RecordSize * Count) > FileO.Length Then
+                  FileO.Seek(RelativeRecordFromStart * RecordSize, SeekOrigin.Begin)
+                  ReDim Buffer(0 To CInt(FileO.Length - (RelativeRecordFromStart * RecordSize)) - 1)
+                  FileO.Read(Buffer, 0, Buffer.Count)
+                  CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H3%)
+                  Count = CInt(Ceiling(Buffer.Count / RecordSize))
+                  RelativeRecordFromStart += 1
+               Else
+                  FileO.Seek(RelativeRecordFromStart * RecordSize, SeekOrigin.Begin)
+                  ReDim Buffer(0 To (RecordSize * Count) - 1)
+                  FileO.Read(Buffer, 0, Buffer.Count)
+                  CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
+                  RelativeRecordFromStart += Count
+               End If
+            End Using
 
-         CPU.Registers(Registers16BitE.CX, NewValue:=Count)
-         CPU.PutWord(FCBOffset + FCBE.RelativeRecordFromStart, RelativeRecordFromStart)
-         WriteBytesToMemory(Buffer, (DTASegment << &H4%) + DTAOffset)
+            CPU.Registers(Registers16BitE.CX, NewValue:=Count)
+            CPU.PutWord(FCBOffset + FCBE.RelativeRecordFromStart, RelativeRecordFromStart)
+            WriteBytesToMemory(Buffer, (DTASegment << &H4%) + DTAOffset)
+         End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -975,25 +1002,33 @@ Public Class MSDOSClass
 
          If RecordSize >= &H40% Then RelativeRecordFromStart = RelativeRecordFromStart And &HFFFFFF%
 
-         FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
+         If IsConsoleDeviceFile(FileName) Then
+            ReDim Buffer(0 To RecordSize - 1)
+            ReadConsoleDevice(Buffer)
+            CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
+            WriteBytesToMemory(Buffer, (DTASegment << &H4%) + DTAOffset)
+         ElseIf IsDeviceFile(FileName) Then
+            CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1%)
+         Else
+            FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
+            Using FileO As New FileStream(GetLongName(FileSystemItems, $"{FileName}.{Extension}"), FileMode.Open, FileAccess.Read)
+               If RelativeRecordFromStart * RecordSize > FileO.Length Then
+                  CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1%)
+               ElseIf (RelativeRecordFromStart * RecordSize) + RecordSize > FileO.Length Then
+                  FileO.Seek(RelativeRecordFromStart * RecordSize, SeekOrigin.Begin)
+                  ReDim Buffer(0 To CInt(FileO.Length - (RelativeRecordFromStart * RecordSize)) - 1)
+                  FileO.Read(Buffer, 0, Buffer.Count)
+                  CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H3%)
+               Else
+                  FileO.Seek(RelativeRecordFromStart * RecordSize, SeekOrigin.Begin)
+                  ReDim Buffer(0 To RecordSize - 1)
+                  FileO.Read(Buffer, 0, Buffer.Count)
+                  CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
+               End If
+            End Using
 
-         Using FileO As New FileStream(GetLongName(FileSystemItems, $"{FileName}.{Extension}"), FileMode.Open, FileAccess.Read)
-            If RelativeRecordFromStart * RecordSize > FileO.Length Then
-               CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1%)
-            ElseIf (RelativeRecordFromStart * RecordSize) + RecordSize > FileO.Length Then
-               FileO.Seek(RelativeRecordFromStart * RecordSize, SeekOrigin.Begin)
-               ReDim Buffer(0 To CInt(FileO.Length - (RelativeRecordFromStart * RecordSize)) - 1)
-               FileO.Read(Buffer, 0, Buffer.Count)
-               CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H3%)
-            Else
-               FileO.Seek(RelativeRecordFromStart * RecordSize, SeekOrigin.Begin)
-               ReDim Buffer(0 To RecordSize - 1)
-               FileO.Read(Buffer, 0, Buffer.Count)
-               CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
-            End If
-         End Using
-
-         WriteBytesToMemory(Buffer, (DTASegment << &H4%) + DTAOffset)
+            WriteBytesToMemory(Buffer, (DTASegment << &H4%) + DTAOffset)
+         End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -1013,12 +1048,19 @@ Public Class MSDOSClass
          FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
 
          Try
-            Using FileO As New FileStream(GetLongName(FileSystemItems, $"{FileName}.{Extension}"), FileMode.Open, FileAccess.Write)
-               FileO.Seek(RelativeRecordFromStart * RecordSize, SeekOrigin.Begin)
-               FileO.Write(Buffer, &H0%, Buffer.Count)
-            End Using
+            If IsConsoleDeviceFile(FileName) Then
+               Array.ForEach(Buffer, AddressOf Teletype)
+               CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
+            ElseIf IsDeviceFile(FileName) Then
+               CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
+            Else
+               Using FileO As New FileStream(GetLongName(FileSystemItems, $"{FileName}.{Extension}"), FileMode.Open, FileAccess.Write)
+                  FileO.Seek(RelativeRecordFromStart * RecordSize, SeekOrigin.Begin)
+                  FileO.Write(Buffer, &H0%, Buffer.Count)
+               End Using
 
-            CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
+               CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
+            End If
          Catch
             CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1%)
          End Try
@@ -1038,37 +1080,41 @@ Public Class MSDOSClass
          Dim RecordSize As Integer = CPU.GetWord(FCBOffset + FCBE.RecordSize)
          Dim RelativeRecord As Integer = CPU.Memory(FCBOffset + FCBE.RelativeRecordInBlock)
 
-         FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
+         If IsDeviceFile(FileName) Then
+            CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1%)
+         Else
+            FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
 
-         Using FileO As New FileStream(GetLongName(FileSystemItems, $"{FileName}.{Extension}"), FileMode.Open, FileAccess.Read)
-            If (CurrentBlock * RecordSize) + RelativeRecord > FileO.Length Then
-               CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1%)
-            ElseIf ((CurrentBlock * RecordSize) + RelativeRecord) + RecordSize > FileO.Length Then
-               FileO.Seek(CurrentBlock * RecordSize, SeekOrigin.Begin)
-               ReDim Buffer(0 To CInt(FileO.Length - (CurrentBlock * RecordSize)) - 1)
-               FileO.Read(Buffer, 0, Buffer.Count)
-               CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H3%)
-               RelativeRecord += 1
-               If RelativeRecord = RecordSize Then
-                  CurrentBlock += 1
-                  RelativeRecord = 0
+            Using FileO As New FileStream(GetLongName(FileSystemItems, $"{FileName}.{Extension}"), FileMode.Open, FileAccess.Read)
+               If (CurrentBlock * RecordSize) + RelativeRecord > FileO.Length Then
+                  CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1%)
+               ElseIf ((CurrentBlock * RecordSize) + RelativeRecord) + RecordSize > FileO.Length Then
+                  FileO.Seek(CurrentBlock * RecordSize, SeekOrigin.Begin)
+                  ReDim Buffer(0 To CInt(FileO.Length - (CurrentBlock * RecordSize)) - 1)
+                  FileO.Read(Buffer, 0, Buffer.Count)
+                  CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H3%)
+                  RelativeRecord += 1
+                  If RelativeRecord = RecordSize Then
+                     CurrentBlock += 1
+                     RelativeRecord = 0
+                  End If
+               Else
+                  FileO.Seek(CurrentBlock * RecordSize, SeekOrigin.Begin)
+                  ReDim Buffer(0 To RecordSize - 1)
+                  FileO.Read(Buffer, 0, Buffer.Count)
+                  CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
+                  RelativeRecord += 1
+                  If RelativeRecord = RecordSize Then
+                     CurrentBlock += 1
+                     RelativeRecord = 0
+                  End If
                End If
-            Else
-               FileO.Seek(CurrentBlock * RecordSize, SeekOrigin.Begin)
-               ReDim Buffer(0 To RecordSize - 1)
-               FileO.Read(Buffer, 0, Buffer.Count)
-               CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
-               RelativeRecord += 1
-               If RelativeRecord = RecordSize Then
-                  CurrentBlock += 1
-                  RelativeRecord = 0
-               End If
-            End If
-         End Using
+            End Using
 
-         CPU.PutWord(FCBOffset + FCBE.CurrentBlock, CurrentBlock)
-         CPU.Memory(FCBOffset + FCBE.RelativeRecordInBlock) = ToByte(RelativeRecord)
-         WriteBytesToMemory(Buffer, (DTASegment << &H4%) + DTAOffset)
+            CPU.PutWord(FCBOffset + FCBE.CurrentBlock, CurrentBlock)
+            CPU.Memory(FCBOffset + FCBE.RelativeRecordInBlock) = ToByte(RelativeRecord)
+            WriteBytesToMemory(Buffer, (DTASegment << &H4%) + DTAOffset)
+         End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -1085,27 +1131,31 @@ Public Class MSDOSClass
          Dim RelativeRecord As Integer = CPU.Memory(FCBOffset + FCBE.RelativeRecordInBlock)
          Dim Buffer() As Byte = CPU.Memory.ToList.GetRange((DTASegment << &H4%) + DTAOffset, RecordSize).ToArray()
 
-         FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
-
-         Try
-            Using FileO As New FileStream(GetLongName(FileSystemItems, $"{FileName}.{Extension}"), FileMode.Open, FileAccess.Write)
-               FileO.Seek((CurrentBlock * RecordSize) + RelativeRecord, SeekOrigin.Begin)
-               FileO.Write(Buffer, &H0%, Buffer.Count)
-            End Using
-
-            RelativeRecord += 1
-            If RelativeRecord = RecordSize Then
-               CurrentBlock += 1
-               RelativeRecord = 0
-            End If
-
-            CPU.PutWord(FCBOffset + FCBE.CurrentBlock, CurrentBlock)
-            CPU.Memory(FCBOffset + FCBE.RelativeRecordInBlock) = ToByte(RelativeRecord)
-
+         If IsDeviceFile(FileName) Then
             CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
-         Catch
-            CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1%)
-         End Try
+         Else
+            FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
+
+            Try
+               Using FileO As New FileStream(GetLongName(FileSystemItems, $"{FileName}.{Extension}"), FileMode.Open, FileAccess.Write)
+                  FileO.Seek((CurrentBlock * RecordSize) + RelativeRecord, SeekOrigin.Begin)
+                  FileO.Write(Buffer, &H0%, Buffer.Count)
+               End Using
+
+               RelativeRecord += 1
+               If RelativeRecord = RecordSize Then
+                  CurrentBlock += 1
+                  RelativeRecord = 0
+               End If
+
+               CPU.PutWord(FCBOffset + FCBE.CurrentBlock, CurrentBlock)
+               CPU.Memory(FCBOffset + FCBE.RelativeRecordInBlock) = ToByte(RelativeRecord)
+
+               CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
+            Catch
+               CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1%)
+            End Try
+         End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -1450,7 +1500,6 @@ Public Class MSDOSClass
       Return Nothing
    End Function
 
-
    'This procedure reads a key and returns the result.
    Private Function GetKey() As Integer
       Try
@@ -1616,6 +1665,11 @@ Public Class MSDOSClass
                   Case &H2%
                      TeleType(CByte(CPU.Registers(SubRegisters8BitE.DL)))
                      Success = True
+                  Case &H5%
+                     SyncLock SYNCHRONIZER
+                        CPU_EVENT.Append($"STDPRN: '{ESCAPE_BYTE(CByte(CPU.Registers(SubRegisters8BitE.DL)))}'{NewLine}")
+                     End SyncLock
+                     Success = True
                   Case &H6%
                      DirectConsoleIO(Flags)
                      Success = True
@@ -1658,6 +1712,7 @@ Public Class MSDOSClass
                      FCBOpenFile()
                      Success = True
                   Case &H10%
+                     FCBCloseFile()
                      Success = True
                   Case &H11%
                      FCBFindFile(IsFirst:=True)
@@ -2002,7 +2057,29 @@ Public Class MSDOSClass
       Return False
    End Function
 
-   'This function returns the size of the largest amount of memory that can be allocated.
+   'This procedure returns whether or not the specified filename refers to the console device file.
+   Private Function IsConsoleDeviceFile(FileName As String) As Boolean
+      Try
+         Return (Path.GetFileNameWithoutExtension(FileName).Trim().ToUpper() = "CON")
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return Nothing
+   End Function
+
+   'This procedure returns whether or not the specified filename refers to a device file.
+   Private Function IsDeviceFile(FileName As String) As Boolean
+      Try
+         Return DEVICE_FILES.Contains(Path.GetFileNameWithoutExtension(FileName).Trim().ToUpper())
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return Nothing
+   End Function
+
+   'This procedure returns the size of the largest amount of memory that can be allocated.
    Private Function LargestFreeMemoryBlock() As Integer
       Try
          Dim FreeBlockSize As New Integer
@@ -2039,7 +2116,7 @@ Public Class MSDOSClass
       Return Nothing
    End Function
 
-   'This function returns the highest letter assigned to a disk drive.
+   'This procedure returns the highest letter assigned to a disk drive.
    Private Function GetHighestDriveLetter() As Char
       Try
          Dim HighestLetter As Char = "A"c
@@ -2103,7 +2180,6 @@ Public Class MSDOSClass
          EnvironmentText = $"COMSPEC={ToChar(BootDrive + ToInt32("A"c))}:\COMMAND.COM{ToChar(&H0%)}PATH={ToChar(&H0%)}{ToChar(&H0%)}"
          ExtendedKeyCode = New Integer?
          OpenFiles.Clear()
-         PrinterBuffer.Clear()
          ProcessIDs = New List(Of Integer)
          ProcessSegments.Clear()
          SwitchCharacter = "-"c
@@ -2340,16 +2416,6 @@ Public Class MSDOSClass
       End Try
    End Sub
 
-   'This procedure sends the printer buffer's content to the default printer.
-   Private Sub PrinterDocumentO_PrintPage(sender As Object, e As PrintPageEventArgs) Handles PrinterDocumentO.PrintPage
-      Try
-         e.Graphics.DrawString(PrinterBuffer.ToString(), New Font("Consolas", 10), Brushes.Black, New Point(8, 8))
-         PrinterBuffer.Clear()
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
-   End Sub
-
    'This procedure returns a character from the STDIN.
    Private Function ReadCharacter() As Integer
       Try
@@ -2372,7 +2438,7 @@ Public Class MSDOSClass
             LastBIOSKeyCode(, Clear:=True)
          Else
             KeyCode = ExtendedKeyCode.Value
-            ExtendedKeyCode = New Integer
+            ExtendedKeyCode = New Integer?
          End If
 
          Return If(KeyCode Is Nothing, Nothing, KeyCode.Value)
@@ -2382,6 +2448,45 @@ Public Class MSDOSClass
 
       Return Nothing
    End Function
+
+   'This procedure returns input from the CON device.
+   Private Sub ReadConsoleDevice(ByRef Buffer() As Byte)
+      Try
+         Dim KeyCode As New Integer
+         Dim Position As Integer = Buffer.GetLowerBound(0)
+
+         Do Until CPU.ClockToken.IsCancellationRequested
+            If CPU.Clock.Status = TaskStatus.Running Then
+               CPU.ExecuteHardwareInterrupts()
+            End If
+
+            KeyCode = ReadCharacter() And &HFF%
+            Select Case DirectCast(ToByte(KeyCode), TeletypeE)
+               Case TeletypeE.BS
+                  If Position > &H0% Then
+                     Buffer(Position) = &H0%
+                     Position -= &H1%
+                  End If
+               Case TeletypeE.CR
+                  Exit Do
+               Case Else
+                  If Position < Buffer.Count - &H1% Then
+                     Buffer(Position) = ToByte(KeyCode)
+                     Position += &H1%
+                     If KeyCode = &H0% Then
+                        If Position < Buffer.Count - &H1% Then
+                           KeyCode = ReadCharacter()
+                           Buffer(Position) = ToByte(KeyCode)
+                           Position += &H1%
+                        End If
+                     End If
+                  End If
+            End Select
+         Loop
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
 
    'This procedure reads a file.
    Private Sub ReadFile(ByRef Flags As Integer)
@@ -2723,9 +2828,14 @@ Public Class MSDOSClass
                Position = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
 
                Select Case STDHandle
-                  Case STDFileHandlesE.STDAUX
+                  Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDPRN
                      SyncLock SYNCHRONIZER
-                        CPU_EVENT.Append($"STDAUX:{NewLine}")
+                        Select Case STDHandle
+                           Case STDFileHandlesE.STDAUX
+                              CPU_EVENT.Append($"STDAUX:{NewLine}")
+                           Case STDFileHandlesE.STDPRN
+                              CPU_EVENT.Append($"STDPRN:{NewLine}")
+                        End Select
 
                         For Character As Integer = &H0% To Count - &H1%
                            Buffer.Append(ESCAPE_BYTE(CPU.Memory(Position And ADDRESS_MASK)))
@@ -2734,15 +2844,6 @@ Public Class MSDOSClass
 
                         CPU_EVENT.Append($"{Buffer}{NewLine}")
                      End SyncLock
-                  Case STDFileHandlesE.STDPRN
-                     PrinterBuffer.Clear()
-
-                     For Character As Integer = &H0% To Count - &H1%
-                        PrinterBuffer.Append(ToChar(CPU.Memory(Position And ADDRESS_MASK)))
-                        Position += &H1%
-                     Next Character
-
-                     PrinterDocumentO.Print()
                   Case Else
                      For Character As Integer = &H0% To Count - &H1%
                         TeleType(CPU.Memory(Position And ADDRESS_MASK))

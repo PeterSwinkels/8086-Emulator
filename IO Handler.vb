@@ -29,10 +29,10 @@ Public Module IOHandlerModule
       DMAMasterClearTemporaryRegister = &HD%   'DMA master clear temporary register.
       DMAClearMaskRegister = &HE%              'DMA clear mask register.
       DMAMultipleMaskRegister = &HF%           'DMA multiple mask register.
-      PICICW1 = &H20%                          'Initialization Command Word 1.
-      PICICW2 = &H21%                          'Initialization Command Word 2.
       Reserved1 = &H10%                        'Reserved.
       Reserved2 = &H1F%                        'Reserved.
+      PICICW1 = &H20%                          'Initialization Command Word 1.
+      PICICW2 = &H21%                          'Initialization Command Word 2.
       PITCounter0 = &H40%                      'Time of day clock.
       PITCounter1 = &H41%                      'RAM refresh counter.
       PITCounter2 = &H42%                      'Cassette and speaker.

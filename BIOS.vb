@@ -177,7 +177,7 @@ Public Module BIOSModule
    End Sub
 
    'This procedure emulates character output in Teletype mode.
-   Public Sub TeleType(Character As Byte, Optional Attribute As Integer? = Nothing)
+   Public Sub Teletype(Character As Byte, Optional Attribute As Integer? = Nothing)
       Try
          Dim ScrollAttribute As New Byte?
          Dim VideoPageAddress As Integer = MCC.VideoPageAddress()
