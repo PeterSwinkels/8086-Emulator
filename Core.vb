@@ -667,6 +667,8 @@ Public Module CoreModule
                            CurrentDirectory = Operands
                            MSDOS.UpdateMSDOSPath()
                         End If
+                     Case "DOSVER"
+                        Output.AppendText(If(Operands = Nothing, MSDOS.Version(), MSDOS.Version(DirectCast(Integer.Parse(Operands, NumberStyles.HexNumber), MSDOSClass.VersionsE))))
                      Case "E"
                         If CPU.Clock.Status = TaskStatus.Running Then
                            Output.AppendText("Already executing.")

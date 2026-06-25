@@ -94,7 +94,7 @@ Public Class MSDOSClass
    End Enum
 
    'This enumeration lists MS-DOS version numbers.
-   Private Enum VersionsE As Integer
+   Public Enum VersionsE As Integer
       v500 = &H5%       'v5.00.
       v622 = &H1606%    'v6.22.
    End Enum
@@ -170,7 +170,6 @@ Public Class MSDOSClass
    Private Const PSP_PREVIOUS_PSP As Integer = &H38%                    'Defines the offset of the previous PSP in a PSP.
    Private Const PSP_SIZE As Integer = &H100%                           'Defines a PSP's size.
    Private Const PSP_SSSP As Integer = &H2E%                            'Defines the SS:SP values in a PSP.
-   Private Const VERSION As VersionsE = VersionsE.v500                  'Defines the emulated MS-DOS version.
    Private Const VOLUME_ATTRIBUTE As Integer = &H8%                     'Defines the volume label attribute.
 
    Private ReadOnly DATE_TO_MSDOS_DATE As Func(Of Date, Integer) = Function([Date] As Date) [Date].Day Or ([Date].Month << &H5%) Or (([Date].Year - 1980) << &H9%)                                                                      'Converts the specified date to a value suitable for MS-DOS and returns the result.
@@ -206,6 +205,7 @@ Public Class MSDOSClass
    Private PSPFCB As New List(Of List(Of Byte))({DefaultFCB(), DefaultFCB()})   'Contains the first and second default FCBs.
    Private SwitchCharacter As Char = "-"c                                       'Contains the switch character.
    Private Verify As Boolean = False                                            'Contains the verify flag.
+   Private VersionV As VersionsE = VersionsE.v622                               'Contains the emulated MS-DOS version.
 
    Private FileSystemItems As New List(Of FileSystemItemStr)  'Contains a list of the current directory's file system items.
 
@@ -1663,7 +1663,7 @@ Public Class MSDOSClass
                      CPU.Registers(SubRegisters8BitE.AL, NewValue:=GetKeyWithEcho())
                      Success = True
                   Case &H2%
-                     TeleType(CByte(CPU.Registers(SubRegisters8BitE.DL)))
+                     Teletype(CByte(CPU.Registers(SubRegisters8BitE.DL)))
                      Success = True
                   Case &H5%
                      SyncLock SYNCHRONIZER
@@ -1682,7 +1682,7 @@ Public Class MSDOSClass
                   Case &H9%
                      Position = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
                      Do Until ToChar(CPU.Memory(Position And ADDRESS_MASK)) = "$"c OrElse CPU.ClockToken.IsCancellationRequested
-                        TeleType(CPU.Memory(Position And ADDRESS_MASK))
+                        Teletype(CPU.Memory(Position And ADDRESS_MASK))
                         Position += &H1%
                      Loop
 
@@ -1775,7 +1775,7 @@ Public Class MSDOSClass
                      CPU.Registers(SegmentRegistersE.ES, NewValue:=DTASegment)
                      Success = True
                   Case &H30%
-                     CPU.Registers(Registers16BitE.AX, NewValue:=VERSION)
+                     CPU.Registers(Registers16BitE.AX, NewValue:=VersionV)
                      CPU.Registers(Registers16BitE.BX, NewValue:=MS_DOS)
                      Success = True
                   Case &H32%
@@ -2770,6 +2770,36 @@ Public Class MSDOSClass
          DisplayException(ExceptionO.Message)
       End Try
    End Sub
+
+   'This procedure gets/sets the reported MS-DOS version.
+   Public Function Version(Optional NewVersion As VersionsE? = Nothing) As String
+      Try
+         Dim Result As New StringBuilder
+
+         If NewVersion Is Nothing Then
+            Result.Append($"Possible values:{NewLine}")
+
+            For Each Item As VersionsE In [Enum].GetValues(GetType(VersionsE))
+               Result.Append($"{Item.ToString()}: {CInt(Item).ToString("X")}{NewLine}")
+            Next Item
+
+            Result.Append($"Reported: {VersionV}{NewLine}")
+         Else
+            If [Enum].IsDefined(GetType(VersionsE), NewVersion) Then
+               VersionV = NewVersion.Value
+               Result.Append($"Reported version set to: {VersionV}{NewLine}")
+            Else
+               Result.Append($"Invalid value.{NewLine}")
+            End If
+         End If
+
+         Return Result.ToString()
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return ""
+   End Function
 
    'This procedure writes country information to [DS:DX] in memory.
    Private Sub WriteCountryInformation()
