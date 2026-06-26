@@ -136,7 +136,7 @@ Public Class Text80x25MonoClass
             Next Position
 
             If (Not Cursor.Off) AndAlso Cursor.Visible Then
-               .FillRectangle(New SolidBrush(Color.Lime), Cursor.X * CHARACTER_SIZE.Width, (Cursor.Y * CHARACTER_SIZE.Height) + (Cursor.ScanLineStart * PIXELS_PER_SCANLINE), CHARACTER_SIZE.Width, (Cursor.ScanLineEnd * PIXELS_PER_SCANLINE) - (Cursor.ScanLineStart * PIXELS_PER_SCANLINE))
+               .FillRectangle(New SolidBrush(Color.Lime), Cursor.X * CHARACTER_SIZE.Width, (Cursor.Y * CHARACTER_SIZE.Height) + (Cursor.ScanLineStart * PIXELS_PER_SCANLINE) - &H4%, CHARACTER_SIZE.Width, (Cursor.ScanLineEnd * PIXELS_PER_SCANLINE) - (Cursor.ScanLineStart * PIXELS_PER_SCANLINE))
             End If
          End With
       Catch
