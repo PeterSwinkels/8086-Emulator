@@ -51,6 +51,7 @@ Public Module CoreModule
    Public DMA As New DMAClass                           'Contains a reference to the 8237 DMA controller.
    Public Output As TextBox = Nothing                   'Contains a reference to an output.
    Public MSDOS As New MSDOSClass                       'Contains a reference to the emulated MS-DOS.
+   Public PC_Speaker As PCSpeakerClass = Nothing        'Contains a reference to the PC-Speaker class.
    Public PIC As New PICClass                           'Contains a reference to the 8259 Programmable Interrupt Controller.
    Public PIT As New PITClass                           'Contains a reference to the 8253 Programmable Interval Timer class.
    Public PPI As New PPIClass                           'Contains the 8255 Programmable Peripheral Interface .
@@ -59,7 +60,6 @@ Public Module CoreModule
    Public ReadOnly CPU_EVENT As New StringBuilder                                                                                                                                                                                                                                        'Contains CPU event specific text.
    Public ReadOnly ESCAPE_BYTE As Func(Of Byte, String) = Function([Byte] As Byte) If([Byte] >= ToByte(" "c) AndAlso [Byte] <= ToByte("~"c), If([Byte] = ESCAPE_CHARACTER, New String(ToChar(ESCAPE_CHARACTER), count:=2), ToChar([Byte])), $"{ToChar(ESCAPE_CHARACTER)}{[Byte]:X2}")    'Returns the specified as either a character or escape sequence.
    Public ReadOnly MCC As New MCCClass                                                                                                                                                                                                                                                   'Contains the 6845 Motorola CRT Controller.
-   Public ReadOnly PC_SPEAKER As New PCSpeakerClass                                                                                                                                                                                                                                      'Contains a reference to the PC-Speaker class.
    Public ReadOnly SET_BIT As Func(Of Integer, Boolean, Integer, Integer) = Function(Value As Integer, Bit As Boolean, Index As Integer) If(Bit, Value Or (&H1% << Index), Value And ((&H1% << Index) Xor &HFFFF%))                                                                      'Returns the specified value with the specified bit set to the specified value.
    Public ReadOnly SYNCHRONIZER As New Object                                                                                                                                                                                                                                            'Contains the object used to synchronize threads.
    Public ReadOnly VGA As New VGAClass                                                                                                                                                                                                                                                   'Contains a reference to the VGA class.
@@ -819,8 +819,10 @@ Public Module CoreModule
                         KeyScancode = Nothing
                         LastBIOSKeyCode(, Clear:=True)
 
-                        PC_SPEAKER.SetFrequency(Nothing)
-                        PC_SPEAKER.Enabled = False
+                        If PC_Speaker IsNot Nothing Then
+                           PC_Speaker.SetFrequency(Nothing)
+                           PC_Speaker.Enabled = False
+                        End If
 
                         MSDOS = New MSDOSClass
                         PIC = New PICClass
@@ -840,8 +842,10 @@ Public Module CoreModule
                         Output.AppendText($"{If(Not CPU.Clock.Status = TaskStatus.Running, "Execution already stopped.", "Execution stopped.")}{NewLine}")
                         CPU.ClockToken.Cancel()
 
-                        PC_SPEAKER.SetFrequency(Nothing)
-                        PC_SPEAKER.Enabled = False
+                        If PC_Speaker IsNot Nothing Then
+                           PC_Speaker.SetFrequency(Nothing)
+                           PC_Speaker.Enabled = False
+                        End If
                      Case "SCO"
                         FileName = If(Operands Is Nothing, RequestFileName("Save console output.", Save:=True), Operands)
                         If Not FileName = Nothing Then

@@ -34,7 +34,14 @@ Public Class InterfaceWindow
 
          Output = Me.OutputBox
 
-         PC_SPEAKER.Start()
+         Try
+            PC_Speaker = New PCSpeakerClass
+            PC_Speaker.Start()
+         Catch ExceptionO As Exception
+            DisplayException(ExceptionO.Message)
+            CPU_EVENT.Append($"PC-Speaker support unavailable.{NewLine}")
+         End Try
+
          LoadBIOS()
          MSDOS.LoadMSDOS()
          ScreenRefresh = New Timer With {.Enabled = True, .Interval = 56}
@@ -78,7 +85,9 @@ Public Class InterfaceWindow
    Private Sub InterfaceWindow_Closing(sender As Object, e As CancelEventArgs) Handles MyBase.Closing
       Try
          CPU.ClockToken.Cancel()
-         PC_SPEAKER.Stop()
+         If PC_Speaker IsNot Nothing Then
+            PC_Speaker.Stop()
+         End If
          PIT.HighPrecisionTimer.ClockToken.Cancel()
 
          Output = Nothing
@@ -100,7 +109,7 @@ Public Class InterfaceWindow
                   Case Keys.F3
                      CommandBox.Text = LastCommand
                      CommandBox.Select(CommandBox.Text.Length, 0)
-                  Case Keys.F4
+                  Case Keys.F5
                      CommandBox.Text = LastCommand
                      CommandBox.Select(CommandBox.Text.Length, 0)
                      EnterButton.PerformClick()

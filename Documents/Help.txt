@@ -57,4 +57,4 @@ Notes:
 -Script files may contain comment lines starting with the hash ("#") character.
 -Strings may contain the forward slash ("/") escape character.
 -The F3 key retrieves the most recent command.
--The F4 key does the same as the F3 key, but also executes the command.
+-The F5 key retrieves the most recent command and immediately executes it.

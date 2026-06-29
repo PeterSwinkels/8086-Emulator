@@ -148,7 +148,9 @@ Public Class PITClass
             .MSB = Nothing
             .LSBRead = False
             If CounterIndex = CountersE.CassetteAndSpeaker Then
-               PC_SPEAKER.SetFrequency(0)
+               If PC_Speaker IsNot Nothing Then
+                  PC_Speaker.SetFrequency(0)
+               End If
             End If
          End If
       End With
@@ -266,7 +268,9 @@ Public Class PITClass
             End If
          End With
          If NewFrequency > 0 Then
-            PC_SPEAKER.SetFrequency(NewFrequency)
+            If PC_Speaker IsNot Nothing Then
+               PC_Speaker.SetFrequency(NewFrequency)
+            End If
          End If
       End If
    End Sub
