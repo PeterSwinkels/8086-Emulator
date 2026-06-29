@@ -239,6 +239,9 @@ Public Module CoreModule
                Select Case Opcode
                   Case OpcodesE.REPNE, OpcodesE.REPZ
                      Code = Disassemble(CPU.Memory, FlatCSIP, Count:=&H2%)
+                     If IS_SEGMENT_PREFIX(DirectCast(CPU.Memory((FlatCSIP + &H1%) And ADDRESS_MASK), OpcodesE)) Then
+                        Code = $"{Code}{Disassemble(CPU.Memory, (FlatCSIP + &H2%) And ADDRESS_MASK, Count:=&H1%)}"
+                     End If
                   Case Else
                      Code = Disassemble(CPU.Memory, FlatCSIP, Count:=&H1%)
                End Select

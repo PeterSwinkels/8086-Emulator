@@ -1387,6 +1387,9 @@ Public Class CPU8086Class
 
                If CBool(Registers(FlagRegistersE.TF)) Then
                   Registers(Registers16BitE.IP, NewValue:=(Registers(Registers16BitE.IP) - &H2%) And &HFFFF%)
+                  If Override IsNot Nothing Then
+                     Registers(Registers16BitE.IP, NewValue:=(Registers(Registers16BitE.IP) - &H1%) And &HFFFF%)
+                  End If
                   Exit Do
                End If
             Loop
