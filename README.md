@@ -43,3 +43,22 @@ https://helppc.netcore2k.net/
 A utility to deal with traces containing duplicate events generated while both executing and tracing. (A glitch which appears to be caused by asynchronous code.):
 
 https://github.com/PeterSwinkels/8086-Emulator-Trace-Cleanup
+
+
+Purpose:
+
+This program is not meant to be a user-friendly emulator for people who just want to for example, play old DOS games. It's purpose is to provide an open-source emulator which can be used to experiment with x86 assembly and investigating how old x86 programs (primarily old DOS softtware) work.
+
+Some easier to use and far more complete emulators:
+
+DOSBox
+
+DOSBox-X
+
+Fake86
+
+ScummVM
+
+VirtualBox
+
+iAltair (by: Peter Schorn)
