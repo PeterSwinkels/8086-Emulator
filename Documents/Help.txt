@@ -16,7 +16,8 @@ E                             Causes the emulated CPU to start executing code.
 ECXZ                          Executes until the CX register contains zero.
 EXE [Path]                    Loads a MS-DOS executable at CS:0x0000.
 HLT on|off                    Turns CPU halt for HLT on or off/displays status.
-INT int ah                    Executes an INT instruction.
+IN Port                       Executes an IN I/O instruction.
+INT int [ah]                  Executes an INT instruction with the optional subfunction specified in ah.
                               If the CPU is inactive, external interrupts will be executed.
 INT6 on|off                   Turns interrupt 0x6 for invalid opcodes on or off/displays status.
 IRET                          Executes an IRET instruction.
@@ -32,6 +33,7 @@ MF = {Values} | "String"      Searches the memory for the specified values or st
 MS [Path]                     Save the memory contents to a file.
 MT [Offset:Segment] [Count]   Display memory as text.
                               Byte values 0x20-0x7E are shown as characters.
+OUT                           Executes an OUT I/O instruction.
 Q                             Quits the emulator.
 R                             Display all registers and their values.
 RESET                         Resets the CPU.

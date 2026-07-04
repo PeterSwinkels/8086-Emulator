@@ -134,26 +134,28 @@ Public Class PITClass
       Dim CounterIndex As Integer = (NewValue And COUNTER_MASK) >> &H6%
       Dim Format As FormatsE = DirectCast((NewValue And FORMAT_MASK) >> &H4%, FormatsE)
 
-      With Counters(CounterIndex)
-         .BCD = ((NewValue And BINARY_BCD_MASK) = &H1%)
+      If CounterIndex <= &H2% Then
+         With Counters(CounterIndex)
+            .BCD = ((NewValue And BINARY_BCD_MASK) = &H1%)
 
-         If Format = FormatsE.None Then
-            .Latched = True
-            .LatchedValue = (CInt(.Value) And &HFFFF%)
-            .LatchedLSBRead = False
-         Else
-            .Mode = DirectCast((NewValue And MODE_MASK) >> &H1%, ModesE)
-            .Format = Format
-            .LSB = Nothing
-            .MSB = Nothing
-            .LSBRead = False
-            If CounterIndex = CountersE.CassetteAndSpeaker Then
-               If PC_Speaker IsNot Nothing Then
-                  PC_Speaker.SetFrequency(0)
+            If Format = FormatsE.None Then
+               .Latched = True
+               .LatchedValue = (CInt(.Value) And &HFFFF%)
+               .LatchedLSBRead = False
+            Else
+               .Mode = DirectCast((NewValue And MODE_MASK) >> &H1%, ModesE)
+               .Format = Format
+               .LSB = Nothing
+               .MSB = Nothing
+               .LSBRead = False
+               If CounterIndex = CountersE.CassetteAndSpeaker Then
+                  If PC_Speaker IsNot Nothing Then
+                     PC_Speaker.SetFrequency(0)
+                  End If
                End If
             End If
-         End If
-      End With
+         End With
+      End If
    End Sub
 
    'This procedure raises an IRQ if the specified counter is the time of day counter and the CPU is active.

@@ -84,10 +84,10 @@ Public Module CoreModule
          Parsed.Remainder = Operand
 
          Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=Nothing, Ending:=":"c)
-         Segment = GetLiteral(Parsed.Element)
+         Segment = GetLiteral(Parsed.Element, Is8Bit:=False)
 
          Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=Nothing, Ending:=Nothing)
-         Offset = GetLiteral(Parsed.Element)
+         Offset = GetLiteral(Parsed.Element, Is8Bit:=False)
 
          If Segment IsNot Nothing AndAlso Offset IsNot Nothing Then Return (CInt(Segment) << &H4%) + CInt(Offset)
       Catch ExceptionO As Exception
@@ -394,7 +394,7 @@ Public Module CoreModule
    End Function
 
    'This procedure returns the literal value represented by a command element.
-   Private Function GetLiteral(Element As String, Optional Is8Bit As Boolean = True) As Integer?
+   Private Function GetLiteral(Element As String, Is8Bit As Boolean) As Integer?
       Try
          Dim Address As New Integer?
          Dim Buffer As New Integer
@@ -415,6 +415,8 @@ Public Module CoreModule
                If Register IsNot Nothing Then Literal = CPU.Registers(Register)
             End If
          End If
+
+         If Literal IsNot Nothing AndAlso Literal.Value > If(Is8Bit, &HFF%, &HFFFF%) Then Literal = New Integer?
 
          Return Literal
       Catch ExceptionO As Exception
@@ -620,10 +622,13 @@ Public Module CoreModule
          Dim ErrorAt As Integer = 0
          Dim FileName As String = Nothing
          Dim Interrupt As New Integer?
+         Dim InValue As New Integer
          Dim Is8Bit As New Boolean
          Dim NewValue As New Integer?
          Dim Operands As String = Nothing
+         Dim OutValue As New Integer?
          Dim Parsed As New ParsedStr
+         Dim Port As New Integer?
          Dim Position As New Integer
          Dim Register As Object = GetRegisterByName(Input.Trim().ToUpper(), Is8Bit)
          Dim Success As Boolean = True
@@ -708,16 +713,25 @@ Public Module CoreModule
                                  Output.AppendText($"Invalid option.{NewLine}")
                            End Select
                         End If
+                     Case "IN"
+                        Port = GetLiteral(Operands, Is8Bit:=False)
+                        If Port Is Nothing Then
+                           Output.AppendText($"Invalid I/O port.{NewLine}")
+                        Else
+                           CPU_ReadIOPort(Port.Value, InValue, Is8Bit:=True)
+                           CPU.Registers(SubRegisters8BitE.AH, NewValue:=InValue)
+                           Output.AppendText($"AH = {CPU.Registers(SubRegisters8BitE.AH):X2}{NewLine}")
+                        End If
                      Case "INT"
                         Parsed.Remainder = Input
 
                         Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=" "c, Ending:=" "c)
-                        Interrupt = GetLiteral(Parsed.Element)
+                        Interrupt = GetLiteral(Parsed.Element, Is8Bit:=True)
                         If Interrupt Is Nothing Then
                            Output.AppendText($"Invalid interrupt vector.{NewLine}")
                         Else
                            Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=Nothing, Ending:=Nothing)
-                           AH = GetLiteral(Parsed.Element)
+                           AH = If(Parsed.Element = Nothing, CPU.Registers(SubRegisters8BitE.AH), GetLiteral(Parsed.Element, Is8Bit:=True))
                            If AH Is Nothing Then
                               Output.AppendText($"Invalid function number.{NewLine}")
                            Else
@@ -756,7 +770,7 @@ Public Module CoreModule
                         Address = AddressFromOperand(Parsed.Element)
 
                         Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=Nothing, Ending:=Nothing)
-                        Count = GetLiteral(Parsed.Element)
+                        Count = GetLiteral(Parsed.Element, Is8Bit:=False)
 
                         If Address Is Nothing Then
                            Output.AppendText($"Invalid or no address specified. CS:IP used instead.{NewLine}")
@@ -810,6 +824,22 @@ Public Module CoreModule
                            File.WriteAllBytes(FileName, CPU.Memory)
                            Output.AppendText($"Memory saved to ""{FileName}"".{NewLine}")
                            Success = True
+                        End If
+                     Case "OUT"
+                        Parsed.Remainder = Input
+
+                        Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=" "c, Ending:=" "c)
+                        Port = GetLiteral(Parsed.Element, Is8Bit:=False)
+                        If Port Is Nothing Then
+                           Output.AppendText($"Invalid I/O port.{NewLine}")
+                        Else
+                           Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=Nothing, Ending:=Nothing)
+                           OutValue = GetLiteral(Parsed.Element, Is8Bit:=False)
+                           If OutValue Is Nothing Then
+                              Output.AppendText($"Invalid operand.{NewLine}")
+                           Else
+                              CPU_WriteIOPort(Port.Value, OutValue.Value, Is8Bit:=(OutValue.Value < &H100%))
+                           End If
                         End If
                      Case "Q"
                         Application.Exit()
@@ -915,7 +945,7 @@ Public Module CoreModule
                                  ElseIf IS_VALUES_OPERAND(Value) Then
                                     Output.AppendText($"Finished writing values at 0x{WriteBytesToMemory(ParseValues(REMOVE_DELIMITERS(Value)), CInt(Address)):X8}.{NewLine}")
                                  Else
-                                    NewValue = GetLiteral(Value)
+                                    NewValue = GetLiteral(Value, Is8Bit:=False)
                                     If NewValue Is Nothing Then
                                        Output.AppendText($"Invalid parameter.{NewLine}")
                                     Else
@@ -990,7 +1020,7 @@ Public Module CoreModule
             Character = Values.Chars(Position)
             If Character = " "c Then
                NewValue = Values.Substring(0, Position).Trim()
-               Value = GetLiteral(NewValue)
+               Value = GetLiteral(NewValue, Is8Bit:=False)
                If Value Is Nothing Then
                   Output.AppendText($"Invalid value: ""{NewValue}"".{NewLine}")
                   Exit Do
