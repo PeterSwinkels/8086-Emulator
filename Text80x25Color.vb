@@ -6,6 +6,7 @@ Option Strict On
 
 Imports Emulator8086Program.CPU8086Class
 Imports System
+Imports System.Collections.Generic
 Imports System.Convert
 Imports System.Drawing
 Imports System.Windows.Forms
@@ -24,6 +25,7 @@ Public Class Text80x25ColorClass
    Private ReadOnly TEXT_SCREEN_SIZE As Size = New Size(&H50% * CHARACTER_SIZE.Width, &H19% * CHARACTER_SIZE.Height)  'Defines the screen size measured in characters.
 
    Private BlinkCharactersVisible As Boolean = True  'Indicates whether or not the blinking characters are visible.
+   Private Brushes As New List(Of SolidBrush)        'Contains the list of brushes.
 
    Private WithEvents CharacterBlink As New Timer With {.Enabled = True, .Interval = 500}  'Contains the character blink timer.
 
@@ -68,7 +70,7 @@ Public Class Text80x25ColorClass
                Else
                   Attribute = ToByte(Memory(Position + &H1%) \ &H10%)
                End If
-               .FillRectangle(New SolidBrush(COLORS(Attribute)), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
+               .FillRectangle(Brushes(Attribute), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
 
                If Target.X < TEXT_SCREEN_SIZE.Width - CHARACTER_SIZE.Width Then
                   Target.X += CHARACTER_SIZE.Width
@@ -84,7 +86,7 @@ Public Class Text80x25ColorClass
                Character = ToChar(CodePage(Memory(Position)))
                Attribute = Memory(Position + &H1%)
 
-               CharacterColor = New SolidBrush(COLORS(Attribute And &HF%))
+               CharacterColor = Brushes(Attribute And &HF%)
 
                If ((Attribute And BLINK_BITMASK) = &H0%) OrElse BlinkCharactersVisible OrElse Not MCC.BlinkingOn Then
                   .DrawString(Character, FONT, CharacterColor, Target.X - CInt(CHARACTER_SIZE.Width / 4), Target.Y)
@@ -100,7 +102,7 @@ Public Class Text80x25ColorClass
 
             If (Not Cursor.Off) AndAlso Cursor.Visible Then
                Attribute = ToByte(Memory((AddressesE.Text80x25MonoBuffer + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)) + &H1%) And &HF%)
-               .FillRectangle(New SolidBrush(COLORS(Attribute)), Cursor.X * CHARACTER_SIZE.Width, (Cursor.Y * CHARACTER_SIZE.Height) + (Cursor.ScanLineStart * PIXELS_PER_SCANLINE), CHARACTER_SIZE.Width, (Cursor.ScanLineEnd * PIXELS_PER_SCANLINE) - (Cursor.ScanLineStart * PIXELS_PER_SCANLINE))
+               .FillRectangle(Brushes(Attribute), Cursor.X * CHARACTER_SIZE.Width, (Cursor.Y * CHARACTER_SIZE.Height) + (Cursor.ScanLineStart * PIXELS_PER_SCANLINE), CHARACTER_SIZE.Width, (Cursor.ScanLineEnd * PIXELS_PER_SCANLINE) - (Cursor.ScanLineStart * PIXELS_PER_SCANLINE))
             End If
          End With
       Catch
@@ -120,6 +122,11 @@ Public Class Text80x25ColorClass
       CPU.Memory(AddressesE.VideoPage) = &H0%
       ResetCursor()
       MCC.BlinkingOn = True
+
+      Brushes = New List(Of SolidBrush)
+      For Each [Color] As Color In COLORS
+         Brushes.Add(New SolidBrush([Color]))
+      Next [Color]
    End Sub
 
    'This procedure returns the screen size used by a video adapter.

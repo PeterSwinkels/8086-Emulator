@@ -594,6 +594,10 @@ Public Class MSDOSClass
 
       If ExtendedKeyCode Is Nothing Then
          Do
+            If CPU.Clock.Status = TaskStatus.Running Then
+               CPU.ExecuteHardwareInterrupts()
+            End If
+
             KeyCode = LastBIOSKeyCode()
          Loop Until KeyCode.HasValue OrElse CPU.ClockToken.IsCancellationRequested
          If KeyCode IsNot Nothing AndAlso (KeyCode.Value And &HFF%) = Nothing Then
@@ -2503,21 +2507,26 @@ Public Class MSDOSClass
             Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDIN
                If Count = 1 Then
                   Bytes(Character) = ToByte(GetKey())
+                  Teletype(Bytes(Character))
                Else
                   Character = &H0%
                   Do While Character < Count
+                     If CPU.Clock.Status = TaskStatus.Running Then
+                        CPU.ExecuteHardwareInterrupts()
+                     End If
+
                      KeyCode = ToByte(GetKey())
                      Select Case DirectCast(KeyCode, TeletypeE)
                         Case TeletypeE.BS
-                           TeleType(TeletypeE.BS)
-                           TeleType(ToByte(" "c))
-                           TeleType(TeletypeE.BS)
+                           Teletype(TeletypeE.BS)
+                           Teletype(ToByte(" "c))
+                           Teletype(TeletypeE.BS)
                            Character -= &H1%
                         Case TeletypeE.CR
                            Bytes(Character) = KeyCode
                            Character += &H1%
-                           TeleType(TeletypeE.CR)
-                           TeleType(TeletypeE.LF)
+                           Teletype(TeletypeE.CR)
+                           Teletype(TeletypeE.LF)
 
                            If Character + &H1% < Count Then
                               Character += &H1%
@@ -2528,7 +2537,7 @@ Public Class MSDOSClass
                         Case Else
                            Bytes(Character) = KeyCode
                            Character += &H1%
-                           TeleType(KeyCode)
+                           Teletype(KeyCode)
                      End Select
                   Loop
                End If

@@ -209,7 +209,7 @@ Public Module InterruptHandlerModule
 
                      Success = True
                   Case &HE%
-                     TeleType(CByte(CPU.Registers(SubRegisters8BitE.AL)))
+                     Teletype(CByte(CPU.Registers(SubRegisters8BitE.AL)))
                      Success = True
                   Case &HF%
                      VideoMode = MCC.CurrentVideoMode

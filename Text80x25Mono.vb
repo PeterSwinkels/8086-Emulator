@@ -24,9 +24,13 @@ Public Class Text80x25MonoClass
    Private Const SCANLINE_COUNT As Integer = &HE%          'Defines the number of scanlines per character.
 
    Private ReadOnly BLACK_ATTRIBUTES() As Integer = {&H0%, &H8%, &H80%, &H88%}                                        'Defines the black character attributes.
+   Private ReadOnly BLACK_BRUSH As New SolidBrush(Color.Black)                                                        'Defines a black brush.
    Private ReadOnly CHARACTER_SIZE As Size = New Size(14, 24)                                                         'Defines the character size.
+   Private ReadOnly DARK_GREEN_BRUSH As New SolidBrush(Color.DarkGreen)                                               'Defines a dark green brush.
    Private ReadOnly FONT_NORMAL As New Font("Px437 IBM VGA 8x14", emSize:=21)                                         'Defines the normal font.
    Private ReadOnly FONT_UNDERLINE As New Font("Px437 IBM VGA 8x14", emSize:=21, FontStyle.Underline)                 'Defines the underlined font.
+   Private ReadOnly GREEN_BRUSH As New SolidBrush(Color.Green)                                                        'Defines a green brush.
+   Private ReadOnly LIME_BRUSH As New SolidBrush(Color.Lime)                                                          'Defines a lime brush.
    Private ReadOnly PIXELS_PER_SCANLINE As Integer = CInt(CHARACTER_SIZE.Height / SCANLINE_COUNT)                     'Defines the number of pixels per scanline.
    Private ReadOnly TEXT_SCREEN_SIZE As Size = New Size(&H50% * CHARACTER_SIZE.Width, &H19% * CHARACTER_SIZE.Height)  'Defines the screen size measured in characters.
 
@@ -77,15 +81,15 @@ Public Class Text80x25MonoClass
                   If MCC.BlinkingOn Then
                      Select Case (Attribute And NON_BLINK_ATTRIBUTES)
                         Case BLACK_ON_GREEN, DARK_GREEN_ON_GREEN
-                           .FillRectangle(New SolidBrush(Color.Green), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
+                           .FillRectangle(GREEN_BRUSH, Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
                      End Select
                   Else
                      Select Case (Attribute And NON_BLINK_ATTRIBUTES)
                         Case BLACK_ON_GREEN, DARK_GREEN_ON_GREEN
-                           .FillRectangle(New SolidBrush(If((Attribute And BLINK_BITMASK) = &H0%, Color.Green, Color.Lime)), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
+                           .FillRectangle(If((Attribute And BLINK_BITMASK) = &H0%, GREEN_BRUSH, LIME_BRUSH), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
                         Case Else
                            If (Attribute And BLINK_BITMASK) = BLINK_BITMASK Then
-                              .FillRectangle(New SolidBrush(Color.DarkGreen), Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
+                              .FillRectangle(DARK_GREEN_BRUSH, Target.X, Target.Y, CHARACTER_SIZE.Width, CHARACTER_SIZE.Height)
                            End If
                      End Select
                   End If
@@ -107,13 +111,13 @@ Public Class Text80x25MonoClass
 
                If Attribute > &H0% AndAlso Not BLACK_ATTRIBUTES.Contains(Attribute) Then
                   If (Attribute And NON_BLINK_ATTRIBUTES) = BLACK_ON_GREEN Then
-                     CharacterColor = New SolidBrush(Color.Black)
+                     CharacterColor = BLACK_BRUSH
                   ElseIf (Attribute And NON_BLINK_ATTRIBUTES) = DARK_GREEN_ON_GREEN Then
-                     CharacterColor = New SolidBrush(Color.DarkGreen)
+                     CharacterColor = DARK_GREEN_BRUSH
                   ElseIf (Attribute And BRIGHT_BITMASK) = &H0% Then
-                     CharacterColor = New SolidBrush(Color.Green)
+                     CharacterColor = GREEN_BRUSH
                   Else
-                     CharacterColor = New SolidBrush(Color.Lime)
+                     CharacterColor = LIME_BRUSH
                   End If
 
                   If (Attribute And UNDERLINE_BITMASK) = &H1% Then
@@ -136,7 +140,7 @@ Public Class Text80x25MonoClass
             Next Position
 
             If (Not Cursor.Off) AndAlso Cursor.Visible Then
-               .FillRectangle(New SolidBrush(Color.Lime), Cursor.X * CHARACTER_SIZE.Width, (Cursor.Y * CHARACTER_SIZE.Height) + (Cursor.ScanLineStart * PIXELS_PER_SCANLINE) - &H4%, CHARACTER_SIZE.Width, (Cursor.ScanLineEnd * PIXELS_PER_SCANLINE) - (Cursor.ScanLineStart * PIXELS_PER_SCANLINE))
+               .FillRectangle(LIME_BRUSH, Cursor.X * CHARACTER_SIZE.Width, (Cursor.Y * CHARACTER_SIZE.Height) + (Cursor.ScanLineStart * PIXELS_PER_SCANLINE) - &H4%, CHARACTER_SIZE.Width, (Cursor.ScanLineEnd * PIXELS_PER_SCANLINE) - (Cursor.ScanLineStart * PIXELS_PER_SCANLINE))
             End If
          End With
       Catch

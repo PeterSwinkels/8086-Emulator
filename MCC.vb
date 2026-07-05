@@ -287,7 +287,9 @@ Public Class MCCClass
       Dim Success As Boolean = True
 
       Select Case Register
-         Case RegistersE.HorizontalTotalCharacters To RegistersE.LightPenLSB
+         Case RegistersE.CursorAddressLSB,
+              RegistersE.CursorAddressMSB,
+              RegistersE.HorizontalTotalCharacters To RegistersE.LightPenLSB
             SelectedRegister = Register
          Case Else
             Success = False
