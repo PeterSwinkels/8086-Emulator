@@ -21,6 +21,8 @@ Public Class ScreenWindow
       Try
          InitializeComponent()
 
+         Me.SetStyle(ControlStyles.ResizeRedraw, False)
+
          ToolTip.SetToolTip(Me, "This is where the emulation’s screen output is displayed and keyboard input is accepted.")
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -91,5 +93,17 @@ Public Class ScreenWindow
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
+   End Sub
+
+   Private Sub ScreenWindow_DoubleClick(sender As Object, e As EventArgs) Handles MyBase.DoubleClick
+      Dim Styles As New Text.StringBuilder
+
+      For Each Style As ControlStyles In [Enum].GetValues(GetType(ControlStyles))
+         If Me.GetStyle(Style) Then
+            Styles.Append($"{Style.ToString}{Environment.NewLine}")
+         End If
+      Next Style
+
+      MessageBox.Show(Styles.ToString)
    End Sub
 End Class
