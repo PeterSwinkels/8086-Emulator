@@ -345,7 +345,7 @@ Public Class MCCClass
          Case VideoModesE.Text40x25Mono
             Address = AddressesE.VGABuffer + (CPU.Memory(AddressesE.VideoPage) * VideoPageSizesE.Text40x25Mono)
          Case VideoModesE.Text80x25Color
-            Address = AddressesE.VGABuffer + (CPU.Memory(AddressesE.VideoPage) * VideoPageSizesE.Text80x25Color)
+            Address = AddressesE.Text80x25ColorBuffer + (CPU.Memory(AddressesE.VideoPage) * VideoPageSizesE.Text80x25Color)
          Case VideoModesE.Text80x25Gray
             Address = AddressesE.VGABuffer + (CPU.Memory(AddressesE.VideoPage) * VideoPageSizesE.Text80x25Gray)
          Case VideoModesE.VGA320x200,

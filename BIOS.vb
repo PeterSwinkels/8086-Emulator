@@ -34,6 +34,7 @@ Public Module BIOSModule
       KeyboardBuffer = &H41E%                'Keyboard buffer.
       MachineID = &HFFFFE%                   'Machine ID.
       Text80x25MonoBuffer = &HB0000%         '80x25 monochrome text video buffer.
+      Text80x25ColorBuffer = &HB8000%        '80x25 color text video buffer.
       VGABuffer = &HA0000%                   'VGA video buffer.
       VideoMode = &H449%                     'Current video mode.
       VideoModeOptions = &H487%              'Video mode options.
