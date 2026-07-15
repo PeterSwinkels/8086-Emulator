@@ -349,35 +349,62 @@ Public Class MSDOSClass
    'This procedure changes the current directory.
    Private Sub ChangeDirectory(ByRef Flags As Integer)
       Try
-         Dim Items As New List(Of FileSystemItemStr)(If(FileSystemItems.Any, FileSystemItems, GetFileSystemItems(CurrentDirectory(), "*.*")))
-         Dim NewDirectory As String = GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)})
+         Dim CurrentDirectoryO As String = CurrentDirectory()
+         Dim CurrentDrive As String = CurrentDirectory().First()
+         Dim Drive As String = Nothing
+         Dim IsSubDirectory As Boolean = True
+         Dim Items As New List(Of FileSystemItemStr)
+         Dim NewDirectory As String = GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)}).Replace("/"c, "\"c)
 
-         If NewDirectory.StartsWith(".\") Then NewDirectory = NewDirectory.Substring(2)
+         If NewDirectory.StartsWith("\"c) Then
+            IsSubDirectory = False
+         ElseIf NewDirectory.StartsWith(".\") Then
+            NewDirectory = NewDirectory.Substring(2)
+         ElseIf NewDirectory.Contains(":"c) Then
+            Drive = NewDirectory.First()
+            NewDirectory = NewDirectory.Substring(2)
+            IsSubDirectory = False
+         End If
 
-         If Not NewDirectory = "." Then
-            If Not (NewDirectory = "." OrElse NewDirectory = "..") Then
-               NewDirectory = Path.GetFileName(GetLongName(Items, NewDirectory))
-            End If
-
+         If NewDirectory = "." Then
+            Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+         Else
             Try
-               If NewDirectory.Trim() = Nothing Then
-                  Throw New DirectoryNotFoundException
+               If Not Drive = Nothing Then
+                  Directory.SetCurrentDirectory($"{Drive}:")
                End If
 
-               Directory.SetCurrentDirectory(NewDirectory)
-
-               If NewDirectory = ".." Then
-                  MSDOSCurrentDirectory.RemoveAt(MSDOSCurrentDirectory.Count - 1)
-               Else
-                  MSDOSCurrentDirectory.Add(NewDirectory.ToUpper())
+               If NewDirectory.StartsWith("\"c) Then
+                  Directory.SetCurrentDirectory("\")
                End If
+
+               For Each Subdirectory As String In NewDirectory.Split("\"c)
+                  If Not Subdirectory.Trim() = Nothing Then
+                     Items = If(FileSystemItems.Any, FileSystemItems, GetFileSystemItems(CurrentDirectory(), "*.*"))
+
+                     If Not (Subdirectory = "." OrElse Subdirectory = "..") Then
+                        Subdirectory = Path.GetFileName(GetLongName(Items, Subdirectory))
+                        If Subdirectory.Trim() = Nothing Then
+                           Throw New DirectoryNotFoundException
+                        End If
+                     End If
+
+                     Directory.SetCurrentDirectory(Subdirectory)
+                  End If
+               Next Subdirectory
+
+               UpdateMSDOSPath()
 
                Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
             Catch MSDOSException As Exception
                CPU.Registers(Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
                Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+
+               Directory.SetCurrentDirectory(CurrentDirectoryO)
             End Try
          End If
+
+         Directory.SetCurrentDirectory($"{CurrentDrive}:")
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -390,6 +417,7 @@ Public Class MSDOSClass
 
          Try
             Directory.SetCurrentDirectory($"{ToChar(CPU.Registers(SubRegisters8BitE.DL) + ToByte("A"c))}:")
+            UpdateMSDOSPath()
          Catch
          End Try
       Catch ExceptionO As Exception
