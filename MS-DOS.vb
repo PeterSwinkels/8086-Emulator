@@ -191,6 +191,7 @@ Public Class MSDOSClass
    Private AvailableDevices As Boolean = True                                   'Contains the AVAILDEV flag.
    Private BootDrive As Integer = &H0%                                          'Contains the boot drive.
    Private CTRLBreakCheck As Boolean = False                                    'Contains the control-break checking status.
+   Private CurrentDirectories(0 To 25) As String                                'Contains the current directory for each drive.
    Private DTAOffset As New Integer                                             'Contains the Disk Transfer Address offset.
    Private DTASegment As New Integer                                            'Contains the Disk Transfer Address segment.
    Private EnvironmentText As String = ""                                       'Contains the MS-DOS environment text.
@@ -413,10 +414,13 @@ Public Class MSDOSClass
    'This procedure changes the current drive.
    Private Sub ChangeDrive()
       Try
+         Dim Drive As Integer = CPU.Registers(SubRegisters8BitE.DL)
+
          CPU.Registers(SubRegisters8BitE.AL, NewValue:=ToInt32(GetHighestDriveLetter()) - ToInt32("@"c))
 
          Try
-            Directory.SetCurrentDirectory($"{ToChar(CPU.Registers(SubRegisters8BitE.DL) + ToByte("A"c))}:")
+            Directory.SetCurrentDirectory($"{ToChar(Drive + ToByte("A"c))}:")
+            Directory.SetCurrentDirectory(CurrentDirectories(Drive))
             UpdateMSDOSPath()
          Catch
          End Try
@@ -2203,6 +2207,9 @@ Public Class MSDOSClass
    'This procedure loads "MS-DOS" into memory.
    Public Sub LoadMSDOS()
       Try
+         Dim CurrentDrive As Char = CurrentDirectory().ToUpper().First()
+         Dim DriveLetter As New Char
+
          Allocations.Clear()
          AvailableDevices = True
          BootDrive = ToInt32(CurrentDirectory.ToCharArray.First()) - ToInt32("A"c)
@@ -2216,6 +2223,11 @@ Public Class MSDOSClass
          ProcessSegments.Clear()
          SwitchCharacter = "-"c
          Verify = False
+
+         For Index As Integer = CurrentDirectories.GetLowerBound(0) To CurrentDirectories.GetUpperBound(0)
+            DriveLetter = ToChar(Index + ToByte("A"c))
+            CurrentDirectories(Index) = If(DriveLetter = CurrentDrive, CurrentDirectory(), $"{DriveLetter}:\")
+         Next Index
 
          CPU.PutWord(DBCS_SEGMENT << &H4%, &H0%)
          WriteBytesToMemory(DPT, DPT_SEGMENT << &H4%)
@@ -2786,6 +2798,7 @@ Public Class MSDOSClass
    'This procedure updates the current path for the emulated MS-DOS environment.
    Public Sub UpdateMSDOSPath()
       Try
+         Dim Drive As Integer = ToInt32(CurrentDirectory().ToUpper().First()) - ToInt32("A"c)
          Dim CurrentPath As String = CurrentDirectory()
          Dim Items As New List(Of FileSystemItemStr)
 
@@ -2803,6 +2816,8 @@ Public Class MSDOSClass
                MSDOSCurrentDirectory.Add(GetShortName(Items, CurrentDirectory()))
             End If
          Next Parent
+
+         CurrentDirectories(Drive) = CurrentDirectory()
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
