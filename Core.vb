@@ -1184,6 +1184,7 @@ Public Module CoreModule
    'This procedure switches to a video adapter based on the current screen mode.
    Public Sub SwitchVideoAdapter()
       Try
+         Dim VideoMode As New VideoModesE
          Dim PreviousAdapter As VideoAdapterClass = VideoAdapter
 
          If MCC.IsMDA Then
@@ -1209,6 +1210,9 @@ Public Module CoreModule
          End If
 
          If ScreenWindow.Visible Then
+            VideoMode = VideoAdapterToVideoMode()
+            ScreenWindow.Text = $"Screen {If([Enum].IsDefined(GetType(VideoModesE), VideoMode), $"{VideoMode} (0x{CInt(VideoMode).ToString("X")})", "Unknown mode.")}"
+
             If VideoAdapter IsNot Nothing Then
                ScreenWindow.ClientSize = VideoAdapter.Resolution
             End If
@@ -1295,11 +1299,11 @@ Public Module CoreModule
 
          Select Case VideoMode1
             Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B
-               Equivalent = (VideoMode1 = Videomode2)
+               Equivalent = (Videomode2 = VideoModesE.CGA320x200A OrElse Videomode2 = VideoModesE.CGA320x200B)
             Case VideoModesE.Text40x25Color, VideoModesE.Text40x25Mono
-               Equivalent = (VideoMode1 = VideoModesE.Text40x25Color OrElse VideoMode1 = VideoModesE.Text40x25Mono)
+               Equivalent = (Videomode2 = VideoModesE.Text40x25Color OrElse Videomode2 = VideoModesE.Text40x25Mono)
             Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray
-               Equivalent = (VideoMode1 = VideoModesE.Text80x25Color OrElse VideoMode1 = VideoModesE.Text80x25Gray)
+               Equivalent = (Videomode2 = VideoModesE.Text80x25Color OrElse Videomode2 = VideoModesE.Text80x25Gray)
             Case Else
                Equivalent = (VideoMode1 = Videomode2)
          End Select

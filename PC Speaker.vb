@@ -6,6 +6,7 @@ Option Strict On
 
 Imports SDL2.SDL
 Imports System
+Imports System.Environment
 Imports System.Runtime.InteropServices
 
 'This class contains the PC-Speaker.
@@ -50,11 +51,9 @@ Public Class PCSpeakerClass
          SyncLock SYNCHRONIZER
             Phase = LocalPhase
          End SyncLock
-
-         Marshal.Copy(Buffer, &H0%, stream, SampleCount)
-      Else
-         Marshal.Copy(Buffer, &H0%, stream, SampleCount)
       End If
+
+      Marshal.Copy(Buffer, &H0%, stream, SampleCount)
    End Sub
 
    'This procedure sets the frequency based on the specified divisor.
@@ -85,7 +84,7 @@ Public Class PCSpeakerClass
          End If
       Catch ExceptionO As Exception
          SyncLock SYNCHRONIZER
-            CPU_EVENT.Append($"{ExceptionO.Message}{Environment.NewLine}")
+            CPU_EVENT.Append($"{ExceptionO.Message}{NewLine}")
          End SyncLock
       End Try
    End Sub
@@ -102,7 +101,7 @@ Public Class PCSpeakerClass
          SDL_Quit()
       Catch ExceptionO As Exception
          SyncLock SYNCHRONIZER
-            CPU_EVENT.Append($"{ExceptionO.Message}{Environment.NewLine}")
+            CPU_EVENT.Append($"{ExceptionO.Message}{NewLine}")
          End SyncLock
       End Try
    End Sub

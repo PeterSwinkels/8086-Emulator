@@ -19,9 +19,12 @@ Public Class ScreenWindow
    'This procedure initializes this window.
    Public Sub New()
       Try
+         Dim VideoMode As VideoModesE = VideoAdapterToVideoMode()
+
          InitializeComponent()
 
          Me.SetStyle(ControlStyles.ResizeRedraw, False)
+         Me.Text = $"Screen {If([Enum].IsDefined(GetType(VideoModesE), VideoMode), $"{VideoMode} (0x{CInt(VideoMode).ToString("X")})", "Unknown mode.")}"
 
          ToolTip.SetToolTip(Me, "This is where the emulation’s screen output is displayed and keyboard input is accepted.")
       Catch ExceptionO As Exception
@@ -52,10 +55,6 @@ Public Class ScreenWindow
    'This procedure gives the video adapter the command to update the screen's content.
    Private Async Sub ScreenWindow_Paint(sender As Object, e As PaintEventArgs) Handles MyBase.Paint
       Try
-         Dim VideoMode As VideoModesE = VideoAdapterToVideoMode()
-
-         Me.Text = $"Screen {If([Enum].IsDefined(GetType(VideoModesE), VideoMode), $"{VideoMode} (0x{CInt(VideoMode).ToString("X")})", "Unknown mode.")}"
-
          If VideoAdapter Is Nothing Then
             Me.ClientSize = New Size(320, 200)
             Me.BackColor = Color.Black
@@ -68,7 +67,6 @@ Public Class ScreenWindow
             End If
 
             Await Task.Run(Sub() VideoAdapter.Display(Me.BackgroundImage, CPU.Memory, CODE_PAGE_437))
-
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)

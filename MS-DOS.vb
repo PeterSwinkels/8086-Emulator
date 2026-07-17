@@ -2044,11 +2044,13 @@ Public Class MSDOSClass
       Try
          Dim Address As New Integer
          Dim DisplayInformation As New List(Of Byte)
+         Dim Handle As STDFileHandlesE = DirectCast(CPU.Registers(Registers16BitE.BX), STDFileHandlesE)
+         Dim OpenFileToBeSought As Tuple(Of FileStream, Integer) = Nothing
          Dim Success As Boolean = False
 
          Select Case CPU.Registers(SubRegisters8BitE.AL)
             Case &H0%
-               Select Case DirectCast(CPU.Registers(Registers16BitE.BX), STDFileHandlesE)
+               Select Case Handle
                   Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
                      CPU.Registers(Registers16BitE.DX, NewValue:=&H80%)
                      Success = True
@@ -2057,7 +2059,7 @@ Public Class MSDOSClass
                      Success = True
                End Select
             Case &H1%
-               Select Case DirectCast(CPU.Registers(Registers16BitE.BX), STDFileHandlesE)
+               Select Case Handle
                   Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
                      Success = True
                   Case Else
@@ -2065,6 +2067,26 @@ Public Class MSDOSClass
                      Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
                      Success = True
                End Select
+            Case &H6%
+               Select Case Handle
+                  Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
+                     CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
+                     Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+                  Case Else
+                     OpenFileToBeSought = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CPU.Registers(Registers16BitE.BX))
+                     Try
+                        If OpenFileToBeSought.Item1.Position < OpenFileToBeSought.Item1.Length Then
+                           CPU.Registers(SubRegisters8BitE.AL, NewValue:=&HFF%)
+                        Else
+                           CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
+                        End If
+                        Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+                     Catch MSDOSException As Exception
+                        CPU.Registers(Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
+                        Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+                     End Try
+               End Select
+               Success = True
             Case &H8%
                DriveRemovableQuery(Flags)
                Success = True
