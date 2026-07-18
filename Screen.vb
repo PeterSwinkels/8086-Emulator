@@ -55,6 +55,10 @@ Public Class ScreenWindow
    'This procedure gives the video adapter the command to update the screen's content.
    Private Async Sub ScreenWindow_Paint(sender As Object, e As PaintEventArgs) Handles MyBase.Paint
       Try
+         Dim VideoMode As VideoModesE = VideoAdapterToVideoMode()
+
+         Me.Text = $"Screen {If([Enum].IsDefined(GetType(VideoModesE), VideoMode), $"{VideoMode} (0x{CInt(VideoMode).ToString("X")})", "Unknown mode.")}"
+
          If VideoAdapter Is Nothing Then
             Me.ClientSize = New Size(320, 200)
             Me.BackColor = Color.Black

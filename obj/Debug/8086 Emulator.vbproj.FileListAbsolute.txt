@@ -343,3 +343,18 @@ D:\Other\8086 Emulator.v1130\obj\Debug\8086 Emulator.vbproj.CoreCompileInputs.ca
 D:\Other\8086 Emulator.v1130\obj\Debug\8086 Emu.1CF2A95C.Up2Date
 D:\Other\8086 Emulator.v1130\obj\Debug\8086 Emulator.exe
 D:\Other\8086 Emulator.v1130\obj\Debug\8086 Emulator.pdb
+C:\Users\peter\Desktop\8086 Emulator\8086 Emulator.v1130\bin\Debug\8086 Emulator.exe.config
+C:\Users\peter\Desktop\8086 Emulator\8086 Emulator.v1130\bin\Debug\8086 Emulator.exe
+C:\Users\peter\Desktop\8086 Emulator\8086 Emulator.v1130\bin\Debug\8086 Emulator.pdb
+C:\Users\peter\Desktop\8086 Emulator\8086 Emulator.v1130\bin\Debug\SDL2-CS.dll
+C:\Users\peter\Desktop\8086 Emulator\8086 Emulator.v1130\bin\Debug\SDL2-CS.xml
+C:\Users\peter\Desktop\8086 Emulator\8086 Emulator.v1130\bin\Debug\SDL2-CS.dll.config
+C:\Users\peter\Desktop\8086 Emulator\8086 Emulator.v1130\obj\Debug\8086 Emulator.vbproj.AssemblyReference.cache
+C:\Users\peter\Desktop\8086 Emulator\8086 Emulator.v1130\obj\Debug\Emulator8086Program.InterfaceWindow.resources
+C:\Users\peter\Desktop\8086 Emulator\8086 Emulator.v1130\obj\Debug\Emulator8086Program.Resources.resources
+C:\Users\peter\Desktop\8086 Emulator\8086 Emulator.v1130\obj\Debug\Emulator8086Program.ScreenWindow.resources
+C:\Users\peter\Desktop\8086 Emulator\8086 Emulator.v1130\obj\Debug\8086 Emulator.vbproj.GenerateResource.cache
+C:\Users\peter\Desktop\8086 Emulator\8086 Emulator.v1130\obj\Debug\8086 Emulator.vbproj.CoreCompileInputs.cache
+C:\Users\peter\Desktop\8086 Emulator\8086 Emulator.v1130\obj\Debug\8086 Emu.1CF2A95C.Up2Date
+C:\Users\peter\Desktop\8086 Emulator\8086 Emulator.v1130\obj\Debug\8086 Emulator.exe
+C:\Users\peter\Desktop\8086 Emulator\8086 Emulator.v1130\obj\Debug\8086 Emulator.pdb

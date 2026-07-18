@@ -1184,7 +1184,6 @@ Public Module CoreModule
    'This procedure switches to a video adapter based on the current screen mode.
    Public Sub SwitchVideoAdapter()
       Try
-         Dim VideoMode As New VideoModesE
          Dim PreviousAdapter As VideoAdapterClass = VideoAdapter
 
          If MCC.IsMDA Then
@@ -1210,9 +1209,6 @@ Public Module CoreModule
          End If
 
          If ScreenWindow.Visible Then
-            VideoMode = VideoAdapterToVideoMode()
-            ScreenWindow.Text = $"Screen {If([Enum].IsDefined(GetType(VideoModesE), VideoMode), $"{VideoMode} (0x{CInt(VideoMode).ToString("X")})", "Unknown mode.")}"
-
             If VideoAdapter IsNot Nothing Then
                ScreenWindow.ClientSize = VideoAdapter.Resolution
             End If
