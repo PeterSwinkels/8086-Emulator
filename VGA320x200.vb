@@ -12,9 +12,9 @@ Imports System.Drawing
 Public Class VGA320x200Class
    Implements VideoAdapterClass
 
-   Private Const HEIGHT As Integer = 200     'Defines the graphic's mode height in pixels.
+   Private Const HEIGHT As Integer = 200     'Defines the graphic mode's height in pixels.
    Private Const SCALING As Integer = &H2%   'Defines the scale factor.
-   Private Const WIDTH As Integer = 320      'Defines the graphic's mode width in pixels.
+   Private Const WIDTH As Integer = 320      'Defines the graphic mode's width in pixels.
 
    'This procedure clears video adapter's buffer.
    Public Sub ClearBuffer() Implements VideoAdapterClass.ClearBuffer
@@ -99,7 +99,6 @@ Public Class VGA320x200Class
       Dim Attribute As Byte = CByte(CPU.Registers(SubRegisters8BitE.BH))
       Dim CharacterByte As New Byte
       Dim NewAddress As New Integer
-      Dim Position As New Integer
 
       If Count = &H0% OrElse Count > MCC.RowCount() Then
          VideoAdapter.ClearBuffer()

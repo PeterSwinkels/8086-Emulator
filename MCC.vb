@@ -43,15 +43,11 @@ Public Class MCCClass
 
    Public Const INTENSITY_BIT As Integer = &H10%              'Defines the color intensity bit.
    Public Const VIDEO_RAM_256KB As Byte = &H3%                 'Defines the value for 256 kb of video RAM.
-   Private Const CGA_RETRACE_DURATION As Integer = 2           'Defines the CGA retrace duration in milliseconds.
    Private Const CHARACTER_SCANLINE_COUNT As Byte = &HE%       'Defines the number of scanlines per character.
    Private Const DEFAULT_CHARACTER_ROW_COUNT As Byte = &H19%   'Defines the default number of character rows.
-   Private Const FRAME_DURATION As Integer = 20                'Defines the frame duration in milliseconds.
-   Private Const MDA_RETRACE_DURATION As Integer = 20          'Defines the MDA retrace duration in milliseconds.
 
    Public ReadOnly BACKGROUND_COLORS() As Color = {Color.Black, Color.DarkBlue, Color.DarkGreen, Color.DarkCyan, Color.DarkRed, Color.Purple, Color.Brown, Color.White, Color.Gray, Color.Blue, Color.Green, Color.Cyan, Color.Red, Color.Pink, Color.Yellow, Color.White}   'Contains the background colors.
    Public ReadOnly GET_SELECTED_REGISTER As Func(Of RegistersE) = Function() SelectedRegister       'Returns the selected register.
-   Private ReadOnly CYCLE_CLOCK As Stopwatch = Stopwatch.StartNew()                                  'Defines the clock used to control refresh cycles.
    Private ReadOnly PALETTE0L() As Color = {Color.Black, Color.Green, Color.DarkRed, Color.Brown}    'Contains palette #0 low intensity colors.
    Private ReadOnly PALETTE1L() As Color = {Color.Black, Color.DarkCyan, Color.Purple, Color.Gray}   'Contains palette #1 low intensity colors.
    Private ReadOnly PALETTE0H() As Color = {Color.Black, Color.LightGreen, Color.Red, Color.Yellow}  'Contains palette #0 high intensity colors.
@@ -63,13 +59,17 @@ Public Class MCCClass
    Public IsMDA As Boolean = True                                                                 'Indicates whether or not an MDA will be emulated.
    Public PaintBrushes(&H0% To &H3%) As Brush                                                     'Contains the paint brushes created using the active palette.
    Public SelectedRegister As New RegistersE                                                      'Contains the selected register.
+   Public HerculesGraphicsOn As Boolean = False                                                   'Indicates whether or not Hercules graphics are on.
    Private IntenseColors As Boolean = True                                                         'Indicates whether or not intense colors are turned on.
+   Private MDACGAStatusToggle As New Boolean                                                       'Indicates what value the MDA and CGA status ports return.
    Private RegisterValue(RegistersE.HorizontalTotalCharacters To RegistersE.LightPenLSB) As Byte   'Contains the register values.
    Private SelectedPalette As New Integer                                                          'Contains the palette number used by the active palette.
 
    'This procedure returns the color graphics display adapter status port's current value.
    Public Function CGAStatus() As Byte
-      Return CByte(If(CYCLE_CLOCK.ElapsedMilliseconds Mod FRAME_DURATION >= (FRAME_DURATION - CGA_RETRACE_DURATION), &H8%, &H1%))
+      MDACGAStatusToggle = Not MDACGAStatusToggle
+
+      Return ToByte(If(MDACGAStatusToggle, &H1%, &H8%))
    End Function
 
    'This function returns the number of scanlines per character.
@@ -85,7 +85,7 @@ Public Class MCCClass
          Case VideoModesE.CGA640x200,
               VideoModesE.EGA640x350Mono,
               VideoModesE.Text40x25Mono,
-              VideoModesE.Text80x25Mono,
+              VideoModesE.Text80x25Mono_Hercules,
               VideoModesE.VGA640x480Mono
             Count = &H2%
          Case VideoModesE.CGA320x200A,
@@ -109,22 +109,6 @@ Public Class MCCClass
       Return Count
    End Function
 
-   'This procedure selects the active the palette.
-   Public Sub ColorSelect(Value As Integer)
-      Select Case Value
-         Case &H0%
-            SelectedPalette = Value
-            CPU.Memory(AddressesE.CGACurrentPalette) = ToByte(Value)
-            ActivePalette = If(IntenseColors, PALETTE0H, PALETTE0L)
-            CreateBrushes()
-         Case &H1%
-            SelectedPalette = Value
-            CPU.Memory(AddressesE.CGACurrentPalette) = ToByte(Value)
-            ActivePalette = If(IntenseColors, PALETTE1H, PALETTE1L)
-            CreateBrushes()
-      End Select
-   End Sub
-
    'This procedure returns the number of character columns for the current video mode.
    Public Function ColumnCount() As Byte
       Dim Count As Byte = Nothing
@@ -146,7 +130,7 @@ Public Class MCCClass
               VideoModesE.PCjr640x200,
               VideoModesE.Text80x25Color,
               VideoModesE.Text80x25Gray,
-              VideoModesE.Text80x25Mono,
+              VideoModesE.Text80x25Mono_Hercules,
               VideoModesE.VGA640x480,
               VideoModesE.VGA640x480Mono
             Count = &H50%
@@ -167,7 +151,7 @@ Public Class MCCClass
       Dim TextMode As New Boolean
 
       Select Case CurrentVideoMode
-         Case VideoModesE.Text40x25Color, VideoModesE.Text40x25Mono, VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono
+         Case VideoModesE.Text40x25Color, VideoModesE.Text40x25Mono, VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono_Hercules
             TextMode = True
          Case Else
             TextMode = False
@@ -176,9 +160,29 @@ Public Class MCCClass
       Return TextMode
    End Function
 
+   'This procedure sets the specified MDA mode.
+   Public Sub MDAMode(NewMode As Byte)
+      Select Case NewMode
+         Case &HA%
+            MCC.HerculesGraphicsOn = True
+            SwitchVideoAdapter()
+         Case &H28%
+            MCC.HerculesGraphicsOn = False
+            SwitchVideoAdapter()
+         Case &H3F%
+            MCC.BlinkingOn = True
+         Case &H40%
+            MCC.BlinkingOn = False
+      End Select
+
+      CPU.Memory(AddressesE.CRTModeControlRegisterValue) = ToByte(NewMode)
+   End Sub
+
    'This procedure returns the monochrome display adapter status port's current value.
    Public Function MDAStatus() As Byte
-      Return CByte(If(CYCLE_CLOCK.ElapsedMilliseconds Mod FRAME_DURATION >= (FRAME_DURATION - MDA_RETRACE_DURATION), &H80%, &H2%))
+      MDACGAStatusToggle = Not MDACGAStatusToggle
+
+      Return ToByte(If(MDACGAStatusToggle, &H2%, &H80%))
    End Function
 
    'This procedure returns the number of pixels per column for the current video mode.
@@ -221,7 +225,7 @@ Public Class MCCClass
               VideoModesE.Text40x25Mono,
               VideoModesE.Text80x25Color,
               VideoModesE.Text80x25Gray,
-              VideoModesE.Text80x25Mono,
+              VideoModesE.Text80x25Mono_Hercules,
               VideoModesE.VGA640x480,
               VideoModesE.VGA640x480Mono
             Count = 640
@@ -252,7 +256,7 @@ Public Class MCCClass
               VideoModesE.Text40x25Mono,
               VideoModesE.Text80x25Color,
               VideoModesE.Text80x25Gray,
-              VideoModesE.Text80x25Mono
+              VideoModesE.Text80x25Mono_Hercules
             Count = RasterScanLinesE.SC400
          Case VideoModesE.VGA640x480,
               VideoModesE.VGA640x480Mono
@@ -279,7 +283,23 @@ Public Class MCCClass
    'This procedure selects the specified color intensity.
    Public Sub SelectIntensity(NewIntensity As Boolean)
       IntenseColors = NewIntensity
-      ColorSelect(SelectedPalette)
+      SelectActivePalette(SelectedPalette)
+   End Sub
+
+   'This procedure selects the active the palette.
+   Public Sub SelectActivePalette(Value As Integer)
+      Select Case Value
+         Case &H0%
+            SelectedPalette = Value
+            CPU.Memory(AddressesE.CGACurrentPalette) = ToByte(Value)
+            ActivePalette = If(IntenseColors, PALETTE0H, PALETTE0L)
+            CreateBrushes()
+         Case &H1%
+            SelectedPalette = Value
+            CPU.Memory(AddressesE.CGACurrentPalette) = ToByte(Value)
+            ActivePalette = If(IntenseColors, PALETTE1H, PALETTE1L)
+            CreateBrushes()
+      End Select
    End Sub
 
    'This procedure selects the specified register and returns whether or not the selection succeeded.
@@ -326,7 +346,7 @@ Public Class MCCClass
       Dim Address As New Integer
 
       Select Case CurrentVideoMode
-         Case VideoModesE.Text80x25Mono
+         Case VideoModesE.Text80x25Mono_Hercules
             Address = AddressesE.Text80x25MonoBuffer
          Case VideoModesE.CGA320x200A,
               VideoModesE.CGA320x200B,

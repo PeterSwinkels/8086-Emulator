@@ -32,6 +32,29 @@ Public Class ScreenWindow
       End Try
    End Sub
 
+   'This procedure gives the video adapter the command to update the screen's content.
+   Private Async Sub ScreenBox_Paint(sender As Object, e As PaintEventArgs) Handles ScreenBox.Paint
+      Try
+         Dim VideoMode As VideoModesE = VideoAdapterToVideoMode()
+
+         Me.Text = $"Screen {If([Enum].IsDefined(GetType(VideoModesE), VideoMode), $"{VideoMode} (0x{CInt(VideoMode).ToString("X")})", "Unknown mode.")}"
+
+         If VideoAdapter Is Nothing Then
+            Me.ClientSize = New Size(320, 200)
+            Me.BackColor = Color.Black
+         Else
+            If Not Me.ClientSize = VideoAdapter.Resolution Then
+               Me.ClientSize = VideoAdapter.Resolution
+               ScreenBox.Image = New Bitmap(Me.ClientSize.Width, Me.ClientSize.Height)
+            End If
+
+            Await Task.Run(Sub() VideoAdapter.Display(Me.ScreenBox.Image, CPU.Memory, CODE_PAGE_437))
+         End If
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
    'This procedure handles any keystrokes made by the user when a key is pressed.
    Private Sub ScreenWindow_KeyDown(sender As Object, e As KeyEventArgs) Handles MyBase.KeyDown
       Try
@@ -52,26 +75,10 @@ Public Class ScreenWindow
       End Try
    End Sub
 
-   'This procedure gives the video adapter the command to update the screen's content.
-   Private Async Sub ScreenWindow_Paint(sender As Object, e As PaintEventArgs) Handles MyBase.Paint
+   'This procedure adjusts the window's background to the window's new size.
+   Private Sub ScreenWindow_Resize(ByVal sender As Object, ByVal e As EventArgs) Handles MyBase.Resize
       Try
-         Dim VideoMode As VideoModesE = VideoAdapterToVideoMode()
-
-         Me.Text = $"Screen {If([Enum].IsDefined(GetType(VideoModesE), VideoMode), $"{VideoMode} (0x{CInt(VideoMode).ToString("X")})", "Unknown mode.")}"
-
-         If VideoAdapter Is Nothing Then
-            Me.ClientSize = New Size(320, 200)
-            Me.BackColor = Color.Black
-         Else
-            Me.ClientSize = VideoAdapter.Resolution
-
-            If Me.BackgroundImage Is Nothing Then
-               Me.BackgroundImage = New Bitmap(Me.ClientSize.Width, Me.ClientSize.Height)
-               Graphics.FromImage(Me.BackgroundImage).Clear(Color.Black)
-            End If
-
-            Await Task.Run(Sub() VideoAdapter.Display(Me.BackgroundImage, CPU.Memory, CODE_PAGE_437))
-         End If
+         Me.BackgroundImage = New Bitmap(Me.ClientSize.Width, Me.ClientSize.Height)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

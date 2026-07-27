@@ -36,7 +36,7 @@ Public Class Text80x25ColorClass
 
    'This procedure clears video adapter's buffer.
    Public Sub ClearBuffer() Implements VideoAdapterClass.ClearBuffer
-      Dim Count As Integer = VideoModesE.Text80x25Color \ &H2%
+      Dim Count As Integer = VideoPageSizesE.Text80x25Color \ &H2%
       Dim Position As Integer = &H0%
       Dim VideoPageAddress As Integer = AddressesE.CGABuffer
 
@@ -61,10 +61,9 @@ Public Class Text80x25ColorClass
          GraphicsO = Graphics.FromImage(Screen)
 
          With GraphicsO
-            .Clear(Color.Black)
-
-            For Position As Integer = VideoPageAddress To VideoPageAddress + VideoModesE.Text80x25Color Step &H2%
+            For Position As Integer = VideoPageAddress To VideoPageAddress + VideoPageSizesE.Text80x25Color Step &H2%
                Character = ToChar(CodePage(Memory(Position)))
+
                If MCC.BlinkingOn Then
                   Attribute = ToByte((Memory(Position + &H1%) And &H7F%) \ &H10%)
                Else
@@ -82,7 +81,7 @@ Public Class Text80x25ColorClass
 
             Target = New Point(0, 0)
 
-            For Position As Integer = VideoPageAddress To VideoPageAddress + VideoPageSizesE.Text80x25Mono Step &H2%
+            For Position As Integer = VideoPageAddress To VideoPageAddress + VideoPageSizesE.Text80x25Color Step &H2%
                Character = ToChar(CodePage(Memory(Position)))
                Attribute = Memory(Position + &H1%)
 
@@ -101,8 +100,8 @@ Public Class Text80x25ColorClass
             Next Position
 
             If (Not Cursor.Off) AndAlso Cursor.Visible Then
-               Attribute = ToByte(Memory((AddressesE.Text80x25MonoBuffer + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)) + &H1%) And &HF%)
-               .FillRectangle(Brushes(Attribute), Cursor.X * CHARACTER_SIZE.Width, (Cursor.Y * CHARACTER_SIZE.Height) + (Cursor.ScanLineStart * PIXELS_PER_SCANLINE), CHARACTER_SIZE.Width, (Cursor.ScanLineEnd * PIXELS_PER_SCANLINE) - (Cursor.ScanLineStart * PIXELS_PER_SCANLINE))
+               Attribute = ToByte(Memory((AddressesE.Text80x25ColorBuffer + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)) + &H1%) And &HF%)
+               .FillRectangle(Brushes(Attribute), Cursor.X * CHARACTER_SIZE.Width, (Cursor.Y * CHARACTER_SIZE.Height) + (Cursor.ScanLineStart * PIXELS_PER_SCANLINE) - &H4%, CHARACTER_SIZE.Width, (Cursor.ScanLineEnd * PIXELS_PER_SCANLINE) - (Cursor.ScanLineStart * PIXELS_PER_SCANLINE))
             End If
          End With
       Catch
@@ -153,11 +152,11 @@ Public Class Text80x25ColorClass
                Case True
                   For Row As Integer = ScrollArea.ULCRow + &H1% To ScrollArea.LRCRow
                      For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
-                        If Row <= ScrollArea.LRCRow Then
+                        If Row <= ScrollArea.LRCRow AndAlso Row < MCC.RowCount() Then
                            CharacterCell = CPU.GetWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
                            CPU.PutWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
                         Else
-                           CharacterCell = Attribute << &H8%
+                           CharacterCell = (Attribute << &H8%)
                         End If
                         If Row >= ScrollArea.ULCRow Then
                            CPU.PutWord(VideoPageAddress + (((Row - &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), CharacterCell)
@@ -167,7 +166,7 @@ Public Class Text80x25ColorClass
                Case False
                   For Row As Integer = ScrollArea.LRCRow - &H1% To ScrollArea.ULCRow Step -&H1%
                      For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
-                        If Row >= ScrollArea.ULCRow Then
+                        If Row >= ScrollArea.ULCRow AndAlso Row < MCC.RowCount() Then
                            CharacterCell = CPU.GetWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
                            CPU.PutWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
                         Else

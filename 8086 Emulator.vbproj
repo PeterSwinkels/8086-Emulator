@@ -120,8 +120,10 @@
     <Reference Include="System.Net.Http" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CGA640x200.vb" />
     <Compile Include="Code Pages.vb" />
     <Compile Include="DMA.vb" />
+    <Compile Include="Hercules.vb" />
     <Compile Include="High Precision Timer.vb" />
     <Compile Include="MCC.vb" />
     <Compile Include="8086.vb" />

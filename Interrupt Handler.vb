@@ -82,7 +82,7 @@ Public Module InterruptHandlerModule
                      VideoMode = VideoMode And VIDEO_MODE_MASK
 
                      Select Case DirectCast(VideoMode, VideoModesE)
-                        Case VideoModesE.Text80x25Mono
+                        Case VideoModesE.Text80x25Mono_Hercules
                            If MCC.IsMDA Then VideoModeValid = True
                         Case Else
                            If Not MCC.IsMDA Then VideoModeValid = [Enum].IsDefined(GetType(VideoModesE), VideoMode)
@@ -132,14 +132,14 @@ Public Module InterruptHandlerModule
                      Success = True
                   Case &H8%
                      Select Case MCC.CurrentVideoMode
-                        Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono
+                        Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono_Hercules
                            CursorPositionUpdate()
                            CPU.Registers(Registers16BitE.AX, NewValue:=CPU.GetWord(AddressesE.Text80x25MonoBuffer + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)))
                            Success = True
                      End Select
                   Case &H9%, &HA%
                      Select Case MCC.CurrentVideoMode
-                        Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B, VideoModesE.VGA320x200
+                        Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B, VideoModesE.CGA640x200, VideoModesE.VGA320x200
                            Character = CByte(CPU.Registers(SubRegisters8BitE.AL))
                            Attribute = CByte(CPU.Registers(SubRegisters8BitE.BL))
                            Count = CPU.Registers(Registers16BitE.CX)
@@ -154,7 +154,7 @@ Public Module InterruptHandlerModule
                               End If
                               Count -= &H1%
                            Loop
-                        Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono
+                        Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono_Hercules
                            VideoPageAddress = MCC.VideoPageAddress()
                            Character = CByte(CPU.Registers(SubRegisters8BitE.AL))
                            Attribute = CByte(CPU.Registers(SubRegisters8BitE.BL))
@@ -175,16 +175,15 @@ Public Module InterruptHandlerModule
                            MCC.ActivePalette(0) = MCC.BACKGROUND_COLORS(CPU.Registers(SubRegisters8BitE.BL) And &HF%)
                            MCC.SelectIntensity((CPU.Registers(SubRegisters8BitE.BL) And MCCClass.INTENSITY_BIT) = MCCClass.INTENSITY_BIT)
                         Case &H1%
-                           MCC.ColorSelect(CPU.Registers(SubRegisters8BitE.BL) And &H1%)
+                           MCC.SelectActivePalette(CPU.Registers(SubRegisters8BitE.BL) And &H1%)
                      End Select
                      Success = True
                   Case &HC%
+                     x = CPU.Registers(Registers16BitE.CX)
+                     y = CPU.Registers(Registers16BitE.DX)
+                     AL = CByte(CPU.Registers(SubRegisters8BitE.AL))
                      Select Case MCC.CurrentVideoMode
                         Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B
-                           x = CPU.Registers(Registers16BitE.CX)
-                           y = CPU.Registers(Registers16BitE.DX)
-
-                           AL = CByte(CPU.Registers(SubRegisters8BitE.AL))
                            PixelColor = CByte(AL And &H3%)
                            Position = AddressesE.CGABuffer + If((y And 1) = 0, 0, VideoPageSizesE.CGA320x200A \ 2) + (y \ 2) * 80 + (x \ 4)
                            Pixel = x And &H3%
@@ -199,10 +198,22 @@ Public Module InterruptHandlerModule
                            End If
 
                            CPU.Memory(Position) = CByte(Value)
+                        Case VideoModesE.CGA640x200
+                           PixelColor = CByte(AL And &H1%)
+                           Position = AddressesE.CGABuffer + If((y And 1) = 0, 0, VideoPageSizesE.CGA640x200 \ 2) + (y \ 2) * 80 + (x \ 4)
+                           Pixel = x And &H6%
+                           Shift = (&H6% - Pixel) * &H4%
+                           Mask = CByte(&H6% << Shift)
+                           Value = CPU.Memory(Position)
+
+                           If (AL And &H80%) = &H0% Then
+                              Value = (Value And Not Mask) Or CByte(PixelColor << Shift)
+                           Else
+                              Value = Value Xor CByte(PixelColor << Shift)
+                           End If
+
+                           CPU.Memory(Position) = CByte(Value)
                         Case VideoModesE.VGA320x200
-                           x = CPU.Registers(Registers16BitE.CX)
-                           y = CPU.Registers(Registers16BitE.DX)
-                           AL = CByte(CPU.Registers(SubRegisters8BitE.AL))
                            Position = AddressesE.VGABuffer + ((y * 320) + x)
                            CPU.Memory(Position) = CByte(AL)
                      End Select
@@ -220,7 +231,7 @@ Public Module InterruptHandlerModule
                      Success = True
                   Case &H10%
                      Select Case MCC.CurrentVideoMode
-                        Case VideoModesE.Text80x25Mono
+                        Case VideoModesE.Text80x25Mono_Hercules
                            Success = True
                         Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray
                            Select Case CByte(CPU.Registers(SubRegisters8BitE.AL))
@@ -244,7 +255,7 @@ Public Module InterruptHandlerModule
                      Select Case MCC.CurrentVideoMode
                         Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray
                            Success = True
-                        Case VideoModesE.Text80x25Mono
+                        Case VideoModesE.Text80x25Mono_Hercules
                            Success = True
                      End Select
                   Case &H13%
@@ -257,7 +268,7 @@ Public Module InterruptHandlerModule
                      Success = True
                   Case &H1B%
                      Select Case MCC.CurrentVideoMode
-                        Case VideoModesE.Text80x25Mono
+                        Case VideoModesE.Text80x25Mono_Hercules
                         Case Else
                            If CPU.Registers(Registers16BitE.BX) = &H0% Then
                               CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1B%)
@@ -271,9 +282,13 @@ Public Module InterruptHandlerModule
                      Success = True
                   Case &H1C%
                      Select Case MCC.CurrentVideoMode
-                        Case VideoModesE.Text80x25Mono
+                        Case VideoModesE.Text80x25Mono_Hercules
                            Success = True
                      End Select
+                  Case &H30%
+                     CPU.Registers(Registers16BitE.CX, NewValue:=&H0%)
+                     CPU.Registers(Registers16BitE.DX, NewValue:=&H0%)
+                     Success = True
                   Case &H4F%, &HEF%, &HFE%, &HFF%
                      Success = True
                End Select

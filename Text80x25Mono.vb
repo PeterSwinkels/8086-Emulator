@@ -190,7 +190,7 @@ Public Class Text80x25MonoClass
                            CharacterCell = CPU.GetWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
                            CPU.PutWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
                         Else
-                           CharacterCell = Attribute << &H8%
+                           CharacterCell = (Attribute << &H8%)
                         End If
                         If Row >= ScrollArea.ULCRow Then
                            CPU.PutWord(VideoPageAddress + (((Row - &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), CharacterCell)

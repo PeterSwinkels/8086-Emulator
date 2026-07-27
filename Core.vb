@@ -8,6 +8,7 @@ Imports Emulator8086Program.CPU8086Class
 Imports System
 Imports System.Collections.Generic
 Imports System.Convert
+Imports System.Drawing
 Imports System.Environment
 Imports System.Globalization
 Imports System.IO
@@ -380,7 +381,7 @@ Public Module CoreModule
 
 
    'This procedure returns the dword at the specified adddress.
-   Public Function GetDWord(Address As Integer) As Integer
+   Public Function GetDWord(Address As Integer) As Long
       Try
          Dim Offset As Integer = Address And &HFFFF%
          Dim Segment As Integer = Address And &HF0000%
@@ -1047,7 +1048,7 @@ Public Module CoreModule
    End Function
 
    'This procedure writes the specified dword to the specified address.
-   Public Sub PutDWord(Address As Integer, DWord As Integer)
+   Public Sub PutDWord(Address As Integer, DWord As Long)
       Try
          Dim Offset As Integer = Address And &HFFFF%
          Dim Segment As Integer = Address And &HF0000%
@@ -1144,7 +1145,7 @@ Public Module CoreModule
 
          If VideoModesEquivalent(MCC.CurrentVideoMode, MemoryVideoMode) Then
             If ScreenWindow.Visible Then
-               ScreenWindow.Invalidate()
+               ScreenWindow.ScreenBox.Invalidate()
             End If
          Else
             MCC.CurrentVideoMode = MemoryVideoMode
@@ -1188,13 +1189,19 @@ Public Module CoreModule
 
          If MCC.IsMDA Then
             Select Case MCC.CurrentVideoMode
-               Case VideoModesE.Text80x25Mono
-                  VideoAdapter = New Text80x25MonoClass
+               Case VideoModesE.Text80x25Mono_Hercules
+                  If MCC.HerculesGraphicsOn Then
+                     VideoAdapter = New HerculesClass
+                  Else
+                     VideoAdapter = New Text80x25MonoClass
+                  End If
             End Select
          Else
             Select Case MCC.CurrentVideoMode
                Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B
                   VideoAdapter = New CGA320x200Class
+               Case VideoModesE.CGA640x200
+                  VideoAdapter = New CGA640x200Class
                Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray
                   VideoAdapter = New Text80x25ColorClass
                Case VideoModesE.VGA320x200
@@ -1211,6 +1218,7 @@ Public Module CoreModule
          If ScreenWindow.Visible Then
             If VideoAdapter IsNot Nothing Then
                ScreenWindow.ClientSize = VideoAdapter.Resolution
+               ScreenWindow.BackgroundImage = New Bitmap(ScreenWindow.ClientSize.Width, ScreenWindow.ClientSize.Height)
             End If
             ScreenWindow.Invalidate()
          End If
@@ -1272,10 +1280,14 @@ Public Module CoreModule
          Select Case True
             Case TypeOf VideoAdapter Is CGA320x200Class
                VideoMode = VideoModesE.CGA320x200A
+            Case TypeOf VideoAdapter Is CGA640x200Class
+               VideoMode = VideoModesE.CGA640x200
+            Case TypeOf VideoAdapter Is HerculesClass
+               VideoMode = VideoModesE.Text80x25Mono_Hercules
             Case TypeOf VideoAdapter Is Text80x25ColorClass
                VideoMode = VideoModesE.Text80x25Color
             Case TypeOf VideoAdapter Is Text80x25MonoClass
-               VideoMode = VideoModesE.Text80x25Mono
+               VideoMode = VideoModesE.Text80x25Mono_Hercules
             Case TypeOf VideoAdapter Is VGA320x200Class
                VideoMode = VideoModesE.VGA320x200
          End Select

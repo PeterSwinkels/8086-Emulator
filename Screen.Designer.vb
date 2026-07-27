@@ -24,7 +24,19 @@ Partial Class ScreenWindow
     Private Sub InitializeComponent()
         Me.components = New System.ComponentModel.Container()
         Me.ToolTip = New System.Windows.Forms.ToolTip(Me.components)
+        Me.ScreenBox = New System.Windows.Forms.PictureBox()
+        CType(Me.ScreenBox, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SuspendLayout()
+        '
+        'ScreenBox
+        '
+        Me.ScreenBox.BackColor = System.Drawing.Color.Black
+        Me.ScreenBox.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.ScreenBox.Location = New System.Drawing.Point(0, 0)
+        Me.ScreenBox.Name = "ScreenBox"
+        Me.ScreenBox.Size = New System.Drawing.Size(800, 450)
+        Me.ScreenBox.TabIndex = 0
+        Me.ScreenBox.TabStop = False
         '
         'ScreenWindow
         '
@@ -33,6 +45,7 @@ Partial Class ScreenWindow
         Me.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center
         Me.ClientSize = New System.Drawing.Size(800, 450)
         Me.ControlBox = False
+        Me.Controls.Add(Me.ScreenBox)
         Me.DoubleBuffered = True
         Me.FormBorderStyle = System.Windows.Forms.FormBorderStyle.Fixed3D
         Me.KeyPreview = True
@@ -40,9 +53,11 @@ Partial Class ScreenWindow
         Me.Name = "ScreenWindow"
         Me.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen
         Me.Text = "Screen"
+        CType(Me.ScreenBox, System.ComponentModel.ISupportInitialize).EndInit()
         Me.ResumeLayout(False)
 
     End Sub
 
     Friend WithEvents ToolTip As System.Windows.Forms.ToolTip
+    Friend WithEvents ScreenBox As System.Windows.Forms.PictureBox
 End Class

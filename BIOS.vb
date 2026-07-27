@@ -28,6 +28,7 @@ Public Module BIOSModule
       CursorScanLines = &H460%               'Cursor scan line start/end.
       EquipmentFlags = &H410%                'Equipment flags.
       ExtendedCharacters = &HC0000%          'Extended character bitmaps.
+      HerculesBuffer = &HB0000%              'Hercules video buffer.
       KeyboardFlags = &H417%                 'Keyboard flags.
       KeyboardBufferHead = &H41A%            'Keyboard buffer head offset.
       KeyboardBufferTail = &H41C%            'Keyboard buffer tail offset.
@@ -52,25 +53,25 @@ Public Module BIOSModule
 
    'This enumeration lists the video modes.
    Public Enum VideoModesE As Byte
-      None = &HFF%             'None.
-      CGA320x200A = &H4%       '320x200 CGA.
-      CGA320x200B = &H5%       '320x200 CGA.
-      CGA640x200 = &H6%        '640x200 CGA.
-      EGA320x200 = &HD%        '320x200 EGA.
-      EGA640x200 = &HE%        '640x200 EGA.
-      EGA640x350 = &H10%       '640x350 EGA.
-      EGA640x350Mono = &HF%    '640x350 monochrome EGA.
-      PCjr160x200 = &H8%       '160x200 PCjr.
-      PCjr320x200 = &H9%       '320x200 PCjr.
-      PCjr640x200 = &HA%       '640x200 PCjr.
-      Text40x25Color = &H1%    '40x25 color text.
-      Text40x25Mono = &H0%     '40x25 monochrome text.
-      Text80x25Color = &H3%    '80x25 color text.
-      Text80x25Gray = &H2%     '80x25 gray text.
-      Text80x25Mono = &H7%     '80x25 monochrome text.
-      VGA320x200 = &H13%       '320x200 VGA.
-      VGA640x480 = &H12%       '640x480 VGA.
-      VGA640x480Mono = &H11%   '640x480 monochrome VGA.
+      None = &HFF%                      'None.
+      CGA320x200A = &H4%                '320x200 CGA.
+      CGA320x200B = &H5%                '320x200 CGA.
+      CGA640x200 = &H6%                 '640x200 CGA.
+      EGA320x200 = &HD%                 '320x200 EGA.
+      EGA640x200 = &HE%                 '640x200 EGA.
+      EGA640x350 = &H10%                '640x350 EGA.
+      EGA640x350Mono = &HF%             '640x350 monochrome EGA.
+      PCjr160x200 = &H8%                '160x200 PCjr.
+      PCjr320x200 = &H9%                '320x200 PCjr.
+      PCjr640x200 = &HA%                '640x200 PCjr.
+      Text40x25Color = &H1%             '40x25 color text.
+      Text40x25Mono = &H0%              '40x25 monochrome text.
+      Text80x25Color = &H3%             '80x25 color text.
+      Text80x25Gray = &H2%              '80x25 gray text.
+      Text80x25Mono_Hercules = &H7%     '80x25 monochrome text/Hercules.
+      VGA320x200 = &H13%                '320x200 VGA.
+      VGA640x480 = &H12%                '640x480 VGA.
+      VGA640x480Mono = &H11%            '640x480 monochrome VGA.
    End Enum
 
    'This enumeration lists the video page sizes for the video modes.
@@ -82,6 +83,7 @@ Public Module BIOSModule
       EGA640x200 = &HFA00%        '640x200 EGA.
       EGA640x350 = &H1B580%       '640x350 EGA.
       EGA640x350Mono = &H6D60%    '640x350 monochrome EGA.
+      Hercules720x348 = &H7A58%   '720x348 Hercules.
       Text40x25Color = &H7D0%     '40x25 color text.
       Text40x25Mono = &H7D0%      '40x25 monochrome text.
       Text80x25Color = &HFA0%     '80x25 color text.
@@ -96,7 +98,12 @@ Public Module BIOSModule
    Public Const CGA_320_X_200_BYTES_PER_ROW As Integer = &H50%               'Defines the number of bytes per row used by 320x200 CGA mode 
    Public Const CGA_320_X_200_LINES_PER_CHARACTER As Integer = &H8%          'Defines the number of lines per character used by 320x200 CGA mode 
    Public Const CGA_320_X_200_PIXELS_PER_BYTE As Integer = &H4%              'Defines the number of pixels per byte used by 320x200 CGA mode.
+   Public Const CGA_640_X_200_BYTES_PER_ROW As Integer = &H50%               'Defines the number of bytes per row used by 640x200 CGA mode 
+   Public Const CGA_640_X_200_PIXELS_PER_BYTE As Integer = &H8%              'Defines the number of pixels per byte used by 640x200 CGA mode.
+   Public Const CGA_640_X_200_LINES_PER_CHARACTER As Integer = &H8%          'Defines the number of lines per character used by 640x200 CGA mode 
    Public Const EXTENDED_CHARACTERS_VECTOR As Integer = &H1F%                'Defines the extended character bitmap pointer's location.
+   Public Const HERCULES_720_348_BYTES_PER_ROW As Integer = &H5A%            'Defines the number of bytes per row used by Hercules 720x348 mode.
+   Public Const HERCULES_720_348_LINES_PER_CHARACTER As Integer = &HE%       'Defines the number of lines used by Hercules 720x348 mode.
    Public Const INITIAL_KEYBOARD_HEAD_TAIL As Byte = &H1E%                   'Defines the initial keyboard head and tail offsets.
    Public Const INITIAL_MODE_FLAGS_MDA As Integer = &H30%                    'Defines the initial video mode in the equipment flags as MDA.
    Public Const INITIAL_MODE_FLAGS_NOT_MDA As Integer = &H20%                'Defines the initial video mode in the equipment flags as not MDA.
@@ -129,7 +136,7 @@ Public Module BIOSModule
          Next Vector
 
          If MCC.IsMDA Then
-            MCC.CurrentVideoMode = VideoModesE.Text80x25Mono
+            MCC.CurrentVideoMode = VideoModesE.Text80x25Mono_Hercules
             VideoAdapter = New Text80x25MonoClass
             CPU.PutWord(AddressesE.EquipmentFlags, INITIAL_MODE_FLAGS_MDA)
             CPU.Memory(AddressesE.VideoMode) = MCC.CurrentVideoMode
@@ -186,9 +193,9 @@ Public Module BIOSModule
          CursorPositionUpdate()
 
          Select Case MCC.CurrentVideoMode
-            Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono
+            Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono_Hercules
                ScrollAttribute = CPU.Memory(VideoPageAddress + ((Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%)) + &H1%)
-            Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B, VideoModesE.VGA320x200
+            Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B, VideoModesE.CGA640x200, VideoModesE.VGA320x200
                Attribute = CPU.Registers(SubRegisters8BitE.BL)
          End Select
 
@@ -218,9 +225,9 @@ Public Module BIOSModule
                End If
             Case Else
                Select Case MCC.CurrentVideoMode
-                  Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B, VideoModesE.VGA320x200
+                  Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B, VideoModesE.CGA640x200, VideoModesE.VGA320x200
                      VideoAdapter.DrawCharacter(Character, Attribute.Value)
-                  Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono
+                  Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono_Hercules
                      CPU.Memory(VideoPageAddress + (Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%)) = Character
                      If Attribute IsNot Nothing Then
                         CPU.Memory(VideoPageAddress + (Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%) + &H1%) = CByte(Attribute.Value)

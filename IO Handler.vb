@@ -39,6 +39,8 @@ Public Module IOHandlerModule
       PITModeControl = &H43%                   'Mode control register.
       Port49h = &H49%                          'Port 49h.
       SN76496 = &HC0%                          'TI SN76496 Programmable Tone/Noise Generator. (PCjr)
+      FPUF0 = &HF0%                            'The FPU's base address.
+      FPUFF = &HFF%                            'The highest I/O address used by the FPU.
       Port216h% = &H216%                       'Port 216h.
       Port21Ah% = &H21A%                       'Port 21Ah.
       Port21Eh% = &H21E%                       'Port 21Eh.
@@ -118,6 +120,8 @@ Public Module IOHandlerModule
                Value = &HFF%
             Case IOPortsE.CGAStatus
                Value = If(MCC.IsMDA, &HFF%, MCC.CGAStatus())
+            Case IOPortsE.FPUF0 To IOPortsE.FPUFF
+               Value = &HFF%
             Case IOPortsE.Joystick
                Value = &HFF%
             Case IOPortsE.KeyboardIO
@@ -126,6 +130,8 @@ Public Module IOHandlerModule
                Value = MCC.SelectedRegister
             Case IOPortsE.MDA3B1, IOPortsE.MDAData
                Value = MCC.Register()
+            Case IOPortsE.MDALightPenStrobeReset
+               Value = &HFF%
             Case IOPortsE.MDAStatus
                Value = MCC.MDAStatus()
             Case IOPortsE.PICICW2
@@ -188,10 +194,14 @@ Public Module IOHandlerModule
                   MCC.Register(NewValue:=ToByte(Value))
                End If
             Case IOPortsE.CGAColor
-               MCC.ColorSelect(Value)
+               MCC.SelectActivePalette(Value)
             Case IOPortsE.CGAMode
                Success = True
+            Case IOPortsE.FPUF0 To IOPortsE.FPUFF
+               Success = True
             Case IOPortsE.HGCConfigurationSwitch
+               Success = True
+            Case IOPortsE.KeyboardIO
                Success = True
             Case IOPortsE.Joystick
                Success = True
@@ -201,17 +211,12 @@ Public Module IOHandlerModule
                MCC.Register(NewValue:=ToByte(Value))
             Case IOPortsE.MDAColor, IOPortsE.MDAStatus
                Success = True
+            Case IOPortsE.MDALightPenStrobeReset
+               Success = True
             Case IOPortsE.MDAMode
                If MCC.IsMDA Then
-                  Select Case Value
-                     Case &H3F%
-                        MCC.BlinkingOn = True
-                     Case &H40%
-                        MCC.BlinkingOn = False
-                  End Select
+                  MCC.MDAMode(ToByte(Value))
                End If
-
-               CPU.Memory(AddressesE.CRTModeControlRegisterValue) = ToByte(Value)
             Case IOPortsE.PICICW1
                PIC.WriteCommand(ToByte(Value))
             Case IOPortsE.PICICW2
