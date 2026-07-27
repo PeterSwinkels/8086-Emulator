@@ -328,8 +328,8 @@ Public Class MSDOSClass
                      Buffer.RemoveAt(Buffer.Count - &H1%)
                   End If
                Case TeletypeE.CR
-                  Buffer.Add(ToByte(KeyCode))
                   CPU.Memory(Address + &H1%) = ToByte(Buffer.Count)
+                  Buffer.Add(ToByte(KeyCode))
                   WriteBytesToMemory(Buffer.ToArray(), Address + &H2%)
                   Exit Do
                Case Else
@@ -635,56 +635,64 @@ Public Class MSDOSClass
 
    'This procedure performs direct console input without echo.
    Private Sub DirectConsoleInput(ByRef Flags As Integer)
-      Dim KeyCode As New Integer?
+      Try
+         Dim KeyCode As New Integer?
 
-      If ExtendedKeyCode Is Nothing Then
-         Do
-            If CPU.Clock.Status = TaskStatus.Running Then
-               CPU.ExecuteHardwareInterrupts()
+         If ExtendedKeyCode Is Nothing Then
+            Do
+               If CPU.Clock.Status = TaskStatus.Running Then
+                  CPU.ExecuteHardwareInterrupts()
+               End If
+
+               KeyCode = LastBIOSKeyCode()
+            Loop Until KeyCode.HasValue OrElse CPU.ClockToken.IsCancellationRequested
+            If KeyCode IsNot Nothing AndAlso (KeyCode.Value And &HFF%) = Nothing Then
+               ExtendedKeyCode = KeyCode >> &H8%
             End If
-
-            KeyCode = LastBIOSKeyCode()
-         Loop Until KeyCode.HasValue OrElse CPU.ClockToken.IsCancellationRequested
-         If KeyCode IsNot Nothing AndAlso (KeyCode.Value And &HFF%) = Nothing Then
-            ExtendedKeyCode = KeyCode >> &H8%
+            KeyCode = KeyCode And &HFF%
+            LastBIOSKeyCode(, Clear:=True)
+         Else
+            KeyCode = ExtendedKeyCode
+            ExtendedKeyCode = New Integer?
          End If
-         KeyCode = KeyCode And &HFF%
-         LastBIOSKeyCode(, Clear:=True)
-      Else
-         KeyCode = ExtendedKeyCode
-         ExtendedKeyCode = New Integer?
-      End If
 
-      If KeyCode IsNot Nothing Then
-         CPU.Registers(SubRegisters8BitE.AL, NewValue:=KeyCode)
-      End If
+         If KeyCode IsNot Nothing Then
+            CPU.Registers(SubRegisters8BitE.AL, NewValue:=KeyCode)
+         End If
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
    End Sub
 
    'This procedure performs direct console I/O.
    Private Sub DirectConsoleIO(ByRef Flags As Integer)
-      Dim KeyCode As New Integer?
+      Try
+         Dim KeyCode As New Integer?
 
-      Select Case CPU.Registers(SubRegisters8BitE.DL)
-         Case &H0% To &HFE%
-            TeleType(CByte(CPU.Registers(SubRegisters8BitE.DL)))
-         Case &HFF%
-            If ExtendedKeyCode Is Nothing Then
-               KeyCode = LastBIOSKeyCode()
+         Select Case CPU.Registers(SubRegisters8BitE.DL)
+            Case &H0% To &HFE%
+               TeleType(CByte(CPU.Registers(SubRegisters8BitE.DL)))
+            Case &HFF%
+               If ExtendedKeyCode Is Nothing Then
+                  KeyCode = LastBIOSKeyCode()
 
-               If KeyCode IsNot Nothing AndAlso (KeyCode.Value And &HFF%) = Nothing Then
-                  ExtendedKeyCode = KeyCode >> &H8%
+                  If KeyCode IsNot Nothing AndAlso (KeyCode.Value And &HFF%) = Nothing Then
+                     ExtendedKeyCode = KeyCode >> &H8%
+                  End If
+                  KeyCode = KeyCode And &HFF%
+                  LastBIOSKeyCode(, Clear:=True)
+               Else
+                  KeyCode = ExtendedKeyCode
+                  ExtendedKeyCode = New Integer?
                End If
-               KeyCode = KeyCode And &HFF%
-               LastBIOSKeyCode(, Clear:=True)
-            Else
-               KeyCode = ExtendedKeyCode
-               ExtendedKeyCode = New Integer?
-            End If
 
-            Flags = SET_BIT(Flags, (KeyCode Is Nothing), ZERO_FLAG_INDEX)
+               Flags = SET_BIT(Flags, (KeyCode Is Nothing), ZERO_FLAG_INDEX)
 
-            CPU.Registers(SubRegisters8BitE.AL, NewValue:=If(KeyCode Is Nothing, &H0%, KeyCode))
-      End Select
+               CPU.Registers(SubRegisters8BitE.AL, NewValue:=If(KeyCode Is Nothing, &H0%, KeyCode))
+         End Select
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
    End Sub
 
    'This procedure returns the standard handle for the specified device file.
