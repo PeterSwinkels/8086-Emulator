@@ -4,8 +4,6 @@ Option Explicit On
 Option Infer Off
 Option Strict On
 
-Imports Emulator8086Program.CPU8086Class
-Imports System
 Imports System.Drawing
 
 'This class emulates the Hercules video mode.

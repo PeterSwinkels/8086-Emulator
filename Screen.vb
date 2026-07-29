@@ -26,7 +26,7 @@ Public Class ScreenWindow
          Me.SetStyle(ControlStyles.ResizeRedraw, False)
          Me.Text = $"Screen {If([Enum].IsDefined(GetType(VideoModesE), VideoMode), $"{VideoMode} (0x{CInt(VideoMode).ToString("X")})", "Unknown mode.")}"
 
-         ToolTip.SetToolTip(Me, "This is where the emulation’s screen output is displayed and keyboard input is accepted.")
+         ToolTip.SetToolTip(Me.ScreenBox, "This is where the emulation’s screen output is displayed and keyboard input is accepted.")
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -78,7 +78,7 @@ Public Class ScreenWindow
    'This procedure adjusts the window's background to the window's new size.
    Private Sub ScreenWindow_Resize(ByVal sender As Object, ByVal e As EventArgs) Handles MyBase.Resize
       Try
-         Me.BackgroundImage = New Bitmap(Me.ClientSize.Width, Me.ClientSize.Height)
+         ScreenBox.Image = New Bitmap(Me.ClientSize.Width, Me.ClientSize.Height)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

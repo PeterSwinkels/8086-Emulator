@@ -1139,10 +1139,6 @@ Public Module CoreModule
          Dim AdapterVideoMode As VideoModesE = VideoAdapterToVideoMode()
          Dim MemoryVideoMode As VideoModesE = DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
 
-         If Not MemoryVideoMode = AdapterVideoMode Then
-            CPU.Memory(AddressesE.VideoMode) = ToByte(AdapterVideoMode)
-         End If
-
          If VideoModesEquivalent(MCC.CurrentVideoMode, MemoryVideoMode) Then
             If ScreenWindow.Visible Then
                ScreenWindow.ScreenBox.Invalidate()

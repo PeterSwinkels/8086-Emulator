@@ -30,11 +30,13 @@ Partial Class ScreenWindow
         '
         'ScreenBox
         '
+        Me.ScreenBox.Anchor = CType((((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Bottom) _
+            Or System.Windows.Forms.AnchorStyles.Left) _
+            Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.ScreenBox.BackColor = System.Drawing.Color.Black
-        Me.ScreenBox.Dock = System.Windows.Forms.DockStyle.Fill
         Me.ScreenBox.Location = New System.Drawing.Point(0, 0)
         Me.ScreenBox.Name = "ScreenBox"
-        Me.ScreenBox.Size = New System.Drawing.Size(800, 450)
+        Me.ScreenBox.Size = New System.Drawing.Size(822, 624)
         Me.ScreenBox.TabIndex = 0
         Me.ScreenBox.TabStop = False
         '
@@ -43,7 +45,7 @@ Partial Class ScreenWindow
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center
-        Me.ClientSize = New System.Drawing.Size(800, 450)
+        Me.ClientSize = New System.Drawing.Size(822, 624)
         Me.ControlBox = False
         Me.Controls.Add(Me.ScreenBox)
         Me.DoubleBuffered = True

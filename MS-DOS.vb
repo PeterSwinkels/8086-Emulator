@@ -671,7 +671,7 @@ Public Class MSDOSClass
 
          Select Case CPU.Registers(SubRegisters8BitE.DL)
             Case &H0% To &HFE%
-               TeleType(CByte(CPU.Registers(SubRegisters8BitE.DL)))
+               Teletype(CByte(CPU.Registers(SubRegisters8BitE.DL)))
             Case &HFF%
                If ExtendedKeyCode Is Nothing Then
                   KeyCode = LastBIOSKeyCode()
@@ -3105,7 +3105,7 @@ Public Class MSDOSClass
                      End SyncLock
                   Case Else
                      For Character As Integer = &H0% To Count - &H1%
-                        TeleType(CPU.Memory(Position And ADDRESS_MASK))
+                        Teletype(CPU.Memory(Position And ADDRESS_MASK))
                         Position += &H1%
                      Next Character
                End Select
