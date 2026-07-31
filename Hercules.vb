@@ -34,7 +34,7 @@ Public Class HerculesClass
    End Sub
 
    'This procedure draws the specified video buffer's context on the specified image.
-   Public Sub Display(Screen As Image, Memory() As Byte, CodePage() As Integer) Implements VideoAdapterClass.Display
+   Public Sub Display(Screen As Image, Memory() As Byte, ByRef CodePage() As Integer) Implements VideoAdapterClass.Display
       Dim Bank As New Integer
       Dim Bit As New Integer
       Dim ByteOffset As New Integer

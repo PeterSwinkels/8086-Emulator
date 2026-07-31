@@ -47,6 +47,8 @@ Public Module IOHandlerModule
       Port2C0h = &H2C0%                        'Port 2C0h.
       Port2C1h = &H2C1%                        'Port 2C1h.
       Port2C3h = &H2C3%                        'Port 2C3h.
+      COM22F8 = &H2F8%                         'COM2 Primary Asynchronous Adapter.
+      COM22FF = &H2FF%                         'COM2 Primary Asynchronous Adapter.
       Port388h = &H388%                        'Port 388h.
       Port389h = &H389%                        'Port 389h.
       KeyboardIO = &H60%                       'Keyboard I/O register.
@@ -98,6 +100,10 @@ Public Module IOHandlerModule
       CGAStatus = &H3DA%                       'Status register.
       CGALightPenStrobeReset = &H3DB%          'Light pen strobe reset.
       CGAPresetLightPenLatch = &H3DC%          'Preset light pen latch.
+      COM33E8 = &H3E8%                         'COM3 Primary Asynchronous Adapter.
+      COM33EF = &H3EF%                         'COM3 Primary Asynchronous Adapter.
+      COM13F8 = &H3F8%                         'COM1 Primary Asynchronous Adapter.
+      COM13FF = &H3FF%                         'COM1 Primary Asynchronous Adapter.
    End Enum
 
    Private Const PIT_IO_PORT_MASK As Integer = &H3%   'Defines the PIT I/O port number bits.
@@ -108,10 +114,6 @@ Public Module IOHandlerModule
          Dim Value As Integer? = Nothing
 
          Select Case (Port And &HFFFF%)
-            Case IOPortsE.DMAStatusCommandRegister
-               Value = &H0%
-            Case IOPortsE.DMAChannel0Address To IOPortsE.DMAChannel3WordCount, IOPortsE.DMARequestRegister To IOPortsE.DMAMultipleMaskRegister
-               Value = &HFF%
             Case IOPortsE.CGA3D0, IOPortsE.CGA3D6, IOPortsE.CGAIndex
                Value = If(MCC.IsMDA, &HFF%, MCC.SelectedRegister)
             Case IOPortsE.CGA3D1, IOPortsE.CGA3D7, IOPortsE.CGAData
@@ -120,6 +122,16 @@ Public Module IOHandlerModule
                Value = &HFF%
             Case IOPortsE.CGAStatus
                Value = If(MCC.IsMDA, &HFF%, MCC.CGAStatus())
+            Case IOPortsE.COM13F8 To IOPortsE.COM13FF
+               Value = &HFF%
+            Case IOPortsE.COM22F8 To IOPortsE.COM22FF
+               Value = &HFF%
+            Case IOPortsE.COM33E8 To IOPortsE.COM33EF
+               Value = &HFF%
+            Case IOPortsE.DMAStatusCommandRegister
+               Value = &H0%
+            Case IOPortsE.DMAChannel0Address To IOPortsE.DMAChannel3WordCount, IOPortsE.DMARequestRegister To IOPortsE.DMAMultipleMaskRegister
+               Value = &HFF%
             Case IOPortsE.FPUF0 To IOPortsE.FPUFF
                Value = &HFF%
             Case IOPortsE.Joystick
@@ -181,10 +193,6 @@ Public Module IOHandlerModule
          Dim Success As Boolean = True
 
          Select Case (Port And &HFFFF%)
-            Case IOPortsE.DMAChannel0Address, IOPortsE.DMAChannel1Address, IOPortsE.DMAChannel2Address, IOPortsE.DMAChannel3Address
-               DMA.UpdateChannelAddress(Port >> &H1%, ToByte(Value))
-            Case IOPortsE.DMAClearMSBLSBFlipFlop
-               DMA.WriteMSB = False
             Case IOPortsE.CGA3D0, IOPortsE.CGA3D6, IOPortsE.CGAIndex
                If Not MCC.IsMDA Then
                   MCC.SelectRegister(DirectCast(Value, MCCClass.RegistersE))
@@ -197,6 +205,16 @@ Public Module IOHandlerModule
                MCC.SelectActivePalette(Value)
             Case IOPortsE.CGAMode
                Success = True
+            Case IOPortsE.COM13F8 To IOPortsE.COM13FF
+               Success = True
+            Case IOPortsE.COM22F8 To IOPortsE.COM22FF
+               Success = True
+            Case IOPortsE.COM33E8 To IOPortsE.COM33EF
+               Success = True
+            Case IOPortsE.DMAChannel0Address, IOPortsE.DMAChannel1Address, IOPortsE.DMAChannel2Address, IOPortsE.DMAChannel3Address
+               DMA.UpdateChannelAddress(Port >> &H1%, ToByte(Value))
+            Case IOPortsE.DMAClearMSBLSBFlipFlop
+               DMA.WriteMSB = False
             Case IOPortsE.FPUF0 To IOPortsE.FPUFF
                Success = True
             Case IOPortsE.HGCConfigurationSwitch

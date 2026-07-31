@@ -18,7 +18,7 @@ Public Class Text80x25ColorClass
    Private Const BLINK_BITMASK As Integer = &H80%   'Defines the character blink attribute bit.
    Private Const SCANLINE_COUNT As Integer = &HE%   'Defines the number of scanlines per character.
 
-   Private ReadOnly COLORS() As Color = {Color.Black, Color.DarkBlue, Color.DarkGreen, Color.DarkCyan, Color.DarkRed, Color.Purple, Color.Brown, Color.DarkGray, Color.Gray, Color.Blue, Color.Green, Color.Cyan, Color.Red, Color.Magenta, Color.Yellow, Color.White}  'Defines the colors.
+   Private ReadOnly COLORS() As Color = {Color.Black, Color.DarkBlue, Color.DarkGreen, Color.DarkCyan, Color.DarkRed, Color.Purple, Color.Brown, Color.DarkGray, Color.Gray, Color.Blue, Color.LimeGreen, Color.Cyan, Color.Red, Color.Magenta, Color.Yellow, Color.White}  'Defines the colors.
    Private ReadOnly CHARACTER_SIZE As Size = New Size(14, 24)                                                         'Defines the character size.
    Private ReadOnly FONT As New Font("Px437 IBM VGA 8x14", emSize:=21)                                                'Defines the font.
    Private ReadOnly PIXELS_PER_SCANLINE As Integer = CInt(CHARACTER_SIZE.Height / SCANLINE_COUNT)                     'Defines the number of pixels per scanline.
@@ -48,7 +48,7 @@ Public Class Text80x25ColorClass
    End Sub
 
    'This procedure draws the specified video buffer's context on the specified image.
-   Public Sub Display(Screen As Image, Memory() As Byte, CodePage() As Integer) Implements VideoAdapterClass.Display
+   Public Sub Display(Screen As Image, Memory() As Byte, ByRef CodePage() As Integer) Implements VideoAdapterClass.Display
       Dim Attribute As New Byte
       Dim Character As New Char
       Dim CharacterColor As Brush = Nothing
@@ -135,7 +135,8 @@ Public Class Text80x25ColorClass
 
    'This procedure scrolls the video adapter's buffer.
    Public Sub ScrollBuffer(Up As Boolean, ScrollArea As VideoAdapterClass.ScreenAreaStr, Count As Integer) Implements VideoAdapterClass.ScrollBuffer
-      Dim Attribute As Integer = CByte(CPU.Registers(SubRegisters8BitE.BH))
+      Dim Attribute As Integer = CPU.Registers(SubRegisters8BitE.BH)
+      Dim BlankCell As New Integer
       Dim CharacterCell As New Integer
       Dim Position As New Integer
       Dim VideoPageAddress As Integer = AddressesE.CGABuffer
@@ -152,31 +153,33 @@ Public Class Text80x25ColorClass
                Case True
                   For Row As Integer = ScrollArea.ULCRow + &H1% To ScrollArea.LRCRow
                      For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
-                        If Row <= ScrollArea.LRCRow AndAlso Row < MCC.RowCount() Then
-                           CharacterCell = CPU.GetWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
-                           CPU.PutWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
-                        Else
-                           CharacterCell = (Attribute << &H8%)
-                        End If
-                        If Row >= ScrollArea.ULCRow Then
-                           CPU.PutWord(VideoPageAddress + (((Row - &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), CharacterCell)
+                        If Row < MCC.RowCount() Then
+                           CharacterCell = CPU.GetWord(VideoPageAddress + (Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%))
+                           CPU.PutWord(VideoPageAddress + ((Row - &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%), CharacterCell)
                         End If
                      Next Column
                   Next Row
+
+                  BlankCell = Attribute << &H8%
+
+                  For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
+                     CPU.PutWord(VideoPageAddress + (ScrollArea.LRCRow * TEXT_80_X_25_BYTES_PER_ROW) + (Column * 2), BlankCell)
+                  Next Column
                Case False
-                  For Row As Integer = ScrollArea.LRCRow - &H1% To ScrollArea.ULCRow Step -&H1%
+                  For Row As Integer = ScrollArea.LRCRow To ScrollArea.ULCRow - &H1% Step -&H1%
                      For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
-                        If Row >= ScrollArea.ULCRow AndAlso Row < MCC.RowCount() Then
-                           CharacterCell = CPU.GetWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)))
-                           CPU.PutWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute)
-                        Else
-                           CharacterCell = (Attribute << &H8%)
-                        End If
-                        If Row <= ScrollArea.LRCRow Then
-                           CPU.PutWord(VideoPageAddress + (((Row + &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), CharacterCell)
+                        If Row > &H0% Then
+                           CharacterCell = CPU.GetWord(VideoPageAddress + (Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%))
+                           CPU.PutWord(VideoPageAddress + ((Row + &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%), CharacterCell)
                         End If
                      Next Column
                   Next Row
+
+                  BlankCell = Attribute << &H8%
+
+                  For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
+                     CPU.PutWord(VideoPageAddress + (ScrollArea.ULCRow * TEXT_80_X_25_BYTES_PER_ROW) + (Column * 2), BlankCell)
+                  Next Column
             End Select
          Next Scroll
       End If

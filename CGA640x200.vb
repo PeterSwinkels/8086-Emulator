@@ -34,7 +34,7 @@ Public Class CGA640x200Class
    End Sub
 
    'This procedure draws the specified video buffer's context on the specified image.
-   Public Sub Display(Screen As Image, Memory() As Byte, CodePage() As Integer) Implements VideoAdapterClass.Display
+   Public Sub Display(Screen As Image, Memory() As Byte, ByRef CodePage() As Integer) Implements VideoAdapterClass.Display
       Dim BaseX As New Integer
       Dim GraphicsO As Graphics = Nothing
       Dim PixelOff As New Boolean
@@ -66,7 +66,6 @@ Public Class CGA640x200Class
 
    'This procedure draws the specified character.
    Public Sub DrawCharacter(Index As Integer, Attribute As Integer) Implements VideoAdapterClass.DrawCharacter
-      Dim Background As New Byte
       Dim BitSet(&H0% To &H7%) As Boolean
       Dim Character(&H0% To &H7%) As Byte
       Dim Position As New Integer
@@ -91,7 +90,6 @@ Public Class CGA640x200Class
          x = Cursor.X * &H8%
          Position += (x \ CGA_640_X_200_PIXELS_PER_BYTE)
 
-         Background = CPU.Memory(Position)
          CPU.Memory(Position) = &H0%
          Shift = &H7%
          For Bit As Integer = &H0% To &H7%
@@ -118,12 +116,17 @@ Public Class CGA640x200Class
    'This procedure scrolls the video adapter's buffer.
    Public Sub ScrollBuffer(Up As Boolean, ScrollArea As VideoAdapterClass.ScreenAreaStr, Count As Integer) Implements VideoAdapterClass.ScrollBuffer
       Dim Address As New Integer
-      Dim Attribute As Byte = CByte(CPU.Registers(SubRegisters8BitE.BH) * &HFF%)
+      Dim Attribute As Byte = CByte(If(CPU.Registers(SubRegisters8BitE.BH) = &H0%, &H0%, &HFF%))
       Dim CharacterByte As New Byte
       Dim NewAddress As New Integer
 
       If Count = &H0% OrElse Count > MCC.RowCount() Then
-         VideoAdapter.ClearBuffer()
+         For Row As Integer = ScrollArea.ULCRow * CGA_640_X_200_LINES_PER_CHARACTER To (ScrollArea.LRCRow + &H1%) * CGA_640_X_200_LINES_PER_CHARACTER
+            For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn + &H1%
+               Address = AddressesE.CGABuffer + If((Row And &H1%) = &H0%, &H0%, VideoPageSizesE.CGA640x200 \ &H2%) + ((Row \ &H2%) * CGA_640_X_200_BYTES_PER_ROW) + Column
+               CPU.Memory(Address) = Attribute
+            Next Column
+         Next Row
       Else
          For Scroll As Integer = &H1% To Count * CGA_640_X_200_LINES_PER_CHARACTER
             Select Case Up

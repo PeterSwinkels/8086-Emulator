@@ -116,10 +116,12 @@ Public Class MSDOSClass
       Public IsFile As Boolean     'Indicates whether or not the item is a file.
    End Structure
 
+   Private Const ATTRIBUTES_MASK As Integer = &H7F%                     'Defines the file attributes mask.
+   Private Const BYTES_PER_SECTOR As Integer = &H200%                   'Defines the number of bytes per sector.
    Private Const CARRY_FLAG_INDEX As Integer = &H0%                     'Defines the carry flag's bit index.
    Private Const COMMAND_TAIL_MAXIMUM_LENGTH As Integer = &H7E%         'Defines the maximum length of a command tail in a PSP.
    Private Const COUNTRY_INFORMATION_BUFFER_SIZE As Integer = &H28%     'Defines the country information buffer size.
-   Private Const DEV_PREFIX As String = "\DEV\"                          'Defines the prefix for device files if AVAILDEV is set.
+   Private Const DEV_PREFIX As String = "\DEV\"                         'Defines the prefix for device files if AVAILDEV is set.
    Private Const DPT_SIZE As Integer = &H1F                             'Defines the drive parameter table's size.
    Private Const ERROR_ACCESS_DENIED As Integer = &H5%                  'Defines the access denied error code.
    Private Const ERROR_CRC As Integer = &H17%                           'Defines the CRC error code.
@@ -173,18 +175,21 @@ Public Class MSDOSClass
    Private Const PSP_PREVIOUS_PSP As Integer = &H38%                    'Defines the offset of the previous PSP in a PSP.
    Private Const PSP_SIZE As Integer = &H100%                           'Defines a PSP's size.
    Private Const PSP_SSSP As Integer = &H2E%                            'Defines the SS:SP values in a PSP.
+   Private Const SECTORS_PER_CLUSTER As Integer = &H20%                 'Defines the number of sectors per cluster.
    Private Const VOLUME_ATTRIBUTE As Integer = &H8%                     'Defines the volume label attribute.
 
+   Private ReadOnly CLUSTER_SIZE As Long = CLng(SECTORS_PER_CLUSTER) * CLng(BYTES_PER_SECTOR)                                                                                                                                           'Defines the cluster size for disks.
    Private ReadOnly DATE_TO_MSDOS_DATE As Func(Of Date, Integer) = Function([Date] As Date) [Date].Day Or ([Date].Month << &H5%) Or (([Date].Year - 1980) << &H9%)                                                                      'Converts the specified date to a value suitable for MS-DOS and returns the result.
    Private ReadOnly DEVICE_FILES As New List(Of String)({"AUX", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "CON", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9", "NUL", "PRN"})   'Contains the list of device file names.
    Private ReadOnly DPT() As Byte = Enumerable.Repeat(CByte(&H0%), DPT_SIZE).ToArray()                                                                                                                                                  'Defines a dummy drive paramter table.
    Private ReadOnly ENVIRONMENT_SEGMENT As Integer = LOWEST_ALLOCATABLE_ADDRESS >> &H4%                                                                                                                                                 'Defines the MS-DOS environment's segment.
-   Private ReadOnly FCTT_SEGMENT As Integer = ENVIRONMENT_SEGMENT + &H1%                                                                                                                                                                'Defines the filename character translation table's segment.
+   Private ReadOnly CTT_SEGMENT As Integer = ENVIRONMENT_SEGMENT + &H2%                                                                                                                                                                 'Defines the Character Translation Table segment.
    Private ReadOnly DBCS_SEGMENT As Integer = ENVIRONMENT_SEGMENT + &H1%                                                                                                                                                                'Defines the Double-Byte Character Set table segment.
    Private ReadOnly DPT_SEGMENT As Integer = ENVIRONMENT_SEGMENT + &H1%                                                                                                                                                                 'Defines the drive parameter table's segment.
    Private ReadOnly EXE_MZ_SIGNATURE() As Byte = {&H4D%, &H5A%}                                                                                                                                                                         'Defines the signature of an MZ executable.
-   Private ReadOnly INT_21H_RETN() As Byte = {&H88%, &HCC%, &HCD%, &H21%, &HC3%}                                                                                                                                                        'Defines the MOV AH,CL, INT 21h and RETN instructions.
+   Private ReadOnly FCTT_SEGMENT As Integer = ENVIRONMENT_SEGMENT + &H1%                                                                                                                                                                'Defines the filename character translation table's segment.
    Private ReadOnly INT_21H_RETF() As Byte = {&HCD%, &H21%, &HCB%}                                                                                                                                                                      'Defines the INT 21h and RETF instructions.
+   Private ReadOnly INT_21H_RETN() As Byte = {&H88%, &HCC%, &HCD%, &H21%, &HC3%}                                                                                                                                                        'Defines the MOV AH,CL, INT 21h and RETN instructions.
    Private ReadOnly INVALID_PSP_FCB_CHARACTERS As String = $";,= {ToChar(&H9%)}"                                                                                                                                                        'Defines the invalid characters for a PSP's FCB.
    Private ReadOnly LOWEST_FILE_HANDLE As Integer = STDFileHandlesE.STDPRN + &H1%                                                                                                                                                       'Defines the lowest possible file handle.
    Private ReadOnly TIME_TO_MSDOS_TIME As Func(Of Date, Integer) = Function([Time] As Date) Time.Second Or (Time.Minute << &H5%) Or (Time.Hour << &HB%)                                                                                 'Converts the specified time to a value suitable for MS-DOS and returns the result.
@@ -1291,7 +1296,7 @@ Public Class MSDOSClass
          If Extension.StartsWith("."c) Then Extension = Extension.Substring(1)
 
          CPU.Memory(DTAAddress + FCBE.ExtendedFCBFlag) = EXTENDED_FCB
-         CPU.Memory(DTAAddress + FCBE.Attribute) = ToByte(File.GetAttributes(FilePath))
+         CPU.Memory(DTAAddress + FCBE.Attribute) = ToByte(File.GetAttributes(FilePath) And ATTRIBUTES_MASK)
          CPU.Memory(DTAAddress + FCBE.Drive) = &H0%
          WriteStringToMemory($"{Path.GetFileNameWithoutExtension(ItemName),-8}", DTAAddress + FCBE.Filename)
          WriteStringToMemory($"{Extension,-3}", DTAAddress + FCBE.Extension)
@@ -1525,24 +1530,34 @@ Public Class MSDOSClass
    'This procedure returns the amount of free disk space.
    Private Sub GetFreeDiskSpace(ByRef Flags As Integer)
       Try
-         Dim BytesPerSector As New Integer
+         Dim CalculatedFreeClusters As New Long
+         Dim CalculatedTotalClusters As New Long
          Dim Drive As Integer = CPU.Registers(SubRegisters8BitE.DL)
          Dim DriveLetter As Char = If(Drive = &H0%, CurrentDirectory.ToCharArray.First, ToChar(Drive + ToInt32("@"c)))
          Dim DriveInformation As DriveInfo = Nothing
+         Dim FreeBytes As New Long
          Dim FreeClusterCount As New Integer
-         Dim SectorsPerCluster As New Integer
-         Dim TotalClusterCount As New Integer
+         Dim TotalClusterCount As New UInteger
+         Dim TotalSize As New Long
 
          Try
             DriveInformation = New DriveInfo(DriveLetter)
 
             If DriveInformation.IsReady Then
-               SizeToBCS(DriveInformation.TotalSize, BytesPerSector, TotalClusterCount, SectorsPerCluster)
-               SizeToBCS(DriveInformation.TotalFreeSpace, BytesPerSector, FreeClusterCount, SectorsPerCluster)
+               FreeBytes = DriveInformation.AvailableFreeSpace
+               TotalSize = DriveInformation.TotalSize
+               CalculatedFreeClusters = FreeBytes \ CLUSTER_SIZE
+               CalculatedTotalClusters = TotalSize \ CLUSTER_SIZE
 
-               CPU.Registers(Registers16BitE.AX, NewValue:=SectorsPerCluster)
-               CPU.Registers(Registers16BitE.CX, NewValue:=BytesPerSector)
-               CPU.Registers(Registers16BitE.DX, NewValue:=TotalClusterCount)
+               If CalculatedFreeClusters > &HFFFF& Then CalculatedFreeClusters = &HFFFF&
+               If CalculatedTotalClusters > &HFFFF& Then CalculatedTotalClusters = &HFFFF&
+
+               FreeClusterCount = CInt(CalculatedFreeClusters)
+               TotalClusterCount = CUInt(CalculatedTotalClusters)
+
+               CPU.Registers(Registers16BitE.AX, NewValue:=SECTORS_PER_CLUSTER)
+               CPU.Registers(Registers16BitE.CX, NewValue:=BYTES_PER_SECTOR)
+               CPU.Registers(Registers16BitE.DX, NewValue:=ToInt32(TotalClusterCount And &HFFFF%))
                CPU.Registers(Registers16BitE.BX, NewValue:=FreeClusterCount)
             Else
                CPU.Registers(Registers16BitE.AX, NewValue:=&HFFFF%)
@@ -1682,10 +1697,10 @@ Public Class MSDOSClass
             ExtendedKeyCode = New Integer?
          End If
 
-         TeleType(CByte(KeyCode))
+         Teletype(CByte(KeyCode))
          Select Case KeyCode
             Case TeletypeE.CR
-               TeleType(TeletypeE.LF)
+               Teletype(TeletypeE.LF)
          End Select
 
          Return KeyCode
@@ -2106,6 +2121,12 @@ Public Class MSDOSClass
                      Success = True
                   Case &H65%
                      Select Case CPU.Registers(SubRegisters8BitE.AL)
+                        Case &H2%
+                           Address = (CPU.Registers(SegmentRegistersE.ES) << &H4%) + CPU.Registers(Registers16BitE.DI)
+                           CPU.Memory(Address) = &H2%
+                           CPU.PutWord(Address + &H1%, &H0%)
+                           CPU.PutWord(Address + &H3%, CTT_SEGMENT << &H4%)
+                           Success = True
                         Case &H4%
                            Address = (CPU.Registers(SegmentRegistersE.ES) << &H4%) + CPU.Registers(Registers16BitE.DI)
                            CPU.Memory(Address) = &H4%
@@ -2201,6 +2222,9 @@ Public Class MSDOSClass
             Case &H8%
                DriveRemovableQuery(Flags)
                Success = True
+            Case &H9%
+               CPU.Registers(Registers16BitE.DX, NewValue:=&H802%)
+               Success = True
             Case &HC%
                Select Case CPU.Registers(SubRegisters8BitE.CL)
                   Case &H7F%
@@ -2216,6 +2240,9 @@ Public Class MSDOSClass
                      DisplayInformation.AddRange(BitConverter.GetBytes(ToUInt16(MCC.RowCount)))
                      Success = True
                End Select
+            Case &HE%
+               CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
+               Success = True
          End Select
 
          Return Success
@@ -2390,6 +2417,11 @@ Public Class MSDOSClass
             CurrentDirectories(Index) = If(DriveLetter = CurrentDrive, CurrentDirectory(), $"{DriveLetter}:\")
          Next Index
 
+         CPU.PutWord(CTT_SEGMENT << &H4%, &H80%)
+         For Character As Integer = &H80% To &HFF%
+            CPU.Memory((CTT_SEGMENT << &H4%) + &H2% + Character) = ToByte(Character)
+         Next Character
+
          CPU.PutWord(DBCS_SEGMENT << &H4%, &H0%)
          WriteBytesToMemory(DPT, DPT_SEGMENT << &H4%)
          WriteStringToMemory(EnvironmentText, ENVIRONMENT_SEGMENT << &H4%)
@@ -2525,7 +2557,7 @@ Public Class MSDOSClass
          Try
             Select Case CPU.Registers(SubRegisters8BitE.AL)
                Case &H0%
-                  CPU.Registers(Registers16BitE.CX, File.GetAttributes(FileSystemItemName))
+                  CPU.Registers(Registers16BitE.CX, File.GetAttributes(FileSystemItemName) And ATTRIBUTES_MASK)
                   Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
                Case &H1%
                   File.SetAttributes(FileSystemItemName, DirectCast(CPU.Registers(Registers16BitE.CX), FileAttributes))
@@ -2935,23 +2967,6 @@ Public Class MSDOSClass
       End Try
    End Sub
 
-
-   'This procedure converts the specified size to the number of bytes/sector, sectors/cluster and clusters/drive.
-   Private Sub SizeToBCS(Size As Long, ByRef BytesPerSector As Integer, ByRef ClusterCount As Integer, ByRef SectorsPerCluster As Integer)
-      Try
-         BytesPerSector = CInt(Size / &HFFFFFFFF&)
-         If BytesPerSector < &H200% Then BytesPerSector = &H200%
-
-         SectorsPerCluster = CInt((Size / &HFFFF%) / BytesPerSector)
-         If SectorsPerCluster < &H1% Then SectorsPerCluster = &H1%
-
-         If SectorsPerCluster = &HFFFF% Then SectorsPerCluster = &HFFFE%
-         ClusterCount = CInt(Size / CLng(CLng(SectorsPerCluster) * CLng(BytesPerSector)))
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
-   End Sub
-
    'This procedure terminates the currently running MS-DOS program.
    Public Sub TerminateProgram(Message As String, Optional IsResident As Boolean = False)
       Try
@@ -3061,7 +3076,7 @@ Public Class MSDOSClass
          Dim FileSize As Long = If(IsDirectory, Nothing, New FileInfo(FilePath).Length)
          Dim ItemName As String = Path.GetFileName(GetShortName(FileSystemItems, FilePath))
 
-         CPU.Memory(DTAAddress + DTAE.Attribute) = ToByte(File.GetAttributes(FilePath))
+         CPU.Memory(DTAAddress + DTAE.Attribute) = ToByte(File.GetAttributes(FilePath) And ATTRIBUTES_MASK)
          CPU.PutWord(DTAAddress + DTAE.FileSystemItemTime, TIME_TO_MSDOS_TIME(File.GetLastWriteTime(FilePath)))
          CPU.PutWord(DTAAddress + DTAE.FileSystemItemDate, DATE_TO_MSDOS_DATE(File.GetLastWriteTime(FilePath)))
          CPU.PutWord(DTAAddress + DTAE.FileSystemItemSize, CInt(FileSize And &HFFFF%))

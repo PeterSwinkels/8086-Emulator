@@ -6,6 +6,7 @@ Option Strict On
 
 Imports Emulator8086Program.CPU8086Class
 Imports System
+Imports System.Environment
 Imports System.IO
 Imports System.Threading.Tasks
 
@@ -179,6 +180,17 @@ Public Module BIOSModule
 
          CPU.Registers(SegmentRegistersE.SS, NewValue:=AddressesE.BIOSStack)
          CPU.Registers(Registers16BitE.SP, NewValue:=INITIAL_STACK_SIZE)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure redirects characters sent to the printer to the event log.
+   Public Sub PrintCharacter(Character As Byte, PrinterNumber As Integer)
+      Try
+         SyncLock SYNCHRONIZER
+            CPU_EVENT.Append($"PRINTER #{PrinterNumber:X}: '{ESCAPE_BYTE(Character)}'{NewLine}")
+         End SyncLock
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

@@ -31,7 +31,7 @@ Public Class CGA320x200Class
    End Sub
 
    'This procedure draws the specified video buffer's context on the specified image.
-   Public Sub Display(Screen As Image, Memory() As Byte, CodePage() As Integer) Implements VideoAdapterClass.Display
+   Public Sub Display(Screen As Image, Memory() As Byte, ByRef CodePage() As Integer) Implements VideoAdapterClass.Display
       Dim BaseX As New Integer
       Dim GraphicsO As Graphics = Nothing
       Dim Index As New Integer
@@ -135,7 +135,12 @@ Public Class CGA320x200Class
       Dim NewAddress As New Integer
 
       If Count = &H0% OrElse Count > MCC.RowCount() Then
-         VideoAdapter.ClearBuffer()
+         For Row As Integer = ScrollArea.ULCRow * CGA_320_X_200_LINES_PER_CHARACTER To (ScrollArea.LRCRow + &H1%) * CGA_320_X_200_LINES_PER_CHARACTER
+            For Column As Integer = ScrollArea.ULCColumn * &H2% To (ScrollArea.LRCColumn + &H1%) * &H2%
+               Address = AddressesE.CGABuffer + If((Row And &H1%) = &H0%, &H0%, VideoPageSizesE.CGA320x200A \ &H2%) + ((Row \ &H2%) * CGA_320_X_200_BYTES_PER_ROW) + Column
+               CPU.Memory(Address) = Attribute
+            Next Column
+         Next Row
       Else
          For Scroll As Integer = &H1% To Count * CGA_320_X_200_LINES_PER_CHARACTER
             Select Case Up

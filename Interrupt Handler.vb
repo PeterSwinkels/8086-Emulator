@@ -13,10 +13,11 @@ Imports System.Windows.Forms
 
 'This module contains the default interrupt handler.
 Public Module InterruptHandlerModule
-   Public Const CARRY_FLAG_INDEX As Integer = &H0%   'Defines the carry flag's bit index.
-   Public Const ZERO_FLAG_INDEX As Integer = &H6%    'Defines the zero flag's bit index.
-   Private Const CURSOR_MASK As Integer = &H1F1F%     'Defines the cursor end/start bits.
-   Private Const VIDEO_MODE_MASK As Byte = &H7F%      'Defines the bits indicating a video mode.
+   Public Const CARRY_FLAG_INDEX As Integer = &H0%           'Defines the carry flag's bit index.
+   Public Const ZERO_FLAG_INDEX As Integer = &H6%            'Defines the zero flag's bit index.
+   Private Const CURSOR_MASK As Integer = &H1F1F%             'Defines the cursor end/start bits.
+   Private Const PRINTER_STATUS_NOT_BUSY As Integer = &H80%   'Defines the printer not busy status.
+   Private Const VIDEO_MODE_MASK As Byte = &H7F%              'Defines the bits indicating a video mode.
 
    'This procedure handles the specified interrupt and returns whether or not is succeeded.
    Public Function HandleInterrupt(Vector As Integer, Optional AH As Integer = Nothing) As Boolean
@@ -73,6 +74,8 @@ Public Module InterruptHandlerModule
                   End If
                End If
 
+               Success = True
+            Case &HA%
                Success = True
             Case &H10%
                Select Case AH
@@ -289,7 +292,7 @@ Public Module InterruptHandlerModule
                      CPU.Registers(Registers16BitE.CX, NewValue:=&H0%)
                      CPU.Registers(Registers16BitE.DX, NewValue:=&H0%)
                      Success = True
-                  Case &H4F%, &HEF%, &HFE%, &HFF%
+                  Case &H4F%, &HBF%, &HEF%, &HFE%, &HFF%
                      Success = True
                End Select
             Case &H11%
@@ -334,7 +337,11 @@ Public Module InterruptHandlerModule
                End Select
             Case &H17%
                Select Case AH
-                  Case &H1%
+                  Case &H0%
+                     PrintCharacter(CByte(CPU.Registers(SubRegisters8BitE.AL)), CPU.Registers(Registers16BitE.DX))
+                     Success = True
+                  Case &H1%, &H2%
+                     CPU.Registers(SubRegisters8BitE.AH, NewValue:=PRINTER_STATUS_NOT_BUSY)
                      Success = True
                End Select
             Case &H1A%

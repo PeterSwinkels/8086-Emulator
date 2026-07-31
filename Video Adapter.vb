@@ -20,7 +20,7 @@ Public Interface VideoAdapterClass
    Sub ClearBuffer()
 
    'This procedure draws the specified CPU memory's content onto the specified image.
-   Sub Display(Screen As Image, Memory() As Byte, CodePage() As Integer)
+   Sub Display(Screen As Image, Memory() As Byte, ByRef CodePage() As Integer)
 
    'This procedure draws the specified character.
    Sub DrawCharacter(Index As Integer, Attribute As Integer)
