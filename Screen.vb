@@ -11,6 +11,7 @@ Imports System.Windows.Forms
 
 'This class contains the screen output window.
 Public Class ScreenWindow
+   Private Const KF_EXTENDED As Integer = &H100%    'Defines the extended key flag.
    Private Const WM_KEYDOWN As Integer = &H100%     'Defines the key down window message.
    Private Const WM_KEYUP As Integer = &H101%       'Defines the key up window message.
    Private Const WM_SYSKEYDOWN As Integer = &H104   'Defines the system key down window message.
@@ -98,21 +99,14 @@ Public Class ScreenWindow
                KeyScancode = CByte(Scancode Or &H80%)
          End Select
 
+         Select Case m.Msg
+            Case WM_KEYDOWN, WM_KEYUP
+               ExtendedKeyFlag = (((m.LParam.ToInt32 >> &H10%) And KF_EXTENDED) > &H0%)
+         End Select
+
          MyBase.WndProc(m)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
-   End Sub
-
-   Private Sub ScreenWindow_DoubleClick(sender As Object, e As EventArgs) Handles MyBase.DoubleClick
-      Dim Styles As New Text.StringBuilder
-
-      For Each Style As ControlStyles In [Enum].GetValues(GetType(ControlStyles))
-         If Me.GetStyle(Style) Then
-            Styles.Append($"{Style.ToString}{Environment.NewLine}")
-         End If
-      Next Style
-
-      MessageBox.Show(Styles.ToString)
    End Sub
 End Class

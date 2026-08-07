@@ -648,6 +648,16 @@ Public Class CPU8086Class
                End If
             End If
 
+            If CBool(Registers(FlagRegistersE.TF)) Then
+               If Not ExecuteOpcode() Then
+                  If INT6Enabled Then
+                     ExecuteInterrupt(OpcodesE.INT, Vector:=INVALID_OPCODE)
+                  End If
+               End If
+               ExecuteInterrupt(OpcodesE.INT, Vector:=SINGLE_STEP)
+               Registers(FlagRegistersE.TF, NewValue:=False)
+            End If
+
             If Tracing Then RaiseEvent Trace()
          Loop
 
@@ -1283,13 +1293,6 @@ Public Class CPU8086Class
             Registers(SegmentRegistersE.CS, NewValue:=Stack())
             Registers(FlagRegistersE.All, NewValue:=Stack())
             PIC.WriteCommand(&H20%)
-            If CBool(Registers(FlagRegistersE.TF)) Then
-               If Not ExecuteOpcode() Then
-                  ExecuteInterrupt(OpcodesE.INT, Vector:=INVALID_OPCODE)
-               End If
-               ExecuteInterrupt(OpcodesE.INT, Vector:=SINGLE_STEP)
-               Registers(FlagRegistersE.TF, NewValue:=False)
-            End If
          Case OpcodesE.INT, OpcodesE.INT3, OpcodesE.INTO
             ExecuteInterrupt(Opcode)
          Case OpcodesE.LAHF
@@ -1512,13 +1515,6 @@ Public Class CPU8086Class
             End With
          Case OpcodesE.POPF
             Registers(Register:=FlagRegistersE.All, NewValue:=Stack())
-            If CBool(Registers(FlagRegistersE.TF)) Then
-               If Not ExecuteOpcode() Then
-                  ExecuteInterrupt(OpcodesE.INT, Vector:=INVALID_OPCODE)
-               End If
-               ExecuteInterrupt(OpcodesE.INT, Vector:=SINGLE_STEP)
-               Registers(FlagRegistersE.TF, NewValue:=False)
-            End If
          Case OpcodesE.PUSH_AX To OpcodesE.PUSH_DI
             Stack(Push:=Registers(DirectCast(Opcode And &H7%, Registers16BitE)))
          Case OpcodesE.PUSH_ES, OpcodesE.PUSH_CS, OpcodesE.PUSH_SS, OpcodesE.PUSH_DS

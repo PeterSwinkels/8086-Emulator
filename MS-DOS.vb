@@ -35,6 +35,16 @@ Public Class MSDOSClass
       DataListSeparator = &H16%     'Data list separator.
    End Enum
 
+   'This enumeration lists the device file handles.
+   Private Enum DeviceFileHandlesE As Integer
+      STDIN    'Input.
+      STDOUT   'Output.
+      STDERR   'Error.
+      STDAUX   'Auxiliary.
+      STDPRN   'Printer.
+      NONE     'None.
+   End Enum
+
    'This enumeration lists addresses used inside a DTA block.
    Private Enum DTAE As Integer
       Attribute = &H15%             'File system item attribute.
@@ -84,15 +94,6 @@ Public Class MSDOSClass
       ModifyExtension = &H8%           'Modify extension.
    End Enum
 
-   'This enumeration lists the STD file handles.
-   Private Enum STDFileHandlesE As Integer
-      STDIN    'Input.
-      STDOUT   'Output.
-      STDERR   'Error.
-      STDAUX   'Auxiliary.
-      STDPRN   'Printer.
-   End Enum
-
    'This enumeration lists MS-DOS version numbers.
    Public Enum VersionsE As Integer
       v500 = &H5%       'v5.00.
@@ -116,6 +117,13 @@ Public Class MSDOSClass
       Public IsFile As Boolean     'Indicates whether or not the item is a file.
    End Structure
 
+   'This structure defines an open file.
+   Private Structure OpenFileStr
+      Public FileStreamV As FileStream          'Defines the open file's stream.
+      Public Handle As Integer                  'Defines the open file's handle.
+      Public DeviceType As DeviceFileHandlesE   'Defines the open file's device type.
+   End Structure
+
    Private Const ATTRIBUTES_MASK As Integer = &H7F%                     'Defines the file attributes mask.
    Private Const BYTES_PER_SECTOR As Integer = &H200%                   'Defines the number of bytes per sector.
    Private Const CARRY_FLAG_INDEX As Integer = &H0%                     'Defines the carry flag's bit index.
@@ -126,6 +134,7 @@ Public Class MSDOSClass
    Private Const ERROR_ACCESS_DENIED As Integer = &H5%                  'Defines the access denied error code.
    Private Const ERROR_CRC As Integer = &H17%                           'Defines the CRC error code.
    Private Const ERROR_DISK_FULL As Integer = &H70%                     'Defines the disk full error code.
+   Private Const ERROR_FILE_ALREADY_EXISTS As Integer = &H50%           'Defines the file already exists error code.
    Private Const ERROR_FILE_NOT_FOUND As Integer = &H2%                 'Defines the file not found error code.
    Private Const ERROR_FILENAME_EXCED_RANGE As Integer = &HC3%          'Defines the filename exceeds range code.
    Private Const ERROR_GEN_FAILURE As Integer = &H1F%                   'Defines the general failure error code.
@@ -141,6 +150,8 @@ Public Class MSDOSClass
    Private Const ERROR_SHARING_VIOLATION As Integer = &H20%             'Defines the sharing violation error code.
    Private Const ERROR_TOO_MANY_OPEN_FILES As Integer = &H4%            'Defines the too many open files erro code.
    Private Const EXE_HEADER_SIZE As Integer = &H8%                      'Defines where an executable's header size is stored.
+   Private Const EXE_IMAGE_REMAINDER_SIZE As Integer = &H2%             'Defines where an executable's remainder image size is stored.
+   Private Const EXE_IMAGE_SIZE As Integer = &H4%                       'Defines where an executable's image size in pages is stored.
    Private Const EXE_INITIAL_CS As Integer = &H16%                      'Defines where an executable's initial code segment is stored.
    Private Const EXE_INITIAL_IP As Integer = &H14%                      'Defines where an executable's initial instruction pointer is stored.
    Private Const EXE_INITIAL_SP As Integer = &H10%                      'Defines where an executable's initial stack pointer is stored.
@@ -158,6 +169,7 @@ Public Class MSDOSClass
    Private Const LOWEST_EXECUTABLE_ADDRESS As Integer = &H2000%         'Defines the lowest address used to load an executable.
    Private Const MAXIMUM_FILES_HANDLES As Integer = 200                 'Defines the maximum system wide number of file handles that can be allocated.
    Private Const MS_DOS As Integer = &HFF00%                            'Defines a value indicating that the operating system is MS-DOS.
+   Private Const PAGE_SIZE As Integer = &H200%                          'Defines the size of a page of data.
    Private Const PSP_BYTES_AVAILABLE As Integer = &H6%                  'Defines the number of bytes available in a block of memory less the space used by the PSP.
    Private Const PSP_COMMAND_TAIL As Integer = &H80%                    'Defines the offset of the command tail in a PSP.
    Private Const PSP_ENVIRONMENT_SEGMENT As Integer = &H2C%             'Defines the segment of the MS-DOS environment in a PSP.
@@ -191,7 +203,7 @@ Public Class MSDOSClass
    Private ReadOnly INT_21H_RETF() As Byte = {&HCD%, &H21%, &HCB%}                                                                                                                                                                      'Defines the INT 21h and RETF instructions.
    Private ReadOnly INT_21H_RETN() As Byte = {&H88%, &HCC%, &HCD%, &H21%, &HC3%}                                                                                                                                                        'Defines the MOV AH,CL, INT 21h and RETN instructions.
    Private ReadOnly INVALID_PSP_FCB_CHARACTERS As String = $";,= {ToChar(&H9%)}"                                                                                                                                                        'Defines the invalid characters for a PSP's FCB.
-   Private ReadOnly LOWEST_FILE_HANDLE As Integer = STDFileHandlesE.STDPRN + &H1%                                                                                                                                                       'Defines the lowest possible file handle.
+   Private ReadOnly LOWEST_FILE_HANDLE As Integer = DeviceFileHandlesE.STDPRN + &H1%                                                                                                                                                       'Defines the lowest possible file handle.
    Private ReadOnly TIME_TO_MSDOS_TIME As Func(Of Date, Integer) = Function([Time] As Date) Time.Second Or (Time.Minute << &H5%) Or (Time.Hour << &HB%)                                                                                 'Converts the specified time to a value suitable for MS-DOS and returns the result.
 
    Public CommandTail As String = ""                                           'Contains the command tail used in a new PSP.
@@ -209,7 +221,7 @@ Public Class MSDOSClass
    Private MaximumFileHandles As New Stack(Of Integer)                          'Contains the maximum number of file handles for each running process.
    Private MemoryAllocationStrategy As MASE = MASE.FirstFit                     'Contains the memory allocation strategy used.
    Private MSDOSCurrentDirectory As List(Of String)                             'Contains a list made up of the current directory and its parent directories.
-   Private OpenFiles As New List(Of Tuple(Of FileStream, Integer))              'Contains the open file streams and their handles.
+   Private OpenFiles As New List(Of OpenFileStr)                                'Contains the list of open files.
    Private ProcessIDs As New List(Of Integer)                                   'Contains the list process's ids.
    Private ProcessSegments As New Stack(Of Integer)                             'Contains the segments allocated to processes.
    Private PSPFCB As New List(Of List(Of Byte))({DefaultFCB(), DefaultFCB()})   'Contains the first and second default FCBs.
@@ -247,7 +259,7 @@ Public Class MSDOSClass
    Private Function AllocateMemory(Size As Integer) As Integer?
       Try
          Dim AllocatedAddress As New Integer?
-         Dim PreviousEndAddress As Integer = LOWEST_ALLOCATABLE_ADDRESS
+         Dim PreviousEndAddress As Integer = LOWEST_ALLOCATABLE_ADDRESS << &H4%
 
          Allocations.Sort(Function(Allocation1, Allocation2) Allocation1.Item1.CompareTo(Allocation2.Item1))
 
@@ -441,19 +453,22 @@ Public Class MSDOSClass
    'This procedure attempts to close the specified file handle and returns whether or not it succeeded.
    Private Function CloseFileHandle(ByRef Flags As Integer) As Boolean
       Try
-         Dim OpenFileToBeClosed As Tuple(Of FileStream, Integer) = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CPU.Registers(Registers16BitE.BX))
+         Dim Handle As Integer = CPU.Registers(Registers16BitE.BX)
+         Dim OpenFileToBeClosed As OpenFileStr? = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Handle = Handle)
          Dim Success As Boolean = False
 
          If OpenFileToBeClosed IsNot Nothing Then
             Try
-               OpenFileToBeClosed.Item1.Close()
+               If OpenFileToBeClosed.Value.DeviceType = DeviceFileHandlesE.NONE Then
+                  OpenFileToBeClosed.Value.FileStreamV.Close()
+               End If
                Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
             Catch MSDOSException As Exception
                CPU.Registers(Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
                Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
             End Try
 
-            OpenFiles.Remove(OpenFileToBeClosed)
+            OpenFiles.Remove(OpenFileToBeClosed.Value)
             Success = True
          End If
 
@@ -512,7 +527,7 @@ Public Class MSDOSClass
    End Sub
 
    'This procedure creates a file.
-   Private Sub CreateFile(ByRef Flags As Integer)
+   Private Sub CreateFile(ByRef Flags As Integer, Optional DoNotOverwrite As Boolean = False)
       Try
          Dim FileName As String = GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)})
          Dim FileStreamO As FileStream = Nothing
@@ -531,10 +546,25 @@ Public Class MSDOSClass
                   Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
                End If
             Else
-               FileStreamO = New FileStream(FileName, FileMode.OpenOrCreate, FileAccess.Write)
-               File.SetAttributes(FileName, DirectCast(CPU.Registers(Registers16BitE.CX), FileAttributes))
-               Handle = GetNextFreeFileHandle()
-               Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+               If DoNotOverwrite Then
+                  If File.Exists(FileName) Then
+                     CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_FILE_ALREADY_EXISTS)
+                     Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+                  Else
+                     FileStreamO = New FileStream(FileName, FileMode.OpenOrCreate, FileAccess.Write)
+                     File.SetAttributes(FileName, DirectCast(CPU.Registers(Registers16BitE.CX), FileAttributes))
+                     Handle = GetNextFreeFileHandle()
+                     Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+                  End If
+               Else
+                  If File.Exists(FileName) Then
+                     File.Delete(FileName)
+                  End If
+                  FileStreamO = New FileStream(FileName, FileMode.OpenOrCreate, FileAccess.Write)
+                  File.SetAttributes(FileName, DirectCast(CPU.Registers(Registers16BitE.CX), FileAttributes))
+                  Handle = GetNextFreeFileHandle()
+                  Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+               End If
             End If
          Catch MSDOSException As Exception
             CPU.Registers(Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
@@ -543,7 +573,7 @@ Public Class MSDOSClass
 
          If Handle IsNot Nothing Then
             CPU.Registers(Registers16BitE.AX, NewValue:=CInt(Handle))
-            OpenFiles.Add(New Tuple(Of FileStream, Integer)(FileStreamO, CInt(Handle)))
+            OpenFiles.Add(New OpenFileStr With {.FileStreamV = FileStreamO, .Handle = Handle.Value, .DeviceType = If(Handle.Value < LOWEST_FILE_HANDLE, DirectCast(Handle.Value, DeviceFileHandlesE), DeviceFileHandlesE.NONE)})
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -626,8 +656,10 @@ Public Class MSDOSClass
    'This procedure deletes a file.
    Private Sub DeleteFile(ByRef Flags As Integer)
       Try
+         Dim FileName As String = GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)})
+
          Try
-            File.Delete(GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)}))
+            File.Delete(FileName)
             Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
          Catch MSDOSException As Exception
             CPU.Registers(Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
@@ -701,9 +733,9 @@ Public Class MSDOSClass
    End Sub
 
    'This procedure returns the standard handle for the specified device file.
-   Private Function DeviceFileToHandle(FileName As String) As STDFileHandlesE?
+   Private Function DeviceFileToHandle(FileName As String) As DeviceFileHandlesE?
       Try
-         Dim Handle As New STDFileHandlesE?
+         Dim Handle As New DeviceFileHandlesE?
 
          FileName = FileName.Trim().ToUpper()
 
@@ -713,9 +745,9 @@ Public Class MSDOSClass
 
          Select Case FileName
             Case "CON"
-               Handle = STDFileHandlesE.STDIN
+               Handle = DeviceFileHandlesE.STDIN
             Case "LPT1", "PRN"
-               Handle = STDFileHandlesE.STDPRN
+               Handle = DeviceFileHandlesE.STDPRN
          End Select
 
          Return Handle
@@ -745,43 +777,87 @@ Public Class MSDOSClass
       End Try
    End Sub
 
+   'This procedure attempts to duplicate a file handle.
+   Private Sub DuplicateFileHandle(ByRef Flags As Integer)
+      Try
+         Dim NewHandle As Integer? = GetNextFreeFileHandle()
+         Dim SourceHandle As Integer = CPU.Registers(Registers16BitE.BX)
+         Dim SourceFile As New OpenFileStr?
+         Dim Success As Boolean = False
+
+         If SourceHandle >= LOWEST_FILE_HANDLE Then
+            SourceFile = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Handle = SourceHandle)
+         End If
+
+         If SourceFile IsNot Nothing OrElse SourceHandle < LOWEST_FILE_HANDLE Then
+            If NewHandle IsNot Nothing Then
+               Try
+                  CPU.Registers(Registers16BitE.AX, NewValue:=NewHandle.Value)
+                  Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+                  Success = True
+               Catch MSDOSException As Exception
+                  CPU.Registers(Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
+                  Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+               End Try
+            Else
+               Success = True
+            End If
+
+            If Success Then
+               If SourceHandle >= LOWEST_FILE_HANDLE Then
+                  OpenFiles.Add(New OpenFileStr With {.FileStreamV = SourceFile.Value.FileStreamV, .Handle = NewHandle.Value, .DeviceType = DeviceFileHandlesE.NONE})
+               Else
+                  OpenFiles.Add(New OpenFileStr With {.FileStreamV = Nothing, .Handle = NewHandle.Value, .DeviceType = DirectCast(SourceHandle, DeviceFileHandlesE)})
+               End If
+            End If
+         Else
+            CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_INVALID_HANDLE)
+            Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+         End If
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
    'This procedure loads and executes a program.
    Private Sub ExecuteProgram(ByRef Flags As Integer)
       Try
          Dim Address As New Integer?
+         Dim ParameterBlock As Integer = (CInt(CPU.Registers(SegmentRegistersE.ES)) << 4) + CPU.Registers(Registers16BitE.BX)
+         Dim ArgumentOffset As Integer = CPU.GetWord(ParameterBlock + &H2%)
+         Dim ArgumentSegment As Integer = CPU.GetWord(ParameterBlock + &H4%)
          Dim FileName As String = GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)})
          Dim Size As Integer = &HFFFF%
 
          Try
-            Select Case CPU.Registers(SubRegisters8BitE.AL)
-               Case &H0%
-                  Address = AllocateMemory(Size)
-                  If Address IsNot Nothing Then FreeAllocatedMemory(Address.Value)
-                  Size = LargestFreeMemoryBlock() >> &H4%
-                  Address = AllocateMemory(Size)
-                  If Address IsNot Nothing Then FreeAllocatedMemory(Address.Value)
-                  Flags = SET_BIT(Flags, (Address Is Nothing), CARRY_FLAG_INDEX)
+            Address = AllocateMemory(Size)
+            If Address IsNot Nothing Then FreeAllocatedMemory(Address.Value)
+            Size = LargestFreeMemoryBlock() >> &H4%
+            Address = AllocateMemory(Size)
+            If Address IsNot Nothing Then FreeAllocatedMemory(Address.Value)
+            Flags = SET_BIT(Flags, (Address Is Nothing), CARRY_FLAG_INDEX)
 
-                  If Address Is Nothing Then
-                     CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_INSUFFICIENT_MEMORY)
-                  Else
-                     CPU.Registers(SegmentRegistersE.CS, NewValue:=(CInt(Address) >> &H4%) + (PSP_SIZE >> &H4%))
+            If Address Is Nothing Then
+               CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_INSUFFICIENT_MEMORY)
+            Else
+               CPU.Registers(SegmentRegistersE.CS, NewValue:=(CInt(Address) >> &H4%) + (PSP_SIZE >> &H4%))
 
-                     Using File.OpenRead(FileName)
-                     End Using
+               Using File.OpenRead(FileName)
+               End Using
 
-                     If LoadMSDOSProgram(FileName) Then
-                        CPU.Stack(Push:=CPU.Registers(FlagRegistersE.All))
-                        CPU.Stack(Push:=CPU.Registers(SegmentRegistersE.CS))
-                        CPU.Stack(Push:=CPU.Registers(Registers16BitE.IP))
+               CommandTail = GetString(ArgumentSegment, ArgumentOffset + &H1%, Length:=&H7F%)
 
-                        Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
-                     Else
-                        FreeAllocatedMemory(CInt(Address))
-                        Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
-                     End If
-                  End If
-            End Select
+               If LoadMSDOSProgram(FileName) Then
+                  CPU.Stack(Push:=CPU.Registers(FlagRegistersE.All))
+                  CPU.Stack(Push:=CPU.Registers(SegmentRegistersE.CS))
+                  CPU.Stack(Push:=CPU.Registers(Registers16BitE.IP))
+
+                  Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+               Else
+                  FreeAllocatedMemory(CInt(Address))
+                  Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+               End If
+            End If
          Catch MSDOSException As Exception
             CPU.Registers(Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
             Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
@@ -1000,7 +1076,7 @@ Public Class MSDOSClass
          Dim ModifyDrive As Boolean = ((CPU.Registers(SubRegisters8BitE.AL) And ParsingControlBitsE.ModifyDrive) = ParsingControlBitsE.ModifyDrive)
          Dim WildcardPresent As Boolean = FilePattern.Contains("*"c)
 
-         If (Not FilePattern = Nothing) AndAlso FilePattern.Chars(1) = ":"c Then
+         If FilePattern.Length > 1 AndAlso FilePattern.Chars(1) = ":"c Then
             FCBDrive = FilePattern.Substring(0, 2)
             FCBDriveValid = New DriveInfo(FCBDrive).IsReady
             FilePattern = FilePattern.Substring(2)
@@ -1344,17 +1420,23 @@ Public Class MSDOSClass
       End Try
    End Sub
 
-   'This procedure attempts to force duplicate a file handle returns whether or not it succeeded.
-   Private Function ForceDuplicateFileHandle(ByRef Flags As Integer) As Boolean
+   'This procedure attempts to force duplicate a file handle.
+   Private Sub ForceDuplicateFileHandle(ByRef Flags As Integer)
       Try
-         Dim SourceFileHandle As Tuple(Of FileStream, Integer) = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CPU.Registers(Registers16BitE.BX))
+         Dim SourceHandle As Integer = CPU.Registers(Registers16BitE.BX)
+         Dim SourceFile As New OpenFileStr?
          Dim Success As Boolean = False
-         Dim TargetFileHandle As Tuple(Of FileStream, Integer) = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CPU.Registers(Registers16BitE.CX))
+         Dim TargetHandle As Integer = CPU.Registers(Registers16BitE.CX)
+         Dim TargetFile As OpenFileStr? = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Handle = TargetHandle)
 
-         If SourceFileHandle IsNot Nothing Then
-            If TargetFileHandle IsNot Nothing Then
+         If SourceHandle >= LOWEST_FILE_HANDLE Then
+            SourceFile = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Handle = SourceHandle)
+         End If
+
+         If SourceFile IsNot Nothing OrElse SourceHandle < LOWEST_FILE_HANDLE Then
+            If TargetFile IsNot Nothing Then
                Try
-                  TargetFileHandle.Item1.Close()
+                  TargetFile.Value.FileStreamV.Close()
                   Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
                   Success = True
                Catch MSDOSException As Exception
@@ -1366,21 +1448,20 @@ Public Class MSDOSClass
             End If
 
             If Success Then
-               OpenFiles.Add(New Tuple(Of FileStream, Integer)(SourceFileHandle.Item1, CPU.Registers(Registers16BitE.CX)))
+               If SourceHandle >= LOWEST_FILE_HANDLE Then
+                  OpenFiles.Add(New OpenFileStr With {.FileStreamV = SourceFile.Value.FileStreamV, .Handle = TargetHandle, .DeviceType = SourceFile.Value.DeviceType})
+               Else
+                  OpenFiles.Add(New OpenFileStr With {.FileStreamV = Nothing, .Handle = TargetHandle, .DeviceType = DirectCast(SourceHandle, DeviceFileHandlesE)})
+               End If
             End If
-
          Else
             CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_INVALID_HANDLE)
             Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
          End If
-
-         Return Success
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
-
-      Return False
-   End Function
+   End Sub
 
    'This procedure attempts to free the specified allocated memory address and returns whether or not it succeeded.
    Private Function FreeAllocatedMemory(StartAddress As Integer) As Boolean
@@ -1465,18 +1546,19 @@ Public Class MSDOSClass
    'This procedure returns a file's date and time.
    Private Sub GetFileDateTime(ByRef Flags As Integer)
       Try
-         Dim OpenFileToBeChecked As Tuple(Of FileStream, Integer) = Nothing
+         Dim Handle As Integer = CPU.Registers(Registers16BitE.BX)
+         Dim OpenFileToBeChecked As New OpenFileStr?
 
-         Select Case DirectCast(CPU.Registers(Registers16BitE.BX), STDFileHandlesE)
-            Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
+         Select Case Handle
+            Case DeviceFileHandlesE.STDAUX, DeviceFileHandlesE.STDERR, DeviceFileHandlesE.STDIN, DeviceFileHandlesE.STDOUT, DeviceFileHandlesE.STDPRN
                CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_INVALID_HANDLE)
                Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
             Case Else
-               OpenFileToBeChecked = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CPU.Registers(Registers16BitE.BX))
+               OpenFileToBeChecked = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Handle = Handle)
 
                Try
-                  CPU.Registers(Registers16BitE.CX, NewValue:=TIME_TO_MSDOS_TIME(File.GetLastWriteTime(OpenFileToBeChecked.Item1.Name)))
-                  CPU.Registers(Registers16BitE.DX, NewValue:=DATE_TO_MSDOS_DATE(File.GetLastWriteTime(OpenFileToBeChecked.Item1.Name)))
+                  CPU.Registers(Registers16BitE.CX, NewValue:=TIME_TO_MSDOS_TIME(File.GetLastWriteTime(OpenFileToBeChecked.Value.FileStreamV.Name)))
+                  CPU.Registers(Registers16BitE.DX, NewValue:=DATE_TO_MSDOS_DATE(File.GetLastWriteTime(OpenFileToBeChecked.Value.FileStreamV.Name)))
                   Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
                Catch MSDOSException As Exception
                   CPU.Registers(Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
@@ -1570,6 +1652,28 @@ Public Class MSDOSClass
       End Try
    End Sub
 
+   'This procedure returns the highest letter assigned to a disk drive.
+   Private Function GetHighestDriveLetter() As Char
+      Try
+         Dim HighestLetter As Char = "A"c
+
+         For Letter As Integer = ToInt32("A"c) To ToInt32("Z"c)
+            Try
+               If New DriveInfo(ToChar(Letter)).IsReady Then
+                  HighestLetter = ToChar(Letter)
+               End If
+            Catch
+            End Try
+         Next Letter
+
+         Return HighestLetter
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+
+      Return New Char
+   End Function
+
    'This procedure returns the MS-DOS error code for the specified exception.
    Private Function GetMSDOSErrorCode(MSDOSException As Exception, Optional FileSystemItemIsDirectory As Boolean = False) As Integer
       Try
@@ -1626,7 +1730,7 @@ Public Class MSDOSClass
    Private Function GetNextFreeFileHandle() As Integer?
       Try
          Dim NextHandle As Integer? = LOWEST_FILE_HANDLE
-         Dim UsedHandles As HashSet(Of Integer) = OpenFiles.Select(Function(Handle) Handle.Item2).ToHashSet()
+         Dim UsedHandles As HashSet(Of Integer) = OpenFiles.Select(Function(OpenFile) OpenFile.Handle).ToHashSet()
 
          While UsedHandles.Contains(NextHandle.Value)
             If NextHandle = MaximumFileHandles.Last() Then
@@ -2010,6 +2114,9 @@ Public Class MSDOSClass
                      Success = True
                   Case &H44%
                      Success = IOCTL(Flags)
+                  Case &H45%
+                     DuplicateFileHandle(Flags)
+                     Success = True
                   Case &H46%
                      ForceDuplicateFileHandle(Flags)
                      Success = True
@@ -2047,8 +2154,14 @@ Public Class MSDOSClass
 
                      Success = True
                   Case &H4B%
-                     ExecuteProgram(Flags)
-                     Success = True
+                     Select Case CPU.Registers(SubRegisters8BitE.AL)
+                        Case &H0%
+                           ExecuteProgram(Flags)
+                           Success = True
+                        Case &H1%
+                           LoadProgramForDebugging(Flags)
+                           Success = True
+                     End Select
                   Case &H4E%
                      FindFile(Flags, IsFirst:=True)
                      Success = True
@@ -2093,6 +2206,9 @@ Public Class MSDOSClass
                      CPU.Registers(SubRegisters8BitE.BL, NewValue:=ExtendedErrorInformation.ActionCode)
                      CPU.Registers(SubRegisters8BitE.CH, NewValue:=ExtendedErrorInformation.LocusCode)
                      Success = True
+                  Case &H5B%
+                     CreateFile(Flags, DoNotOverwrite:=True)
+                     Success = True
                   Case &H5D%
                      Select Case CPU.Registers(SubRegisters8BitE.AL)
                         Case &HA%
@@ -2135,7 +2251,7 @@ Public Class MSDOSClass
                            Success = True
                      End Select
                   Case &H67%
-                     If MaximumFileHandles.Count > 0 Then
+                     If MaximumFileHandles.Any Then
                         If CPU.Registers(Registers16BitE.BX) <= MAXIMUM_FILES_HANDLES Then
                            MaximumFileHandles.Pop()
                            MaximumFileHandles.Push(CPU.Registers(Registers16BitE.BX))
@@ -2148,6 +2264,8 @@ Public Class MSDOSClass
                         Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
                      End If
                      Success = True
+                  Case &H18%, &H1D%, &H1E%, &H20%
+                     Success = True
                End Select
             Case &H25%
                AbsoluteDiskAccess(Read:=True, Flags:=Flags, RETF:=RETF)
@@ -2156,6 +2274,9 @@ Public Class MSDOSClass
                AbsoluteDiskAccess(Read:=False, Flags:=Flags, RETF:=RETF)
                Success = True
             Case &H28%
+               Success = True
+            Case &H29%
+               Teletype(ToByte(CPU.Registers(SubRegisters8BitE.AL)))
                Success = True
             Case &H2A%
                Success = True
@@ -2176,14 +2297,14 @@ Public Class MSDOSClass
       Try
          Dim Address As New Integer
          Dim DisplayInformation As New List(Of Byte)
-         Dim Handle As STDFileHandlesE = DirectCast(CPU.Registers(Registers16BitE.BX), STDFileHandlesE)
-         Dim OpenFileToBeSought As Tuple(Of FileStream, Integer) = Nothing
+         Dim Handle As DeviceFileHandlesE = DirectCast(CPU.Registers(Registers16BitE.BX), DeviceFileHandlesE)
+         Dim OpenFileToBeSought As New OpenFileStr?
          Dim Success As Boolean = False
 
          Select Case CPU.Registers(SubRegisters8BitE.AL)
             Case &H0%
                Select Case Handle
-                  Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
+                  Case DeviceFileHandlesE.STDAUX, DeviceFileHandlesE.STDERR, DeviceFileHandlesE.STDIN, DeviceFileHandlesE.STDOUT, DeviceFileHandlesE.STDPRN
                      CPU.Registers(Registers16BitE.DX, NewValue:=&H80%)
                      Success = True
                   Case Else
@@ -2192,7 +2313,7 @@ Public Class MSDOSClass
                End Select
             Case &H1%
                Select Case Handle
-                  Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
+                  Case DeviceFileHandlesE.STDAUX, DeviceFileHandlesE.STDERR, DeviceFileHandlesE.STDIN, DeviceFileHandlesE.STDOUT, DeviceFileHandlesE.STDPRN
                      Success = True
                   Case Else
                      CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_INVALID_HANDLE)
@@ -2201,13 +2322,13 @@ Public Class MSDOSClass
                End Select
             Case &H6%
                Select Case Handle
-                  Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
+                  Case DeviceFileHandlesE.STDAUX, DeviceFileHandlesE.STDERR, DeviceFileHandlesE.STDIN, DeviceFileHandlesE.STDOUT, DeviceFileHandlesE.STDPRN
                      CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
                      Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
                   Case Else
-                     OpenFileToBeSought = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CPU.Registers(Registers16BitE.BX))
+                     OpenFileToBeSought = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Handle = CPU.Registers(Registers16BitE.BX))
                      Try
-                        If OpenFileToBeSought.Item1.Position < OpenFileToBeSought.Item1.Length Then
+                        If OpenFileToBeSought.Value.FileStreamV.Position < OpenFileToBeSought.Value.FileStreamV.Length Then
                            CPU.Registers(SubRegisters8BitE.AL, NewValue:=&HFF%)
                         Else
                            CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
@@ -2223,7 +2344,7 @@ Public Class MSDOSClass
                DriveRemovableQuery(Flags)
                Success = True
             Case &H9%
-               CPU.Registers(Registers16BitE.DX, NewValue:=&H802%)
+               CPU.Registers(Registers16BitE.DX, NewValue:=&H800%)
                Success = True
             Case &HC%
                Select Case CPU.Registers(SubRegisters8BitE.CL)
@@ -2339,28 +2460,6 @@ Public Class MSDOSClass
       Return Nothing
    End Function
 
-   'This procedure returns the highest letter assigned to a disk drive.
-   Private Function GetHighestDriveLetter() As Char
-      Try
-         Dim HighestLetter As Char = "A"c
-
-         For Letter As Integer = ToInt32("A"c) To ToInt32("Z"c)
-            Try
-               If New DriveInfo(ToChar(Letter)).IsReady Then
-                  HighestLetter = ToChar(Letter)
-               End If
-            Catch
-            End Try
-         Next Letter
-
-         Return HighestLetter
-      Catch ExceptionO As Exception
-         DisplayException(ExceptionO.Message)
-      End Try
-
-      Return New Char
-   End Function
-
    'This procedure loads a MS-DOS compact executable.
    Private Sub LoadCompactExecutable(Executable As List(Of Byte), FileName As String, LoadAddress As Integer)
       Try
@@ -2405,11 +2504,11 @@ Public Class MSDOSClass
          DTASegment = New Integer
          EnvironmentText = $"COMSPEC={ToChar(BootDrive + ToInt32("A"c))}:\COMMAND.COM{ToChar(&H0%)}PATH={ToChar(&H0%)}{ToChar(&H0%)}"
          ExtendedKeyCode = New Integer?
-         MaximumFileHandles = New Stack(Of Integer)
+         MaximumFileHandles = New Stack(Of Integer)({MAXIMUM_FILES_HANDLES})
          OpenFiles.Clear()
          ProcessIDs = New List(Of Integer)
          ProcessSegments.Clear()
-         SwitchCharacter = "-"c
+         SwitchCharacter = "/"c
          Verify = False
 
          For Index As Integer = CurrentDirectories.GetLowerBound(0) To CurrentDirectories.GetUpperBound(0)
@@ -2459,8 +2558,8 @@ Public Class MSDOSClass
                ProcessSegments.Push(Allocations.Last.Item1)
             End If
 
-            DTASegment = (CPU.Registers(SegmentRegistersE.CS) << &H4%) + PSP_COMMAND_TAIL
-            DTAOffset = &H0%
+            DTASegment = CPU.Registers(SegmentRegistersE.CS)
+            DTAOffset = PSP_COMMAND_TAIL
 
             ProcessIDs.Add(LoadAddress >> &H4%)
             MaximumFileHandles.Push(MAXIMUM_FILES_HANDLES)
@@ -2483,6 +2582,7 @@ Public Class MSDOSClass
    Private Function LoadMZEXE(Executable As List(Of Byte), FileName As String, LoadAddress As Integer) As List(Of Byte)
       Try
          Dim HeaderSize As Integer = BitConverter.ToUInt16(Executable.ToArray(), EXE_HEADER_SIZE) << &H4%
+         Dim ImageSize As Integer = ((BitConverter.ToUInt16(Executable.ToArray(), EXE_IMAGE_SIZE) - &H1%) * PAGE_SIZE) + BitConverter.ToUInt16(Executable.ToArray(), EXE_IMAGE_REMAINDER_SIZE)
          Dim InitialSP As Integer = BitConverter.ToUInt16(Executable.ToArray(), EXE_INITIAL_SP)
          Dim InitialSS As Integer = BitConverter.ToUInt16(Executable.ToArray(), EXE_INITIAL_SS)
          Dim Position As New Integer
@@ -2514,7 +2614,7 @@ Public Class MSDOSClass
 
             CreatePSP(LoadAddress)
 
-            Executable.GetRange(HeaderSize, Executable.Count - HeaderSize).CopyTo(CPU.Memory, LoadAddress + PSP_SIZE)
+            Executable.GetRange(HeaderSize, ImageSize - HeaderSize).CopyTo(CPU.Memory, LoadAddress + PSP_SIZE)
 
             If RelocationTableSize > &H0% Then
                Position = RelocationTable
@@ -2549,13 +2649,132 @@ Public Class MSDOSClass
       Return New List(Of Byte)
    End Function
 
+   'This procedure loads a program for debugging.
+   Private Sub LoadProgramForDebugging(ByRef Flags As Integer)
+      Try
+         Dim Address As New Integer?
+         Dim BaseSegment As New Integer
+         Dim Bytes() As Byte = {}
+         Dim CodeBaseFlatAddress As New Integer
+         Dim CodeBaseSegment As New Integer
+         Dim FileName As String = GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)})
+         Dim Executable As New List(Of Byte)(File.ReadAllBytes(FileName))
+         Dim HeaderSize As New Integer
+         Dim ImageSize As Integer = ((BitConverter.ToUInt16(Executable.ToArray(), EXE_IMAGE_SIZE) - &H1%) * PAGE_SIZE) + BitConverter.ToUInt16(Executable.ToArray(), EXE_IMAGE_REMAINDER_SIZE)
+         Dim ParameterBlock As Integer = (CPU.Registers(SegmentRegistersE.ES) << &H4%) + CPU.Registers(Registers16BitE.BX)
+         Dim Position As New Integer
+         Dim ProgramCS As New Integer
+         Dim ProgramIP As New Integer
+         Dim ProgramSP As New Integer
+         Dim ProgramSS As New Integer
+         Dim RelocationItem As New Integer
+         Dim RelocationItemFlatAddress As New Integer
+         Dim RelocationItemOffset As New Integer
+         Dim RelocationItemSegment As New Integer
+         Dim RelocationTable As New Integer
+         Dim RelocationTableSize As New Integer
+         Dim Size As Integer = &HFFFF%
+         Dim Success As Boolean = True
+
+         Try
+            Address = AllocateMemory(Size)
+            If Address IsNot Nothing Then FreeAllocatedMemory(Address.Value)
+            Size = LargestFreeMemoryBlock() >> &H4%
+            Address = AllocateMemory(Size)
+            If Address IsNot Nothing Then FreeAllocatedMemory(Address.Value)
+
+            Flags = SET_BIT(Flags, (Address Is Nothing), CARRY_FLAG_INDEX)
+
+            If Address Is Nothing Then
+               CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_INSUFFICIENT_MEMORY)
+            Else
+               BaseSegment = Address.Value >> &H4%
+               Bytes = Executable.ToArray()
+               CodeBaseFlatAddress = Address.Value + PSP_SIZE
+               CodeBaseSegment = BaseSegment + (PSP_SIZE >> &H4%)
+
+               If Executable.Count >= &H2% AndAlso Executable.GetRange(&H0%, EXE_MZ_SIGNATURE.Length).SequenceEqual(EXE_MZ_SIGNATURE) Then
+                  If Address.Value + Executable.Count <= CPU.Memory.Length Then
+                     HeaderSize = BitConverter.ToUInt16(Bytes, EXE_HEADER_SIZE) << &H4%
+
+                     ProgramCS = CodeBaseSegment + BitConverter.ToUInt16(Bytes, EXE_INITIAL_CS)
+                     ProgramIP = BitConverter.ToUInt16(Bytes, EXE_INITIAL_IP)
+                     ProgramSS = CodeBaseSegment + BitConverter.ToUInt16(Bytes, EXE_INITIAL_SS)
+                     ProgramSP = BitConverter.ToUInt16(Bytes, EXE_INITIAL_SP)
+
+                     RelocationTable = BitConverter.ToUInt16(Bytes, EXE_RELOCATION_ITEM_TABLE)
+                     RelocationTableSize = BitConverter.ToUInt16(Bytes, EXE_RELOCATION_ITEM_COUNT) * &H4%
+
+                     CreatePSP(Address.Value)
+
+                     Executable.GetRange(HeaderSize, ImageSize - HeaderSize).CopyTo(CPU.Memory, CodeBaseFlatAddress)
+
+                     If RelocationTableSize > &H0% Then
+                        Position = RelocationTable
+
+                        Do
+                           RelocationItemOffset = BitConverter.ToUInt16(Bytes, Position)
+                           RelocationItemSegment = BitConverter.ToUInt16(Bytes, Position + &H2%)
+
+                           RelocationItemFlatAddress = CodeBaseFlatAddress + (RelocationItemSegment << &H4%) + RelocationItemOffset
+
+                           RelocationItem = BitConverter.ToUInt16(CPU.Memory, RelocationItemFlatAddress)
+                           RelocationItem = (RelocationItem + CodeBaseSegment) And &HFFFF%
+
+                           CPU.PutWord(RelocationItemFlatAddress, RelocationItem)
+
+                           Position += &H4%
+                        Loop Until Position >= (RelocationTable + RelocationTableSize) OrElse CPU.ClockToken.IsCancellationRequested
+                     End If
+                  Else
+                     Success = False
+                  End If
+               Else
+                  ProgramCS = BaseSegment
+                  ProgramIP = &H100%
+                  ProgramSS = BaseSegment
+                  ProgramSP = &HFFFE%
+
+                  CreatePSP(Address.Value)
+                  Executable.CopyTo(CPU.Memory, CodeBaseFlatAddress)
+               End If
+
+               If Success Then
+                  CPU.PutWord(ParameterBlock, &H0%)
+                  CPU.PutWord(ParameterBlock + &H2%, PSP_COMMAND_TAIL)
+                  CPU.PutWord(ParameterBlock + &H4%, BaseSegment)
+                  CPU.PutWord(ParameterBlock + &H6%, PSP_FCB_1)
+                  CPU.PutWord(ParameterBlock + &H8%, BaseSegment)
+                  CPU.PutWord(ParameterBlock + &HA%, PSP_FCB_2)
+                  CPU.PutWord(ParameterBlock + &HC%, BaseSegment)
+                  CPU.PutWord(ParameterBlock + &HE%, ProgramSP)
+                  CPU.PutWord(ParameterBlock + &H10%, ProgramSS)
+                  CPU.PutWord(ParameterBlock + &H12%, ProgramIP)
+                  CPU.PutWord(ParameterBlock + &H14%, ProgramCS)
+
+                  Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
+               Else
+                  FreeAllocatedMemory(Address.Value)
+                  Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+               End If
+            End If
+         Catch MSDOSException As Exception
+            CPU.Registers(Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
+            Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
+         End Try
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
    'This procedure gets/sets a file system item's attributes.
    Private Sub ManageFileSystemItemAttributes(ByRef Flags As Integer)
       Try
+         Dim AL As Integer = CPU.Registers(SubRegisters8BitE.AL)
          Dim FileSystemItemName As String = GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)})
 
          Try
-            Select Case CPU.Registers(SubRegisters8BitE.AL)
+            Select Case AL
                Case &H0%
                   CPU.Registers(Registers16BitE.CX, File.GetAttributes(FileSystemItemName) And ATTRIBUTES_MASK)
                   Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
@@ -2587,6 +2806,7 @@ Public Class MSDOSClass
             If NewEnd <= HIGHEST_ALLOCATABLE_ADDRESS OrElse Index = Allocations.Count - 1 OrElse NewEnd < Allocations(Index + 1).Item1 Then
                Allocations(Index) = Tuple.Create(ModifiedAllocation.Item1, NewEnd)
             Else
+               CPU.Registers(Registers16BitE.BX, NewValue:=&HFFFF%)
                ErrorCode = ERROR_INSUFFICIENT_MEMORY
             End If
          Else
@@ -2661,7 +2881,7 @@ Public Class MSDOSClass
 
          If Handle IsNot Nothing Then
             CPU.Registers(Registers16BitE.AX, NewValue:=CInt(Handle))
-            OpenFiles.Add(New Tuple(Of FileStream, Integer)(FileStreamO, CInt(Handle)))
+            OpenFiles.Add(New OpenFileStr With {.FileStreamV = FileStreamO, .Handle = CInt(Handle), .DeviceType = If(Handle.Value < LOWEST_FILE_HANDLE, DirectCast(Handle.Value, DeviceFileHandlesE), DeviceFileHandlesE.NONE)})
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -2746,13 +2966,18 @@ Public Class MSDOSClass
          Dim Bytes() As Byte = {}
          Dim Character As New Integer
          Dim Count As Integer = CPU.Registers(Registers16BitE.CX)
+         Dim Handle As Integer = CPU.Registers(Registers16BitE.BX)
          Dim KeyCode As New Byte
-         Dim OpenFileToBeRead As Tuple(Of FileStream, Integer) = Nothing
+         Dim OpenFileToBeRead As OpenFileStr? = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Handle = Handle)
 
          ReDim Bytes(&H0% To Count - &H1%)
 
-         Select Case DirectCast(CPU.Registers(Registers16BitE.BX), STDFileHandlesE)
-            Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDIN
+         If OpenFileToBeRead IsNot Nothing AndAlso Not OpenFileToBeRead.Value.DeviceType = DeviceFileHandlesE.NONE Then
+            Handle = OpenFileToBeRead.Value.DeviceType
+         End If
+
+         Select Case Handle
+            Case DeviceFileHandlesE.STDAUX, DeviceFileHandlesE.STDIN
                If Count = 1 Then
                   Bytes(Character) = ToByte(GetKey())
                   Teletype(Bytes(Character))
@@ -2793,14 +3018,12 @@ Public Class MSDOSClass
                CPU.Registers(Registers16BitE.AX, NewValue:=Count)
                ReDim Preserve Bytes(&H0% To Count - &H1%)
                WriteBytesToMemory(Bytes, (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX))
-            Case STDFileHandlesE.STDERR, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
+            Case DeviceFileHandlesE.STDERR, DeviceFileHandlesE.STDOUT, DeviceFileHandlesE.STDPRN
                CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_ACCESS_DENIED)
                Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
             Case Else
-               OpenFileToBeRead = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CPU.Registers(Registers16BitE.BX))
-
                Try
-                  Count = OpenFileToBeRead.Item1.Read(Bytes, offset:=&H0%, Count)
+                  Count = OpenFileToBeRead.Value.FileStreamV.Read(Bytes, offset:=&H0%, Count)
                   CPU.Registers(Registers16BitE.AX, NewValue:=Count)
                   ReDim Preserve Bytes(&H0% To Count - &H1%)
                   WriteBytesToMemory(Bytes, (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX))
@@ -2845,18 +3068,19 @@ Public Class MSDOSClass
    'This procedure seeks inside a file.
    Private Sub SeekFile(ByRef Flags As Integer)
       Try
-         Dim OpenFileToBeSought As Tuple(Of FileStream, Integer) = Nothing
+         Dim Handle As Integer = CPU.Registers(Registers16BitE.BX)
+         Dim OpenFileToBeSought As New OpenFileStr?
 
-         Select Case DirectCast(CPU.Registers(Registers16BitE.BX), STDFileHandlesE)
-            Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
+         Select Case DirectCast(CPU.Registers(Registers16BitE.BX), DeviceFileHandlesE)
+            Case DeviceFileHandlesE.STDAUX, DeviceFileHandlesE.STDERR, DeviceFileHandlesE.STDIN, DeviceFileHandlesE.STDOUT, DeviceFileHandlesE.STDPRN
                CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_ACCESS_DENIED)
                Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
             Case Else
-               OpenFileToBeSought = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CPU.Registers(Registers16BitE.BX))
+               OpenFileToBeSought = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Handle = Handle)
                Try
-                  OpenFileToBeSought.Item1.Seek((CPU.Registers(Registers16BitE.CX) << &H10%) Or CPU.Registers(Registers16BitE.DX), DirectCast(CPU.Registers(SubRegisters8BitE.AL), SeekOrigin))
-                  CPU.Registers(Registers16BitE.AX, NewValue:=OpenFileToBeSought.Item1.Position And &HFFFF%)
-                  CPU.Registers(Registers16BitE.DX, NewValue:=OpenFileToBeSought.Item1.Position >> &H10%)
+                  OpenFileToBeSought.Value.FileStreamV.Seek((CPU.Registers(Registers16BitE.CX) << &H10%) Or CPU.Registers(Registers16BitE.DX), DirectCast(CPU.Registers(SubRegisters8BitE.AL), SeekOrigin))
+                  CPU.Registers(Registers16BitE.AX, NewValue:=OpenFileToBeSought.Value.FileStreamV.Position And &HFFFF%)
+                  CPU.Registers(Registers16BitE.DX, NewValue:=OpenFileToBeSought.Value.FileStreamV.Position >> &H10%)
                   Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
                Catch MSDOSException As Exception
                   CPU.Registers(Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
@@ -2934,6 +3158,10 @@ Public Class MSDOSClass
             PSPFCB(FCB).AddRange(Enumerable.Repeat(CByte(&H0%), &H18%).ToArray())
          Next FCB
 
+         If Not CommandTail.StartsWith(" "c) Then
+            CommandTail = $" {CommandTail}"
+         End If
+
          If CommandTail.Length > COMMAND_TAIL_MAXIMUM_LENGTH Then
             CommandTail = CommandTail.Substring(0, COMMAND_TAIL_MAXIMUM_LENGTH - 1)
          End If
@@ -2945,17 +3173,18 @@ Public Class MSDOSClass
    'This procedure sets a file's date and time.
    Private Sub SetFileDateTime(ByRef Flags As Integer)
       Try
-         Dim OpenFileToBeChecked As Tuple(Of FileStream, Integer) = Nothing
+         Dim Handle As Integer = CPU.Registers(Registers16BitE.BX)
+         Dim OpenFileToBeChecked As New OpenFileStr?
 
-         Select Case DirectCast(CPU.Registers(Registers16BitE.BX), STDFileHandlesE)
-            Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
+         Select Case DirectCast(CPU.Registers(Registers16BitE.BX), DeviceFileHandlesE)
+            Case DeviceFileHandlesE.STDAUX, DeviceFileHandlesE.STDERR, DeviceFileHandlesE.STDIN, DeviceFileHandlesE.STDOUT, DeviceFileHandlesE.STDPRN
                CPU.Registers(Registers16BitE.AX, NewValue:=ERROR_INVALID_HANDLE)
                Flags = SET_BIT(Flags, True, CARRY_FLAG_INDEX)
             Case Else
-               OpenFileToBeChecked = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CPU.Registers(Registers16BitE.BX))
+               OpenFileToBeChecked = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Handle = Handle)
 
                Try
-                  File.SetLastWriteTime(OpenFileToBeChecked.Item1.Name, MSDOSDateTimeToDate(CPU.Registers(Registers16BitE.CX), CPU.Registers(Registers16BitE.DX)))
+                  File.SetLastWriteTime(OpenFileToBeChecked.Value.FileStreamV.Name, MSDOSDateTimeToDate(CPU.Registers(Registers16BitE.CX), CPU.Registers(Registers16BitE.DX)))
                   Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
                Catch MSDOSException As Exception
                   CPU.Registers(Registers16BitE.AX, NewValue:=GetMSDOSErrorCode(MSDOSException))
@@ -3093,21 +3322,25 @@ Public Class MSDOSClass
          Dim Buffer As New StringBuilder
          Dim Bytes() As Byte = {}
          Dim Count As Integer = CPU.Registers(Registers16BitE.CX)
-         Dim OpenFileToBeWritten As Tuple(Of FileStream, Integer) = Nothing
+         Dim Handle As Integer = CPU.Registers(Registers16BitE.BX)
+         Dim OpenFileToBeWritten As New OpenFileStr?
          Dim Position As New Integer
-         Dim STDHandle As STDFileHandlesE = DirectCast(CPU.Registers(Registers16BitE.BX), STDFileHandlesE)
 
-         Select Case STDHandle
-            Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDERR, STDFileHandlesE.STDIN, STDFileHandlesE.STDOUT, STDFileHandlesE.STDPRN
+         If OpenFileToBeWritten IsNot Nothing AndAlso Not OpenFileToBeWritten.Value.DeviceType = DeviceFileHandlesE.NONE Then
+            Handle = OpenFileToBeWritten.Value.DeviceType
+         End If
+
+         Select Case Handle
+            Case DeviceFileHandlesE.STDAUX, DeviceFileHandlesE.STDERR, DeviceFileHandlesE.STDIN, DeviceFileHandlesE.STDOUT, DeviceFileHandlesE.STDPRN
                Position = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
 
-               Select Case STDHandle
-                  Case STDFileHandlesE.STDAUX, STDFileHandlesE.STDPRN
+               Select Case Handle
+                  Case DeviceFileHandlesE.STDAUX, DeviceFileHandlesE.STDPRN
                      SyncLock SYNCHRONIZER
-                        Select Case STDHandle
-                           Case STDFileHandlesE.STDAUX
+                        Select Case Handle
+                           Case DeviceFileHandlesE.STDAUX
                               CPU_EVENT.Append($"STDAUX:{NewLine}")
-                           Case STDFileHandlesE.STDPRN
+                           Case DeviceFileHandlesE.STDPRN
                               CPU_EVENT.Append($"STDPRN:{NewLine}")
                         End Select
 
@@ -3128,11 +3361,11 @@ Public Class MSDOSClass
                CPU.Registers(Registers16BitE.AX, NewValue:=Count)
                Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
             Case Else
-               OpenFileToBeWritten = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Item2 = CPU.Registers(Registers16BitE.BX))
+               OpenFileToBeWritten = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Handle = Handle)
                Bytes = CPU.Memory.ToList.GetRange((CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX), Count).ToArray()
 
                Try
-                  OpenFileToBeWritten.Item1.Write(Bytes, offset:=&H0%, Count)
+                  OpenFileToBeWritten.Value.FileStreamV.Write(Bytes, offset:=&H0%, Count)
                   CPU.Registers(Registers16BitE.AX, NewValue:=Count)
                   Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
                Catch MSDOSException As Exception

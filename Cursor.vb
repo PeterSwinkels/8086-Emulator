@@ -48,7 +48,7 @@ Public Module CursorModule
          Dim VideoPage As Integer = CPU.Memory(AddressesE.VideoPage)
 
          Cursor.X = CPU.Memory(AddressesE.CursorPositions + (VideoPage * &H2%))
-         Cursor.Y = CPU.Memory(AddressesE.CursorPositions + ((VideoPage * &H2%) + &H1%))
+         Cursor.Y = CPU.Memory((AddressesE.CursorPositions + (VideoPage * &H2%)) + &H1%)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

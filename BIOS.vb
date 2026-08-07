@@ -6,6 +6,7 @@ Option Strict On
 
 Imports Emulator8086Program.CPU8086Class
 Imports System
+Imports System.Convert
 Imports System.Environment
 Imports System.IO
 Imports System.Threading.Tasks
@@ -196,10 +197,29 @@ Public Module BIOSModule
       End Try
    End Sub
 
+   'This procedure gives the command to scroll the screen buffer up.
+   Private Sub ScrollUp(ScrollAttribute As Byte?)
+      Try
+         Dim BH As Byte = CByte(CPU.Registers(SubRegisters8BitE.BH))
+         Dim ScrollArea As New VideoAdapterClass.ScreenAreaStr With {.ULCColumn = &H0%, .ULCRow = &H0%, .LRCColumn = MCC.ColumnCount() - &H1%, .LRCRow = MCC.RowCount()}
+
+         If ScrollAttribute IsNot Nothing Then
+            CPU.Registers(SubRegisters8BitE.BH, NewValue:=ScrollAttribute)
+         End If
+
+         VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
+
+         CPU.Registers(SubRegisters8BitE.BH, NewValue:=BH)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
    'This procedure emulates character output in Teletype mode.
    Public Sub Teletype(Character As Byte, Optional Attribute As Integer? = Nothing)
       Try
          Dim ScrollAttribute As New Byte?
+         Dim VideoPage As Integer = CPU.Memory(AddressesE.VideoPage)
          Dim VideoPageAddress As Integer = MCC.VideoPageAddress()
 
          CursorPositionUpdate()
@@ -258,8 +278,8 @@ Public Module BIOSModule
                End If
          End Select
 
-         CPU.Memory(AddressesE.CursorPositions) = CByte(Cursor.X)
-         CPU.Memory(AddressesE.CursorPositions + &H1%) = CByte(Cursor.Y)
+         CPU.Memory(AddressesE.CursorPositions + (VideoPage * &H2%)) = CByte(Cursor.X)
+         CPU.Memory((AddressesE.CursorPositions + (VideoPage * &H2%)) + &H1%) = CByte(Cursor.Y)
          CursorPositionUpdate()
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -287,19 +307,24 @@ Public Module BIOSModule
       End Try
    End Sub
 
-   'This procedure gives the command to scroll the screen buffer up.
-   Private Sub ScrollUp(ScrollAttribute As Byte?)
+   'This procedure writes to the keyboard buffer.
+   Public Sub WriteToKeyboardBuffer()
       Try
-         Dim BH As Byte = CByte(CPU.Registers(SubRegisters8BitE.BH))
-         Dim ScrollArea As New VideoAdapterClass.ScreenAreaStr With {.ULCColumn = &H0%, .ULCRow = &H0%, .LRCColumn = MCC.ColumnCount() - &H1%, .LRCRow = MCC.RowCount()}
+         Dim NextTail As Integer = CPU.Memory(AddressesE.KeyboardBufferTail) + &H2
+         Dim TargetAddress As New Integer
 
-         If ScrollAttribute IsNot Nothing Then
-            CPU.Registers(SubRegisters8BitE.BH, NewValue:=ScrollAttribute)
+         If NextTail >= KEY_BUFFER_END Then
+            NextTail = KEY_BUFFER_START
          End If
 
-         VideoAdapter.ScrollBuffer(Up:=True, ScrollArea, Count:=&H1%)
-
-         CPU.Registers(SubRegisters8BitE.BH, NewValue:=BH)
+         If NextTail = CPU.Memory(AddressesE.KeyboardBufferHead) Then
+            CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1%)
+         Else
+            TargetAddress = (BIOS_SEGMENT << &H4%) + CPU.Memory(AddressesE.KeyboardBufferTail)
+            CPU.PutWord(TargetAddress, CPU.Registers(Registers16BitE.CX))
+            CPU.Memory(AddressesE.KeyboardBufferTail) = ToByte(NextTail)
+            CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
+         End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -320,21 +345,21 @@ Public Module BIOSModule
          Dim PreviousRow As New Byte
          Dim Row As Byte = CByte(CPU.Registers(SubRegisters8BitE.DH))
          Dim Segment As Integer = CPU.Registers(SegmentRegistersE.ES)
-         Dim VideoPage As Integer = CPU.Registers(SubRegisters8BitE.BH)
+         Dim VideoPage As Integer = CPU.Memory(AddressesE.VideoPage)
 
          If Not HasAttributes Then
             Attribute = CByte(CPU.Registers(SubRegisters8BitE.BL))
          End If
          If Not MoveCursor Then
-            PreviousColumn = CPU.Memory(AddressesE.CursorPositions + &H1%)
-            PreviousRow = CPU.Memory(AddressesE.CursorPositions)
+            PreviousColumn = CPU.Memory((AddressesE.CursorPositions + (VideoPage * &H2%)) + &H1%)
+            PreviousRow = CPU.Memory(AddressesE.CursorPositions + (VideoPage * &H2%))
          End If
          If VideoPage >= MCC.VideoPageCount() Then
             VideoPage = &H0%
          End If
 
-         CPU.Memory(AddressesE.CursorPositions) = Column
-         CPU.Memory(AddressesE.CursorPositions + &H1%) = Row
+         CPU.Memory(AddressesE.CursorPositions + (VideoPage * &H2%)) = Column
+         CPU.Memory((AddressesE.CursorPositions + (VideoPage * &H2%)) + &H1%) = Row
          CursorPositionUpdate()
 
          Do While Count > &H0%
@@ -350,8 +375,8 @@ Public Module BIOSModule
          Loop
 
          If Not MoveCursor Then
-            CPU.Memory(AddressesE.CursorPositions) = PreviousColumn
-            CPU.Memory(AddressesE.CursorPositions + &H1%) = PreviousRow
+            CPU.Memory(AddressesE.CursorPositions + (VideoPage * &H2%)) = PreviousColumn
+            CPU.Memory((AddressesE.CursorPositions + (VideoPage * &H2%)) + &H1%) = PreviousRow
             CursorPositionUpdate()
          End If
       Catch ExceptionO As Exception

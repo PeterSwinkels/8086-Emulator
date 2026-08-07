@@ -27,8 +27,8 @@ Public Class Text80x25MonoClass
    Private ReadOnly BLACK_BRUSH As New SolidBrush(Color.Black)                                                        'Defines a black brush.
    Private ReadOnly CHARACTER_SIZE As Size = New Size(14, 24)                                                         'Defines the character size.
    Private ReadOnly DARK_GREEN_BRUSH As New SolidBrush(Color.DarkGreen)                                               'Defines a dark green brush.
-   Private ReadOnly FONT_NORMAL As New Font("Px437 IBM VGA 8x14", emSize:=21)                                         'Defines the normal font.
-   Private ReadOnly FONT_UNDERLINE As New Font("Px437 IBM VGA 8x14", emSize:=21, FontStyle.Underline)                 'Defines the underlined font.
+   Private ReadOnly FONT_NORMAL As New Font("Px437 IBM MDA", emSize:=21)                                         'Defines the normal font.
+   Private ReadOnly FONT_UNDERLINE As New Font("Px437 IBM MDA", emSize:=21, FontStyle.Underline)                 'Defines the underlined font.
    Private ReadOnly GREEN_BRUSH As New SolidBrush(Color.Green)                                                        'Defines a green brush.
    Private ReadOnly LIME_BRUSH As New SolidBrush(Color.Lime)                                                          'Defines a lime brush.
    Private ReadOnly PIXELS_PER_SCANLINE As Integer = CInt(CHARACTER_SIZE.Height / SCANLINE_COUNT)                     'Defines the number of pixels per scanline.
@@ -62,7 +62,8 @@ Public Class Text80x25MonoClass
       Dim Character As New Char
       Dim CharacterColor As Brush = Nothing
       Dim CharacterFont As Font = Nothing
-      Dim ColorO As New Color
+      Dim CursorScanlineEnd As Integer = If(Cursor.ScanLineEnd > &H3%, SCANLINE_COUNT, Cursor.ScanLineEnd)
+      Dim CursorScanlineStart As Integer = If(Cursor.ScanLineStart > &H3%, SCANLINE_COUNT - &H1%, Cursor.ScanLineStart)
       Dim GraphicsO As Graphics = Nothing
       Dim Target As New Point(0, 0)
       Dim VideoPageAddress As Integer = AddressesE.Text80x25MonoBuffer
@@ -74,7 +75,6 @@ Public Class Text80x25MonoClass
             .Clear(Color.Black)
 
             For Position As Integer = VideoPageAddress To VideoPageAddress + VideoPageSizesE.Text80x25Mono Step &H2%
-               Character = ToChar(CodePage(Memory(Position)))
                Attribute = Memory(Position + &H1%)
 
                If Attribute > &H0% AndAlso Not BLACK_ATTRIBUTES.Contains(Attribute) Then
@@ -140,7 +140,7 @@ Public Class Text80x25MonoClass
             Next Position
 
             If (Not Cursor.Off) AndAlso Cursor.Visible Then
-               .FillRectangle(LIME_BRUSH, Cursor.X * CHARACTER_SIZE.Width, (Cursor.Y * CHARACTER_SIZE.Height) + (Cursor.ScanLineStart * PIXELS_PER_SCANLINE) - &H4%, CHARACTER_SIZE.Width, (Cursor.ScanLineEnd * PIXELS_PER_SCANLINE) - (Cursor.ScanLineStart * PIXELS_PER_SCANLINE))
+               .FillRectangle(LIME_BRUSH, Cursor.X * CHARACTER_SIZE.Width, (Cursor.Y * CHARACTER_SIZE.Height) + (CursorScanlineStart * PIXELS_PER_SCANLINE) - &H4%, CHARACTER_SIZE.Width, (CursorScanlineEnd * PIXELS_PER_SCANLINE) - (CursorScanlineStart * PIXELS_PER_SCANLINE))
             End If
          End With
       Catch
@@ -185,31 +185,35 @@ Public Class Text80x25MonoClass
          For Scroll As Integer = &H1% To Count
             Select Case Up
                Case True
+                  BlankCell = Attribute << &H8%
+
                   For Row As Integer = ScrollArea.ULCRow + &H1% To ScrollArea.LRCRow
                      For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
                         If Row < MCC.RowCount() Then
                            CharacterCell = CPU.GetWord(VideoPageAddress + (Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%))
                            CPU.PutWord(VideoPageAddress + ((Row - &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%), CharacterCell)
+                        Else
+                           CPU.PutWord(VideoPageAddress + ((Row - &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%), BlankCell)
                         End If
                      Next Column
                   Next Row
-
-                  BlankCell = Attribute << &H8%
 
                   For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
                      CPU.PutWord(VideoPageAddress + (ScrollArea.LRCRow * TEXT_80_X_25_BYTES_PER_ROW) + (Column * 2), BlankCell)
                   Next Column
                Case False
-                  For Row As Integer = ScrollArea.LRCRow To ScrollArea.ULCRow - &H1% Step -&H1%
+                  BlankCell = Attribute << &H8%
+
+                  For Row As Integer = ScrollArea.LRCRow - &H1% To ScrollArea.ULCRow - &H1% Step -&H1%
                      For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
                         If Row > &H0% Then
                            CharacterCell = CPU.GetWord(VideoPageAddress + (Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%))
                            CPU.PutWord(VideoPageAddress + ((Row + &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%), CharacterCell)
+                        Else
+                           CPU.PutWord(VideoPageAddress + ((Row + &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%), BlankCell)
                         End If
                      Next Column
                   Next Row
-
-                  BlankCell = Attribute << &H8%
 
                   For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
                      CPU.PutWord(VideoPageAddress + (ScrollArea.ULCRow * TEXT_80_X_25_BYTES_PER_ROW) + (Column * 2), BlankCell)

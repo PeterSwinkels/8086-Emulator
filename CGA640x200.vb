@@ -74,7 +74,7 @@ Public Class CGA640x200Class
       Dim x As New Integer
       Dim y As Integer = Cursor.Y * &H8%
 
-      Array.Copy(CPU.Memory, If(Index < &H80%, AddressesE.Characters, AddressesE.ExtendedCharacters) + (Index * &H8%), Character, &H0%, Character.Length)
+      Array.Copy(CPU.Memory, If(Index < &H80%, AddressesE.Characters + (Index * &H8%), AddressesE.ExtendedCharacters + ((Index - &H80%) * &H8%)), Character, &H0%, Character.Length)
 
       Attribute = Attribute And &H1%
 
@@ -84,7 +84,7 @@ Public Class CGA640x200Class
          RemainingBits = ScanLine
          For Bit As Integer = &H7% To &H0% Step -&H1%
             BitSet(Bit) = CBool(RemainingBits And &H1%)
-            RemainingBits = RemainingBits >> &H1%
+            RemainingBits >>= &H1%
          Next Bit
 
          x = Cursor.X * &H8%

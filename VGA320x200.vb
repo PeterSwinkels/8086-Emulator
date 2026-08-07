@@ -38,7 +38,7 @@ Public Class VGA320x200Class
          With GraphicsO
             For y As Integer = 0 To HEIGHT - 1
                For x As Integer = 0 To WIDTH - 1
-                  .FillRectangle(VGA.VGAPaintBrushes(Memory(AddressesE.VGABuffer + ((y * WIDTH) + x))), x * SCALING, y * SCALING, SCALING, SCALING)
+                  .FillRectangle(VGA.VGABrushes(Memory(AddressesE.VGABuffer + ((y * WIDTH) + x))), x * SCALING, y * SCALING, SCALING, SCALING)
                Next x
             Next y
          End With
@@ -62,7 +62,7 @@ Public Class VGA320x200Class
          RemainingBits = ScanLine
          For Bit As Integer = &H7% To &H0% Step -&H1%
             BitSet(Bit) = CBool(RemainingBits And &H1%)
-            RemainingBits = RemainingBits >> &H1%
+            RemainingBits >>= &H1%
          Next Bit
 
          Position = AddressesE.VGABuffer + (y * VGA_320_X_200_BYTES_PER_ROW) + (Cursor.X * &H8%)
@@ -80,7 +80,7 @@ Public Class VGA320x200Class
       ClearBuffer()
 
       For Index As Integer = VGA.VGA_DEFAULT_PALETTE.GetLowerBound(0) To VGA.VGA_DEFAULT_PALETTE.GetUpperBound(0)
-         VGA.VGAPaintBrushes(Index) = New SolidBrush(Color.FromArgb(VGA.VGA_DEFAULT_PALETTE(Index) Or &HFF000000%))
+         VGA.VGABrushes(Index) = New SolidBrush(Color.FromArgb(VGA.VGA_DEFAULT_PALETTE(Index) Or &HFF000000%))
       Next Index
 
       CPU.Memory(AddressesE.VideoPage) = &H0%

@@ -98,7 +98,7 @@ Public Class PITClass
          BCD = BCD Or If(Octet < &HA%, Octet, &H9%)
          Value = Value >> &H4%
          If Value = &H0% Then Exit Do
-         BCD = BCD << &H4%
+         BCD <<= &H4%
       Loop
 
       Return BCD

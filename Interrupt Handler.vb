@@ -8,6 +8,7 @@ Imports Emulator8086Program.CPU8086Class
 Imports System
 Imports System.Convert
 Imports System.Environment
+Imports System.Linq
 Imports System.Threading.Tasks
 Imports System.Windows.Forms
 
@@ -15,7 +16,6 @@ Imports System.Windows.Forms
 Public Module InterruptHandlerModule
    Public Const CARRY_FLAG_INDEX As Integer = &H0%           'Defines the carry flag's bit index.
    Public Const ZERO_FLAG_INDEX As Integer = &H6%            'Defines the zero flag's bit index.
-   Private Const CURSOR_MASK As Integer = &H1F1F%             'Defines the cursor end/start bits.
    Private Const PRINTER_STATUS_NOT_BUSY As Integer = &H80%   'Defines the printer not busy status.
    Private Const VIDEO_MODE_MASK As Byte = &H7F%              'Defines the bits indicating a video mode.
 
@@ -104,7 +104,7 @@ Public Module InterruptHandlerModule
                      If CPU.Registers(Registers16BitE.CX) = CURSOR_DISABLED Then
                         CPU.PutWord(AddressesE.CursorScanLines, Word:=CURSOR_DISABLED)
                      Else
-                        CPU.PutWord(AddressesE.CursorScanLines, Word:=CPU.Registers(Registers16BitE.CX) And CURSOR_MASK)
+                        CPU.PutWord(AddressesE.CursorScanLines, Word:=CPU.Registers(Registers16BitE.CX))
                      End If
                      Success = True
                   Case &H2%
@@ -237,16 +237,20 @@ Public Module InterruptHandlerModule
                         Case VideoModesE.Text80x25Mono_Hercules
                            Success = True
                         Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray
-                           Select Case CByte(CPU.Registers(SubRegisters8BitE.AL))
+                           Select Case CPU.Registers(SubRegisters8BitE.AL)
+                              Case &H2%
+                                 Address = (CPU.Registers(SegmentRegistersE.ES) << &H4%) + CPU.Registers(Registers16BitE.DX)
+                                 EGA.SetEntirePalette(CPU.Memory.ToList().GetRange(Address, count:=&H10%).ToArray())
+                                 Success = True
                               Case &H3%
                                  MCC.BlinkingOn = CBool(CPU.Registers(SubRegisters8BitE.BL))
                                  Success = True
                            End Select
                      End Select
                   Case &H11%
-                     Select Case CByte(CPU.Registers(SubRegisters8BitE.AL))
+                     Select Case CPU.Registers(SubRegisters8BitE.AL)
                         Case &H30%
-                           Select Case CByte(CPU.Registers(SubRegisters8BitE.BL))
+                           Select Case CPU.Registers(SubRegisters8BitE.BL)
                               Case &H0%
                                  Address = &H1F% * &H4%
                                  CPU.Registers(SegmentRegistersE.ES, NewValue:=CPU.GetWord(Address + &H2%))
@@ -292,7 +296,7 @@ Public Module InterruptHandlerModule
                      CPU.Registers(Registers16BitE.CX, NewValue:=&H0%)
                      CPU.Registers(Registers16BitE.DX, NewValue:=&H0%)
                      Success = True
-                  Case &H4F%, &HBF%, &HEF%, &HFE%, &HFF%
+                  Case &H4F%, &HBF%, &HEF%, &HFA%, &HFE%, &HFF%
                      Success = True
                End Select
             Case &H11%
@@ -308,7 +312,7 @@ Public Module InterruptHandlerModule
                End Select
             Case &H16%
                Select Case AH
-                  Case &H0%
+                  Case &H0%, &H10%
                      CPU.Registers(Registers16BitE.AX, NewValue:=&H0%)
                      Do
                         If CPU.Clock.Status = TaskStatus.Running Then
@@ -316,6 +320,16 @@ Public Module InterruptHandlerModule
                         End If
                         Application.DoEvents()
                         Value = LastBIOSKeyCode()
+
+                        If Value IsNot Nothing Then
+                           Select Case AH
+                              Case &H0%
+                                 If Array.IndexOf(EXTENDED_CODES, Value.Value) >= 0 Then
+                                    Value = New Integer?
+                                 End If
+                           End Select
+                        End If
+
                         If Value IsNot Nothing Then CPU.Registers(Registers16BitE.AX, NewValue:=Value)
                      Loop While (CPU.Registers(Registers16BitE.AX) = &H0%) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
 
@@ -333,6 +347,9 @@ Public Module InterruptHandlerModule
                      Success = True
                   Case &H2%
                      CPU.Registers(SubRegisters8BitE.AL, NewValue:=CPU.Memory(AddressesE.KeyboardFlags))
+                     Success = True
+                  Case &H5%
+                     WriteToKeyboardBuffer()
                      Success = True
                End Select
             Case &H17%

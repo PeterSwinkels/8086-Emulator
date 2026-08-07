@@ -66,23 +66,26 @@ Public Module KeyboardModule
    Private Const BIOS_KEY_CODE_F11_SHIFT As Integer = &H87%                     'Defines the BIOS code for the F11 key combined with the Shift key.
    Private Const CHARACTER_CODE_0_SHIFT As Integer = &H29%                      'Defines the character code for the zero ("0") character  combined with the Shift key.
    Private Const CHARACTER_CODE_6_CONTROL As Integer = &H1E%                    'Defines the character code for the six ("6") character combined with the Control key.
+   Private Const EXTENDED_ENTER_KEY_SCANCODE As Integer = &HE00D%               'Defines the BIOS code for the extended enter key.
    Private Const PUNCTUATION_CHARACTERS As String = "-=[];'`\,./_+{}:""~|<>?"   'Defines the punctuation characters.
    Private Const PUNCTUATION_CHARACTERS_SHIFT_INDEX As Integer = 12             'Defines the index of the first shifted punctuation character.
 
+   Public ReadOnly EXTENDED_CODES() As Integer = {&H8500%, &H8600%, &H8700%, &H8800%, &H8900%, &H8A00%, &H8B00%, &H8C00%, &HE00D%, &HE02F%}                                                                                                                    'Contains the extended keyboard codes.
    Private ReadOnly CHARACTER_CODES_1_9_SHIFT() As Integer = {&H21%, &H40%, &H23%, &H24%, &H25%, &H5E%, &H26%, &H2A%, &H28%}                                                                                                                                    'Contains the codes for the characters one to nine ("1"-"9") combined with the Shift key.
    Private ReadOnly CHARACTER_CODES_PUNCTUATION_CONTROL() As Integer = {&H1F%, Nothing, &H1B%, &H1D%, Nothing, Nothing, Nothing, &H1C%, Nothing, Nothing, Nothing}                                                                                              'Contains the codes for the punctuation characters combined with the Control key.
+   Private ReadOnly COMMAND_KEYS() As Integer = {Keys.Back, Keys.Delete, Keys.Down, Keys.End, Keys.Enter, Keys.Escape, Keys.Home, Keys.Insert, Keys.NumPad5, Keys.Multiply, Keys.Subtract, Keys.Add, Keys.Divide, Keys.Left, Keys.PageDown, Keys.PageUp, Keys.PrintScreen, Keys.Right, Keys.Space, Keys.Tab, Keys.Up}  'Contains the command keys.
    Private ReadOnly BIOS_KEY_CODES_A_Z() As Integer = {&H1E%, &H30%, &H2E%, &H20%, &H12%, &H21%, &H22%, &H23%, &H17%, &H24%, &H25%, &H26%, &H32%, &H31%, &H18%, &H19%, &H10%, &H13%, &H1F%, &H14%, &H16%, &H2F%, &H11%, &H2D%, &H15%, &H2C%}                    'Contains the BIOS key codes for the letters ("A"-"Z").
-   Private ReadOnly BIOS_KEY_CODES_COMMAND() As Integer = {&HE08%, &H5300%, &H5000%, &H4F00%, &H1C0D%, &H11B%, &H4700%, &H5200%, Nothing, &H372A%, &H4A2D%, &H4E2B%, &H352F%, &H4B00%, &H5100%, &H4900%, Nothing, &H4D00%, &H3920%, &HF09%, &H4800%}            'Contains the BIOS key codes for the command keys.
+   Private ReadOnly BIOS_KEY_CODES_COMMAND() As Integer = {&HE08%, &H5300%, &H5000%, &H4F00%, &H1C0D%, &H11B%, &H4700%, &H5200%, Nothing, &H372A%, &H4A2D%, &H4E2B%, &HE02F%, &H4B00%, &H5100%, &H4900%, Nothing, &H4D00%, &H3920%, &HF09%, &H4800%}            'Contains the BIOS key codes for the command keys.
    Private ReadOnly BIOS_KEY_CODES_COMMAND_ALT() As Integer = {&HE%, &HA3%, &HA0%, &H9F%, &HA6%, &H1%, &H97%, &HA2%, Nothing, &H37%, &H4A%, &H4E%, &HA4%, &H9B%, &HA1%, &H99%, Nothing, &H9D%, &H39%, &HA5%, &H98%}                                             'Contains the BIOS key codes for the command keys combined with the Alt key.
    Private ReadOnly BIOS_KEY_CODES_COMMAND_CONTROL() As Integer = {&HE7F%, &H9300%, &H9100%, &H7500%, &H1C0A%, &H11B%, &H7700%, &H9200%, &H8F00%, &H9600%, &H8E00%, Nothing, &H9500%, &H7300%, &H7600%, &H8400%, &H7200%, &H7400%, &H3920%, &H9400%, &H8D00%}   'Contains the BIOS key codes for the command keys combined with the Control key.
-   Private ReadOnly BIOS_KEY_CODES_COMMAND_SHIFT() As Integer = {&HE08%, &H532E%, &H5032%, &H4F31%, &H1C0D%, &H11B%, &H4737%, &H5230%, &H4C35%, Nothing, &H4A2D%, &H4E2B%, &H352F%, &H4B34%, &H5133%, &H4939%, Nothing, &H4D36%, &H3920%, &HF00%, &H4838%}      'Contains the BIOS key codes for the command keys combined with the Shift key.
+   Private ReadOnly BIOS_KEY_CODES_COMMAND_SHIFT() As Integer = {&HE08%, &H532E%, &H5032%, &H4F31%, &H1C0D%, &H11B%, &H4737%, &H5230%, &H4C35%, Nothing, &H4A2D%, &H4E2B%, &HE02F%, &H4B34%, &H5133%, &H4939%, Nothing, &H4D36%, &H3920%, &HF00%, &H4838%}      'Contains the BIOS key codes for the command keys combined with the Shift key.
    Private ReadOnly BIOS_KEY_CODES_NUMERIC_KEYPAD() As Integer = {&H5230%, &H4F31%, &H5032%, &H5133%, &H4B34%, &H4C35%, &H4D36%, &H4737%, &H4838%, &H4939%}                                                                                                     'Contains the BIOS key codes for the numeric keypad numbers with Num Lock enabled.
    Private ReadOnly BIOS_KEY_CODES_PUNCTUATION() As Integer = {&HC%, &HD%, &H1A%, &H1B%, &H27%, &H28%, &H29%, &H2B%, &H33%, &H34%, &H35%}                                                                                                                       'Contains the BIOS key codes for the punctuation characters.
    Private ReadOnly BIOS_KEY_CODES_PUNCTUATION_ALT() As Integer = {&H82%, &H83%, &H1A%, &H1B%, &H27%, Nothing, Nothing, &H26%, Nothing, Nothing, Nothing}                                                                                                       'Contains the BIOS key codes for the punctuation characters combined with the Alt key.
-   Private ReadOnly COMMAND_KEYS() As Integer = {Keys.Back, Keys.Delete, Keys.Down, Keys.End, Keys.Enter, Keys.Escape, Keys.Home, Keys.Insert, Keys.NumPad5, Keys.Multiply, Keys.Subtract, Keys.Add, Keys.Divide, Keys.Left, Keys.PageDown, Keys.PageUp, Keys.PrintScreen, Keys.Right, Keys.Space, Keys.Tab, Keys.Up}  'Contains the command keys.
 
-   Private InsertActive As Boolean = False   'Indicates whether or not insert is active.
-   Public KeyScancode As Byte = Nothing     'Contains the most recent scancode.
+   Private InsertActive As Boolean = False    'Indicates whether or not insert is active.
+   Public ExtendedKeyFlag As Boolean = False   'Indicates whether or not a key is an extended key.
+   Public KeyScancode As Byte = Nothing        'Contains the most recent scancode.
 
    'This procedure converts the specified ASCII code combined with the specified modifier keys to a BIOS scan and character code and returns the result.
    Private Function GetBIOSCharacterKeyCode(KeyASCII As Integer, Alt As Boolean, Control As Boolean, Shift As Boolean) As Integer?
@@ -164,6 +167,10 @@ Public Module KeyboardModule
             BIOSKeyCode = BIOS_KEY_CODES_COMMAND(CommandKeyIndex)
          End If
 
+         If BIOSKeyCode IsNot Nothing AndAlso BIOSKeyCode.Value = &H1C0D% AndAlso ExtendedKeyFlag Then
+            BIOSKeyCode = EXTENDED_ENTER_KEY_SCANCODE
+         End If
+
          Return BIOSKeyCode
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -200,7 +207,7 @@ Public Module KeyboardModule
                End If
          End Select
 
-         If BIOSKeyCode IsNot Nothing Then BIOSKeyCode = (BIOSKeyCode << &H8%)
+         If BIOSKeyCode IsNot Nothing Then BIOSKeyCode <<= &H8%
 
          Return BIOSKeyCode
       Catch ExceptionO As Exception
