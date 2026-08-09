@@ -439,6 +439,8 @@ Public Class CPU8086Class
    Public LastOverride As SegmentRegistersE? = Nothing                             'Contains the most recent segment override used.
    Public Memory() As Byte = Enumerable.Repeat(CByte(&H0%), &H100000%).ToArray()   'Contains the memory used by the emulated 8086 CPU.
    Public Tracing As Boolean = False                                               'Indicates whether or not tracing is enabled.
+   Private RepeatStringOpcode As Boolean = False                                    'Incidates whehter or not a string opcode will be repeated.
+   Private ZFStopValue As New Boolean                                               'Contains the required state of the zero flag to stop repeating a string opcode.
 
    Public Event Halt()                                                                   'Defines the halt event.
    Public Event Interrupt(Vector As Integer, AH As Integer)                              'Defines the interrupt event.
@@ -483,40 +485,40 @@ Public Class CPU8086Class
 
          Select Case Operand
             Case MemoryOperandsE.BX_SI,
-               MemoryOperandsE.BX_SI_BYTE,
-               MemoryOperandsE.BX_SI_WORD
+            MemoryOperandsE.BX_SI_BYTE,
+            MemoryOperandsE.BX_SI_WORD
                Addresses.Address = (Registers(Registers16BitE.BX) + Registers(Registers16BitE.SI)) And &HFFFF%
             Case MemoryOperandsE.BX_DI,
-               MemoryOperandsE.BX_DI_BYTE,
-               MemoryOperandsE.BX_DI_WORD
+            MemoryOperandsE.BX_DI_BYTE,
+            MemoryOperandsE.BX_DI_WORD
                Addresses.Address = (Registers(Registers16BitE.BX) + Registers(Registers16BitE.DI)) And &HFFFF%
             Case MemoryOperandsE.BP_SI,
-               MemoryOperandsE.BP_SI_BYTE,
-               MemoryOperandsE.BP_SI_WORD
+            MemoryOperandsE.BP_SI_BYTE,
+            MemoryOperandsE.BP_SI_WORD
                Addresses.Address = (Registers(Registers16BitE.BP) + Registers(Registers16BitE.SI)) And &HFFFF%
                Segment = SegmentRegistersE.SS
             Case MemoryOperandsE.BP_DI,
-               MemoryOperandsE.BP_DI_BYTE,
-               MemoryOperandsE.BP_DI_WORD
+            MemoryOperandsE.BP_DI_BYTE,
+            MemoryOperandsE.BP_DI_WORD
                Addresses.Address = (Registers(Registers16BitE.BP) + Registers(Registers16BitE.DI)) And &HFFFF%
                Segment = SegmentRegistersE.SS
             Case MemoryOperandsE.SI,
-               MemoryOperandsE.SI_BYTE,
-               MemoryOperandsE.SI_WORD
+            MemoryOperandsE.SI_BYTE,
+            MemoryOperandsE.SI_WORD
                Addresses.Address = Registers(Registers16BitE.SI)
             Case MemoryOperandsE.DI,
-               MemoryOperandsE.DI_BYTE,
-               MemoryOperandsE.DI_WORD
+            MemoryOperandsE.DI_BYTE,
+            MemoryOperandsE.DI_WORD
                Addresses.Address = Registers(Registers16BitE.DI)
             Case MemoryOperandsE.WORD
                Addresses.Address = GetWordCSIP()
             Case MemoryOperandsE.BP_BYTE,
-               MemoryOperandsE.BP_WORD
+            MemoryOperandsE.BP_WORD
                Addresses.Address = Registers(Registers16BitE.BP)
                Segment = SegmentRegistersE.SS
             Case MemoryOperandsE.BX,
-               MemoryOperandsE.BX_BYTE,
-               MemoryOperandsE.BX_WORD
+            MemoryOperandsE.BX_BYTE,
+            MemoryOperandsE.BX_WORD
                Addresses.Address = Registers(Registers16BitE.BX)
          End Select
 
@@ -638,27 +640,15 @@ Public Class CPU8086Class
    Public Function Execute() As Task(Of Integer)
       Try
          Do Until ClockToken.Token.IsCancellationRequested
-            If Tracing Then RaiseEvent Trace()
-
-            ExecuteHardwareInterrupts()
+            If Not RepeatStringOpcode Then
+               ExecuteHardwareInterrupts()
+            End If
 
             If Not ExecuteOpcode() Then
                If INT6Enabled Then
                   ExecuteInterrupt(OpcodesE.INT, Vector:=INVALID_OPCODE)
                End If
             End If
-
-            If CBool(Registers(FlagRegistersE.TF)) Then
-               If Not ExecuteOpcode() Then
-                  If INT6Enabled Then
-                     ExecuteInterrupt(OpcodesE.INT, Vector:=INVALID_OPCODE)
-                  End If
-               End If
-               ExecuteInterrupt(OpcodesE.INT, Vector:=SINGLE_STEP)
-               Registers(FlagRegistersE.TF, NewValue:=False)
-            End If
-
-            If Tracing Then RaiseEvent Trace()
          Loop
 
          Return Task.FromResult(GET_FLAT_CS_IP())
@@ -795,7 +785,6 @@ Public Class CPU8086Class
       If (Opcode = OpcodesE.INTO AndAlso CBool(Registers(FlagRegistersE.OF))) OrElse (Not Opcode = OpcodesE.INTO) Then
          Stack(Push:=Registers(FlagRegistersE.All))
          Registers(FlagRegistersE.IF, NewValue:=False)
-         Registers(FlagRegistersE.TF, NewValue:=False)
 
          Select Case Opcode
             Case OpcodesE.INT
@@ -878,12 +867,12 @@ Public Class CPU8086Class
 
                Select Case DirectCast(CByte(Operation), Operations80_83E)
                   Case Operations80_83E.ADC,
-                     Operations80_83E.ADD,
-                     Operations80_83E.AND,
-                     Operations80_83E.OR,
-                     Operations80_83E.SBB,
-                     Operations80_83E.SUB,
-                     Operations80_83E.XOR
+                  Operations80_83E.ADD,
+                  Operations80_83E.AND,
+                  Operations80_83E.OR,
+                  Operations80_83E.SBB,
+                  Operations80_83E.SUB,
+                  Operations80_83E.XOR
                      SetNewValue(OperandPair)
                End Select
             End With
@@ -895,12 +884,12 @@ Public Class CPU8086Class
             With OperandPair
                Select Case DirectCast(CByte(Operation), OperationsF6_F7E)
                   Case OperationsF6_F7E.DIV,
-                     OperationsF6_F7E.IDIV,
-                     OperationsF6_F7E.IMUL,
-                     OperationsF6_F7E.MUL,
-                     OperationsF6_F7E.NEG,
-                     OperationsF6_F7E.None,
-                     OperationsF6_F7E.NOT
+                  OperationsF6_F7E.IDIV,
+                  OperationsF6_F7E.IMUL,
+                  OperationsF6_F7E.MUL,
+                  OperationsF6_F7E.NEG,
+                  OperationsF6_F7E.None,
+                  OperationsF6_F7E.NOT
                      Registers(Registers16BitE.IP, NewValue:=Registers(Registers16BitE.IP) - If(.Is8Bit, &H1%, &H2%))
                End Select
 
@@ -1075,7 +1064,7 @@ Public Class CPU8086Class
 
                Select Case DirectCast(CByte(Operation), OperationsFEFFC0_FEFFFFE)
                   Case OperationsFEFFC0_FEFFFFE.DEC,
-                     OperationsFEFFC0_FEFFFFE.INC
+                  OperationsFEFFC0_FEFFFFE.INC
                      SetNewValue(OperandPair)
                End Select
             End With
@@ -1097,9 +1086,86 @@ Public Class CPU8086Class
       Dim OperandPair As New OperandPairStr
       Dim Override As New SegmentRegistersE?
       Dim Value As New Integer
-      Dim ZFStopValue As New Boolean
 
-      If Opcode = Nothing Then Opcode = DirectCast(GetByteCSIP(), OpcodesE)
+      If Tracing Then RaiseEvent Trace()
+
+      If Opcode = Nothing Then
+         If CBool(Registers(FlagRegistersE.TF)) Then
+            Registers(FlagRegistersE.TF, NewValue:=False)
+            Opcode = DirectCast(Memory(GET_FLAT_CS_IP()), OpcodesE)
+            If {OpcodesE.CS, OpcodesE.DS, OpcodesE.ES, OpcodesE.REPNE, OpcodesE.REPZ, OpcodesE.SS}.Contains(Opcode) Then
+               While {OpcodesE.CS, OpcodesE.DS, OpcodesE.ES, OpcodesE.REPNE, OpcodesE.REPZ, OpcodesE.SS}.Contains(Opcode)
+                  ExecuteOpcode()
+                  Opcode = DirectCast(Memory(GET_FLAT_CS_IP()), OpcodesE)
+               End While
+            End If
+
+            Select Case Opcode
+               Case OpcodesE.CMPSB,
+                      OpcodesE.CMPSW,
+                      OpcodesE.LODSB,
+                      OpcodesE.LODSW,
+                      OpcodesE.MOVSB,
+                      OpcodesE.MOVSW,
+                      OpcodesE.SCASB,
+                      OpcodesE.SCASW,
+                      OpcodesE.STOSB,
+                      OpcodesE.STOSW
+                  If RepeatStringOpcode Then
+                     If CBool(Registers(FlagRegistersE.ZF)) = ZFStopValue OrElse Registers(Registers16BitE.CX) = &H0% Then
+                        GetByteCSIP()
+                        RepeatStringOpcode = False
+                     Else
+                        Registers(Registers16BitE.IP, NewValue:=(Registers(Registers16BitE.IP) - &H1%) And &HFFFF%)
+                        ExecuteOpcode(Opcode)
+                        Registers(Registers16BitE.CX, NewValue:=Registers(Registers16BitE.CX) - &H1%)
+                     End If
+                  Else
+                     ExecuteOpcode(Opcode)
+                  End If
+               Case Else
+                  ExecuteOpcode()
+            End Select
+
+            ExecuteInterrupt(OpcodesE.INT, SINGLE_STEP)
+         End If
+
+         If RepeatStringOpcode Then
+            If CBool(Registers(FlagRegistersE.ZF)) = ZFStopValue OrElse Registers(Registers16BitE.CX) = &H0% Then
+               GetByteCSIP()
+               RepeatStringOpcode = False
+            Else
+               Opcode = DirectCast(Memory(GET_FLAT_CS_IP()), OpcodesE)
+
+               Select Case Opcode
+                  Case OpcodesE.CS,
+                        OpcodesE.DS,
+                        OpcodesE.ES,
+                        OpcodesE.REPNE,
+                        OpcodesE.REPZ,
+                        OpcodesE.SS
+                     GetByteCSIP()
+                  Case OpcodesE.CMPSB,
+                        OpcodesE.CMPSW,
+                        OpcodesE.LODSB,
+                        OpcodesE.LODSW,
+                        OpcodesE.MOVSB,
+                        OpcodesE.MOVSW,
+                        OpcodesE.SCASB,
+                        OpcodesE.SCASW,
+                        OpcodesE.STOSB,
+                        OpcodesE.STOSW
+                     Registers(Registers16BitE.CX, NewValue:=Registers(Registers16BitE.CX) - &H1%)
+                  Case Else
+                     RepeatStringOpcode = False
+               End Select
+            End If
+         End If
+
+         If Not RepeatStringOpcode Then
+            Opcode = DirectCast(GetByteCSIP(), OpcodesE)
+         End If
+      End If
 
       Select Case Opcode
          Case OpcodesE.AAA, OpcodesE.AAS
@@ -1140,14 +1206,14 @@ Public Class CPU8086Class
                Return False
             End If
          Case OpcodesE.ADC_TGT_REG8 To OpcodesE.ADC_AX_WORD,
-               OpcodesE.ADD_TGT_REG8 To OpcodesE.ADD_AX_WORD,
-               OpcodesE.AND_TGT_REG8 To OpcodesE.AND_AX_WORD,
-               OpcodesE.CMP_TGT_REG8 To OpcodesE.CMP_AX_WORD,
-               OpcodesE.MOV_TGT_REG8 To OpcodesE.MOV_REG16_SRC,
-               OpcodesE.OR_TGT_REG8 To OpcodesE.OR_AX_WORD,
-               OpcodesE.SBB_TGT_REG8 To OpcodesE.SBB_AX_WORD,
-               OpcodesE.SUB_TGT_REG8 To OpcodesE.SUB_AX_WORD,
-               OpcodesE.XOR_TGT_REG8 To OpcodesE.XOR_AX_WORD
+            OpcodesE.ADD_TGT_REG8 To OpcodesE.ADD_AX_WORD,
+            OpcodesE.AND_TGT_REG8 To OpcodesE.AND_AX_WORD,
+            OpcodesE.CMP_TGT_REG8 To OpcodesE.CMP_AX_WORD,
+            OpcodesE.MOV_TGT_REG8 To OpcodesE.MOV_REG16_SRC,
+            OpcodesE.OR_TGT_REG8 To OpcodesE.OR_AX_WORD,
+            OpcodesE.SBB_TGT_REG8 To OpcodesE.SBB_AX_WORD,
+            OpcodesE.SUB_TGT_REG8 To OpcodesE.SUB_AX_WORD,
+            OpcodesE.XOR_TGT_REG8 To OpcodesE.XOR_AX_WORD
 
             Operand = GetByteCSIP()
             OperandPair = GetValues(GetOperandPair(Opcode, CByte(Operand)))
@@ -1185,13 +1251,13 @@ Public Class CPU8086Class
 
                Select Case Opcode
                   Case OpcodesE.ADC_TGT_REG8 To OpcodesE.ADC_AX_WORD,
-                        OpcodesE.ADD_TGT_REG8 To OpcodesE.ADD_AX_WORD,
-                        OpcodesE.AND_TGT_REG8 To OpcodesE.AND_AX_WORD,
-                        OpcodesE.MOV_TGT_REG8 To OpcodesE.MOV_REG16_SRC,
-                        OpcodesE.OR_TGT_REG8 To OpcodesE.OR_AX_WORD,
-                        OpcodesE.SBB_TGT_REG8 To OpcodesE.SBB_AX_WORD,
-                        OpcodesE.SUB_TGT_REG8 To OpcodesE.SUB_AX_WORD,
-                        OpcodesE.XOR_TGT_REG8 To OpcodesE.XOR_AX_WORD
+                     OpcodesE.ADD_TGT_REG8 To OpcodesE.ADD_AX_WORD,
+                     OpcodesE.AND_TGT_REG8 To OpcodesE.AND_AX_WORD,
+                     OpcodesE.MOV_TGT_REG8 To OpcodesE.MOV_REG16_SRC,
+                     OpcodesE.OR_TGT_REG8 To OpcodesE.OR_AX_WORD,
+                     OpcodesE.SBB_TGT_REG8 To OpcodesE.SBB_AX_WORD,
+                     OpcodesE.SUB_TGT_REG8 To OpcodesE.SUB_AX_WORD,
+                     OpcodesE.XOR_TGT_REG8 To OpcodesE.XOR_AX_WORD
 
                      SetNewValue(OperandPair)
                End Select
@@ -1373,29 +1439,9 @@ Public Class CPU8086Class
             End If
 
             Registers(FlagRegistersE.ZF, NewValue:=(Not ZFStopValue))
-
-            Opcode = DirectCast(GetByteCSIP(), OpcodesE)
-
-            Select Case Opcode
-               Case OpcodesE.CS, OpcodesE.DS, OpcodesE.ES, OpcodesE.SS
-                  SegmentOverride(NewOverride:=DirectCast((CInt(Opcode) >> &H3%) And &H3%, SegmentRegistersE))
-                  Opcode = DirectCast(GetByteCSIP(), OpcodesE)
-            End Select
-
-            Override = SegmentOverride()
-
-            Do Until CBool(Registers(FlagRegistersE.ZF)) = ZFStopValue OrElse Registers(Registers16BitE.CX) = &H0%
-               ExecuteStringOpcode(Opcode, Override)
-               Registers(Registers16BitE.CX, NewValue:=Registers(Registers16BitE.CX) - &H1%)
-
-               If CBool(Registers(FlagRegistersE.TF)) Then
-                  Registers(Registers16BitE.IP, NewValue:=(Registers(Registers16BitE.IP) - &H2%) And &HFFFF%)
-                  If Override IsNot Nothing Then
-                     Registers(Registers16BitE.IP, NewValue:=(Registers(Registers16BitE.IP) - &H1%) And &HFFFF%)
-                  End If
-                  Exit Do
-               End If
-            Loop
+            If Not Registers(Registers16BitE.CX) = &H0% Then
+               RepeatStringOpcode = True
+            End If
          Case OpcodesE.RSBITS_BYTE_1 To OpcodesE.RSBITS_WORD_1, OpcodesE.RSBITS_BYTE_CL To OpcodesE.RSBITS_WORD_CL
             Operand = GetByteCSIP()
             OperandPair = GetOperandPair(CByte(Opcode And &H1%), CByte(Operand))
@@ -1498,6 +1544,8 @@ Public Class CPU8086Class
                Return ExecuteControlFlowOpcode(Opcode) OrElse ExecuteMultiOpcode(Opcode) OrElse ExecuteStackOpcode(Opcode) OrElse ExecuteStringOpcode(Opcode, SegmentOverride())
             End If
       End Select
+
+      If Tracing Then RaiseEvent Trace()
 
       Return True
    End Function
@@ -1693,21 +1741,21 @@ Public Class CPU8086Class
 
       Select Case DirectCast(OperandPair.Operand2, MemoryOperandsE)
          Case MemoryOperandsE.BX_SI_BYTE,
-            MemoryOperandsE.BX_DI_BYTE,
-            MemoryOperandsE.BP_SI_BYTE,
-            MemoryOperandsE.BP_DI_BYTE,
-            MemoryOperandsE.SI_BYTE,
-            MemoryOperandsE.DI_BYTE,
-            MemoryOperandsE.BP_BYTE,
-            MemoryOperandsE.BX_BYTE,
-            MemoryOperandsE.BX_SI_WORD,
-            MemoryOperandsE.BX_DI_WORD,
-            MemoryOperandsE.BP_SI_WORD,
-            MemoryOperandsE.BP_DI_WORD,
-            MemoryOperandsE.SI_WORD,
-            MemoryOperandsE.DI_WORD,
-            MemoryOperandsE.BP_WORD,
-            MemoryOperandsE.BX_WORD
+         MemoryOperandsE.BX_DI_BYTE,
+         MemoryOperandsE.BP_SI_BYTE,
+         MemoryOperandsE.BP_DI_BYTE,
+         MemoryOperandsE.SI_BYTE,
+         MemoryOperandsE.DI_BYTE,
+         MemoryOperandsE.BP_BYTE,
+         MemoryOperandsE.BX_BYTE,
+         MemoryOperandsE.BX_SI_WORD,
+         MemoryOperandsE.BX_DI_WORD,
+         MemoryOperandsE.BP_SI_WORD,
+         MemoryOperandsE.BP_DI_WORD,
+         MemoryOperandsE.SI_WORD,
+         MemoryOperandsE.DI_WORD,
+         MemoryOperandsE.BP_WORD,
+         MemoryOperandsE.BX_WORD
             OperandPair.Displacement = GetOperandDisplacement(MemoryOperand, OperandPair.DisplacementIs8Bit)
       End Select
 
