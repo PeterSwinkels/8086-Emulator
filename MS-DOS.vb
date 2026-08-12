@@ -2660,7 +2660,7 @@ Public Class MSDOSClass
          Dim FileName As String = GetStringZ(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX)).Trim({ToChar(&H0%)})
          Dim Executable As New List(Of Byte)(File.ReadAllBytes(FileName))
          Dim HeaderSize As New Integer
-         Dim ImageSize As Integer = ((BitConverter.ToUInt16(Executable.ToArray(), EXE_IMAGE_SIZE) - &H1%) * PAGE_SIZE) + BitConverter.ToUInt16(Executable.ToArray(), EXE_IMAGE_REMAINDER_SIZE)
+         Dim ImageSize As New Integer
          Dim ParameterBlock As Integer = (CPU.Registers(SegmentRegistersE.ES) << &H4%) + CPU.Registers(Registers16BitE.BX)
          Dim Position As New Integer
          Dim ProgramCS As New Integer
@@ -2694,6 +2694,7 @@ Public Class MSDOSClass
                CodeBaseSegment = BaseSegment + (PSP_SIZE >> &H4%)
 
                If Executable.Count >= &H2% AndAlso Executable.GetRange(&H0%, EXE_MZ_SIGNATURE.Length).SequenceEqual(EXE_MZ_SIGNATURE) Then
+                  ImageSize = ((BitConverter.ToUInt16(Executable.ToArray(), EXE_IMAGE_SIZE) - &H1%) * PAGE_SIZE) + BitConverter.ToUInt16(Executable.ToArray(), EXE_IMAGE_REMAINDER_SIZE)
                   If Address.Value + Executable.Count <= CPU.Memory.Length Then
                      HeaderSize = BitConverter.ToUInt16(Bytes, EXE_HEADER_SIZE) << &H4%
 

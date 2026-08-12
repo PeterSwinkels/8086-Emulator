@@ -413,7 +413,7 @@ Public Class AssemblerClass
                         RegisterIndex = XP_REGISTERS.IndexOf(RightOperand.Operand)
                         If RegisterIndex >= &H0% Then Opcodes.Add(ToByte(XP_OPERAND_OPCODES(Instruction) Or RegisterIndex))
                      Else
-                        Throw New Exception("Invalid register.")
+                        Throw New Exception("Invalid register or missing operand.")
                      End If
                   Case Else
                      LeftOperand = New OperandStr With {.Operand = GetRightMostOperand(Instruction, Delimiter:=" "c), .Type = OperandType(.Operand)}
@@ -766,7 +766,7 @@ Public Class AssemblerClass
          Case OperandTypesE.Segment
             Index = SG_REGISTERS.IndexOf(RegisterOperand.Operand)
          Case Else
-            Throw New Exception("Invalid register.")
+            Throw New Exception("Invalid register or missing operand.")
       End Select
 
       Return Index.Value
