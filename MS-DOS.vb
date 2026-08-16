@@ -3384,7 +3384,7 @@ Public Class MSDOSClass
       Try
          Dim CurrentPath As String = CurrentDirectory()
          Dim FileItem As New FileSystemItemStr With {.IsFile = True, .Name = Path.GetFileName(FileName), .ShortName = Nothing}
-         Dim FilePath As String = Path.GetDirectoryName(FileName)
+         Dim FilePath As String = Path.GetDirectoryName(Path.GetFullPath(FileName))
          Dim Items As New List(Of FileSystemItemStr)
          Dim MSDOSProgramPath As New StringBuilder
 
