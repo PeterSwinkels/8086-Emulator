@@ -13,7 +13,7 @@ Public Class VGA320x200Class
    Implements VideoAdapterClass
 
    Private Const HEIGHT As Integer = 200     'Defines the graphic mode's height in pixels.
-   Private Const SCALING As Integer = &H2%   'Defines the scale factor.
+   Private Const SCALING As Integer = &H3%   'Defines the scale factor.
    Private Const WIDTH As Integer = 320      'Defines the graphic mode's width in pixels.
 
    'This procedure clears video adapter's buffer.

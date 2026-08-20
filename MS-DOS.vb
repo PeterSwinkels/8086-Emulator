@@ -330,7 +330,9 @@ Public Class MSDOSClass
          Dim Maximum As Integer = CPU.Memory(Address)
          Dim KeyCode As New Integer
 
-         Do Until Buffer.Count = Maximum OrElse CPU.ClockToken.IsCancellationRequested
+         Do Until Buffer.Count = Maximum OrElse CPU.ClockToken.IsCancellationRequested OrElse Application.OpenForms.Count = 0
+            Application.DoEvents()
+
             If CPU.Clock.Status = TaskStatus.Running Then
                CPU.ExecuteHardwareInterrupts()
             End If
@@ -682,7 +684,9 @@ Public Class MSDOSClass
                End If
 
                KeyCode = LastBIOSKeyCode()
-            Loop Until KeyCode.HasValue OrElse CPU.ClockToken.IsCancellationRequested
+
+               Application.DoEvents()
+            Loop Until KeyCode.HasValue OrElse CPU.ClockToken.IsCancellationRequested OrElse Application.OpenForms.count = 0
             If KeyCode IsNot Nothing AndAlso (KeyCode.Value And &HFF%) = Nothing Then
                ExtendedKeyCode = KeyCode >> &H8%
             End If
@@ -1754,6 +1758,8 @@ Public Class MSDOSClass
          Dim KeyCode As New Integer
 
          Do
+            Application.DoEvents()
+
             If CPU.Clock.Status = TaskStatus.Running Then
                CPU.ExecuteHardwareInterrupts()
             End If
@@ -1762,7 +1768,7 @@ Public Class MSDOSClass
             If LastBIOSKeyCode() IsNot Nothing Then
                KeyCode = LastBIOSKeyCode().Value And &HFF%
             End If
-         Loop While (KeyCode = Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
+         Loop While (KeyCode = Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested) AndAlso (Application.OpenForms.Count > 0)
 
          LastBIOSKeyCode(, Clear:=True)
 
@@ -1781,6 +1787,8 @@ Public Class MSDOSClass
 
          If ExtendedKeyCode Is Nothing Then
             Do
+               Application.DoEvents()
+
                If CPU.Clock.Status = TaskStatus.Running Then
                   CPU.ExecuteHardwareInterrupts()
                End If
@@ -1793,7 +1801,7 @@ Public Class MSDOSClass
                   End If
                   KeyCode = KeyCode And &HFF%
                End If
-            Loop While (KeyCode = Nothing AndAlso ExtendedKeyCode Is Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
+            Loop While (KeyCode = Nothing AndAlso ExtendedKeyCode Is Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested) AndAlso (Application.OpenForms.Count > 0)
 
             LastBIOSKeyCode(, Clear:=True)
          Else
@@ -2594,7 +2602,7 @@ Public Class MSDOSClass
          Dim RelocationTable As Integer = BitConverter.ToUInt16(Executable.ToArray(), EXE_RELOCATION_ITEM_TABLE)
          Dim RelocationTableSize As Integer = BitConverter.ToUInt16(Executable.ToArray(), EXE_RELOCATION_ITEM_COUNT) * &H4%
 
-         If LoadAddress + Executable.Count <= CPU.Memory.Length Then
+         If LoadAddress + (ImageSize - HeaderSize) <= CPU.Memory.Length Then
             SyncLock SYNCHRONIZER
                CPU_EVENT.Append($"Loading the MZ-executable ""{FileName}"" at address {LoadAddress:X8}.{NewLine}")
             End SyncLock
@@ -2633,6 +2641,8 @@ Public Class MSDOSClass
                   Position += &H4%
                Loop Until Position >= (RelocationTable + RelocationTableSize) OrElse CPU.ClockToken.IsCancellationRequested
             End If
+
+            Executable = New List(Of Byte)(Executable.GetRange(HeaderSize, ImageSize - HeaderSize))
          Else
             SyncLock SYNCHRONIZER
                CPU_EVENT.Append($"""{FileName}"" does not fit inside the emulated memory.{NewLine}")
@@ -2695,7 +2705,7 @@ Public Class MSDOSClass
 
                If Executable.Count >= &H2% AndAlso Executable.GetRange(&H0%, EXE_MZ_SIGNATURE.Length).SequenceEqual(EXE_MZ_SIGNATURE) Then
                   ImageSize = ((BitConverter.ToUInt16(Executable.ToArray(), EXE_IMAGE_SIZE) - &H1%) * PAGE_SIZE) + BitConverter.ToUInt16(Executable.ToArray(), EXE_IMAGE_REMAINDER_SIZE)
-                  If Address.Value + Executable.Count <= CPU.Memory.Length Then
+                  If Address.Value + (ImageSize - HeaderSize) <= CPU.Memory.Length Then
                      HeaderSize = BitConverter.ToUInt16(Bytes, EXE_HEADER_SIZE) << &H4%
 
                      ProgramCS = CodeBaseSegment + BitConverter.ToUInt16(Bytes, EXE_INITIAL_CS)
@@ -2906,7 +2916,7 @@ Public Class MSDOSClass
                   ExtendedKeyCode = (KeyCode.Value >> &H8%)
                   KeyCode = (KeyCode And &HFF%)
                End If
-            Loop While (KeyCode Is Nothing) AndAlso (ExtendedKeyCode Is Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
+            Loop While (KeyCode Is Nothing) AndAlso (ExtendedKeyCode Is Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested) AndAlso (Application.Openforms.Count > 0)
 
             LastBIOSKeyCode(, Clear:=True)
          Else
@@ -2984,7 +2994,9 @@ Public Class MSDOSClass
                   Teletype(Bytes(Character))
                Else
                   Character = &H0%
-                  Do While Character < Count
+                  Do While (Character < Count) AndAlso (Not CPU.ClockToken.IsCancellationRequested) AndAlso (Application.OpenForms.Count > 0)
+                     Application.DoEvents()
+
                      If CPU.Clock.Status = TaskStatus.Running Then
                         CPU.ExecuteHardwareInterrupts()
                      End If

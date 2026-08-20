@@ -1,4 +1,3 @@
-
 'This class's imports and settings.
 Option Compare Binary
 Option Explicit On

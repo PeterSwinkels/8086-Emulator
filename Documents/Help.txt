@@ -11,6 +11,7 @@ ARG Value                     Sets the command line argument to the specified va
                               If no value is specified it displays the current command line argument.
 C                             Clears the output window.
 CD [Path]                     Displays or sets the current directory.
+@CD                           Displays a dialog allowing the user to change the current directory.
 DOSVER                        Displays or sets the MS-DOS version reported.
 E                             Causes the emulated CPU to start executing code.
 ECXZ                          Executes until the CX register contains zero.
@@ -45,6 +46,7 @@ ST                            Displays all word values from SS:SP to SS:BP.
 T                             Executes and displays a single instruction.
 TE                            Executes and displays instructions.
 TS                            Stops executing and displaying instructions.
+WAIT                          Waits for the CPU to become inactive before accepting new commands, if it is active.
 
 Notes:
 -If no path is specified for a command a dialog is displayed.

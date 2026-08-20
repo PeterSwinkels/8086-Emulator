@@ -55,12 +55,13 @@ Public Module CoreModule
    Public PC_Speaker As PCSpeakerClass = Nothing        'Contains a reference to the PC-Speaker class.
    Public PIC As New PICClass                           'Contains a reference to the 8259 Programmable Interrupt Controller.
    Public PIT As New PITClass                           'Contains a reference to the 8253 Programmable Interval Timer class.
-   Public PPI As New PPIClass                           'Contains the 8255 Programmable Peripheral Interface .
+   Public PPI As New PPIClass                           'Contains a reference to the 8255 Programmable Peripheral Interface .
+   Public RTC As New RTCClass                           'Contains a reference to the Real Time Clock.
    Public VideoAdapter As VideoAdapterClass = Nothing   'Contains a reference to the video adapter used.
 
    Public ReadOnly CPU_EVENT As New StringBuilder                                                                                                                                                                                                                                        'Contains CPU event specific text.
    Public ReadOnly EGA As New EGAClass                                                                                                                                                                                                                                                   'Contains a reference to the EGA class.
-   Public ReadOnly ESCAPE_BYTE As Func(Of Byte, String) = Function([Byte] As Byte) If([Byte] >= ToByte(" "c) AndAlso [Byte] <= ToByte("~"c), If([Byte] = ESCAPE_CHARACTER, New String(ToChar(ESCAPE_CHARACTER), count:=2), ToChar([Byte])), $"{ToChar(ESCAPE_CHARACTER)}{[Byte]:X2}")    'Returns the specified as either a character or escape sequence.
+   Public ReadOnly ESCAPE_BYTE As Func(Of Byte, String) = Function([Byte] As Byte) If([Byte] >= ToByte(" "c) AndAlso [Byte] <= ToByte("~"c), If([Byte] = ESCAPE_CHARACTER, New String(ToChar(ESCAPE_CHARACTER), count:=2), ToChar([Byte])), $"{ToChar(ESCAPE_CHARACTER)}{[Byte]:X2}")    'Returns the specified byte as either a character or escape sequence.
    Public ReadOnly MCC As New MCCClass                                                                                                                                                                                                                                                   'Contains the 6845 Motorola CRT Controller.
    Public ReadOnly SET_BIT As Func(Of Integer, Boolean, Integer, Integer) = Function(Value As Integer, Bit As Boolean, Index As Integer) If(Bit, Value Or (&H1% << Index), Value And ((&H1% << Index) Xor &HFFFF%))                                                                      'Returns the specified value with the specified bit set to the specified value.
    Public ReadOnly SYNCHRONIZER As New Object                                                                                                                                                                                                                                            'Contains the object used to synchronize threads.
@@ -529,7 +530,7 @@ Public Module CoreModule
          Dim Stack As New StringBuilder
 
          With Stack
-            For Offset As Integer = CPU.Registers(Registers16BitE.BP) To CPU.Registers(Registers16BitE.SP) + &H2% Step &H2%
+            For Offset As Integer = &HFFFE% To CPU.Registers(Registers16BitE.BP) Step -&H2%
                Stack.Append($"{CPU.GetWord((SS << &H4%) + Offset):X4}{NewLine}")
             Next Offset
 
@@ -677,6 +678,14 @@ Public Module CoreModule
                            CurrentDirectory = Operands
                            MSDOS.UpdateMSDOSPath()
                         End If
+                     Case "@CD"
+                        With New FolderBrowserDialog()
+                           If .ShowDialog = DialogResult.OK Then
+                              CurrentDirectory = .SelectedPath
+                              MSDOS.UpdateMSDOSPath()
+                              Output.AppendText($"{CurrentDirectory()}{NewLine}")
+                           End If
+                        End With
                      Case "DOSVER"
                         Output.AppendText(If(Operands = Nothing, MSDOS.Version(), MSDOS.Version(DirectCast(Integer.Parse(Operands, NumberStyles.HexNumber), MSDOSClass.VersionsE))))
                      Case "E"
@@ -927,6 +936,15 @@ Public Module CoreModule
                         CPU.ClockToken.Cancel()
                         CPU.Tracing = False
                         Output.AppendText($"Tracing {If(CPU.Clock.Status = TaskStatus.Running, "stopped.", " is not active.")}{NewLine}")
+                     Case "WAIT"
+                        If CPU.Clock.Status = TaskStatus.Running Then
+                           Output.AppendText($"Waiting for CPU to stop...{NewLine}")
+                           Do Until CPU.ClockToken.IsCancellationRequested OrElse Application.OpenForms.Count = 0
+                              Application.DoEvents()
+                           Loop
+                        Else
+                           Output.AppendText($"The CPU is not active.{NewLine}")
+                        End If
                      Case Else
                         If Input.Contains(ASSIGNMENT_OPERATOR) Then
                            If Input.StartsWith(MEMORY_OPERAND_START) AndAlso Input.Contains(MEMORY_OPERAND_END) Then

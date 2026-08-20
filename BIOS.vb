@@ -127,7 +127,6 @@ Public Module BIOSModule
    Public Sub LoadBIOS()
       Try
          Dim Address As New Integer
-         Dim Data() As Byte = {}
          Dim Offset As Integer = AddressesE.BIOS
 
          For Vector As Integer = &H0% To &HFF%
@@ -154,14 +153,7 @@ Public Module BIOSModule
             CPU.PutWord(Address + &H2%, AddressesE.ExtendedCharacters >> &H4%)
             CPU.PutWord(Address, AddressesE.ExtendedCharacters And &HFFFF%)
 
-            Try
-               Data = File.ReadAllBytes("EXTFONT.BIN")
-               Data.CopyTo(CPU.Memory, AddressesE.ExtendedCharacters)
-               Data = File.ReadAllBytes("FONT.BIN")
-               Data.CopyTo(CPU.Memory, AddressesE.Characters)
-            Catch ExceptionO As Exception
-               DisplayException(ExceptionO.Message)
-            End Try
+            LoadCharacterBitmaps()
 
             Array.Copy(VGA.STATIC_FUNCTIONALITY, &H0%, CPU.Memory, VGA.STATIC_FUNCTIONALITY_ADDRESS, VGA.STATIC_FUNCTIONALITY.Length)
          End If
@@ -181,6 +173,22 @@ Public Module BIOSModule
 
          CPU.Registers(SegmentRegistersE.SS, NewValue:=AddressesE.BIOSStack)
          CPU.Registers(Registers16BitE.SP, NewValue:=INITIAL_STACK_SIZE)
+      Catch ExceptionO As Exception
+         DisplayException(ExceptionO.Message)
+      End Try
+   End Sub
+
+   'This procedure loads the character bitmaps.
+   Private Sub LoadCharacterBitmaps()
+      Dim Bitmaps() As Byte = {}
+      Dim ExtendedBitmaps() As Byte = {}
+
+      Try
+         Bitmaps = File.ReadAllBytes(Path.Combine(My.Application.Info.DirectoryPath, "FONT.BIN"))
+         ExtendedBitmaps = File.ReadAllBytes(Path.Combine(My.Application.Info.DirectoryPath, "EXTFONT.BIN"))
+
+         Bitmaps.CopyTo(CPU.Memory, AddressesE.Characters)
+         ExtendedBitmaps.CopyTo(CPU.Memory, AddressesE.ExtendedCharacters)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

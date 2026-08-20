@@ -236,7 +236,7 @@ Public Module InterruptHandlerModule
                      Select Case MCC.CurrentVideoMode
                         Case VideoModesE.Text80x25Mono_Hercules
                            Success = True
-                        Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray
+                        Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.VGA320x200
                            Select Case CPU.Registers(SubRegisters8BitE.AL)
                               Case &H2%
                                  Address = (CPU.Registers(SegmentRegistersE.ES) << &H4%) + CPU.Registers(Registers16BitE.DX)
@@ -245,6 +245,18 @@ Public Module InterruptHandlerModule
                               Case &H3%
                                  MCC.BlinkingOn = CBool(CPU.Registers(SubRegisters8BitE.BL))
                                  Success = True
+                              Case &H12%
+                                 Select Case MCC.CurrentVideoMode
+                                    Case VideoModesE.VGA320x200
+                                       VGA.SetDACBlock()
+                                       Success = True
+                                 End Select
+                              Case &H17%
+                                 Select Case MCC.CurrentVideoMode
+                                    Case VideoModesE.VGA320x200
+                                       VGA.GetDACBlock()
+                                       Success = True
+                                 End Select
                            End Select
                      End Select
                   Case &H11%

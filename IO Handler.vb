@@ -38,6 +38,8 @@ Public Module IOHandlerModule
       PITCounter2 = &H42%                      'Cassette and speaker.
       PITModeControl = &H43%                   'Mode control register.
       Port49h = &H49%                          'Port 49h.
+      RTCRegisterSelect = &H70%                'RTC.
+      RTCRegisterRead = &H71%                  'RTC.
       SN76496 = &HC0%                          'TI SN76496 Programmable Tone/Noise Generator. (PCjr)
       FPUF0 = &HF0%                            'The FPU's base address.
       FPUFF = &HFF%                            'The highest I/O address used by the FPU.
@@ -72,6 +74,8 @@ Public Module IOHandlerModule
       Reserved17 = &H33F%                      'Reserved.
       Reserved18 = &H340%                      'Reserved.
       Reserved19 = &H35F%                      'Reserved.
+      SDLC38A = &H38A%                         'On board 8273 transmit interrupt status.
+      SDLC38B = &H38B%                         'On board 8273 transmit interrupt status.
       MDA3B0 = &H3B0%                          '6845 MDA.
       MDA3B1 = &H3B1%                          '6845 MDA.
       MDA3B2 = &H3B2%                          '6845 MDA.
@@ -162,6 +166,10 @@ Public Module IOHandlerModule
                Value = PPI.PortB()
             Case IOPortsE.PPIPortC
                Value = &HFF%
+            Case IOPortsE.RTCRegisterRead
+               Value = RTC.ReadRegister()
+            Case IOPortsE.RTCRegisterSelect
+               Value = &HFF%
             Case IOPortsE.Reserved1 To IOPortsE.Reserved2,
                  IOPortsE.Reserved3 To IOPortsE.Reserved4,
                  IOPortsE.Reserved5 To IOPortsE.Reserved6,
@@ -172,6 +180,8 @@ Public Module IOHandlerModule
                  IOPortsE.Reserved14 To IOPortsE.Reserved15,
                  IOPortsE.Reserved16 To IOPortsE.Reserved17,
                  IOPortsE.Reserved18 To IOPortsE.Reserved19
+               Value = &HFF%
+            Case IOPortsE.SDLC38A To IOPortsE.SDLC38B
                Value = &HFF%
             Case IOPortsE.SN76496
                Value = &HFF%
@@ -249,6 +259,10 @@ Public Module IOHandlerModule
                Success = True
             Case IOPortsE.Port2C0h To IOPortsE.Port2C1h, IOPortsE.Port2C3h, IOPortsE.Port388h To IOPortsE.Port389h
                Success = True
+            Case IOPortsE.RTCRegisterRead
+               Value = RTC.ReadRegister()
+            Case IOPortsE.RTCRegisterSelect
+               Success = True
             Case IOPortsE.SN76496
                Success = True
             Case IOPortsE.VGAVideoDAC
@@ -265,6 +279,8 @@ Public Module IOHandlerModule
                  IOPortsE.Reserved14 To IOPortsE.Reserved15,
                  IOPortsE.Reserved16 To IOPortsE.Reserved17,
                  IOPortsE.Reserved18 To IOPortsE.Reserved19
+               Success = True
+            Case IOPortsE.SDLC38A To IOPortsE.SDLC38B
                Success = True
             Case Else
                Success = False
