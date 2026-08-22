@@ -36,13 +36,13 @@ Public Class VGAClass
       For Index As Integer = Start To Start + Count
          SelectAddress(Index)
          Red = ReadDac()
-         CPU.Memory(Address) = ToByte(Red)
+         Memory(Address) = ToByte(Red)
          Address += &H1%
          Green = ReadDac()
-         CPU.Memory(Address) = ToByte(Green)
+         Memory(Address) = ToByte(Green)
          Address += &H1%
          Blue = ReadDac()
-         CPU.Memory(Address) = ToByte(Blue)
+         Memory(Address) = ToByte(Blue)
          Address += &H1%
       Next Index
    End Sub
@@ -63,9 +63,9 @@ Public Class VGAClass
          For VideoPage As Integer = &H0% To MAXIMUM_VIDEO_PAGE_COUNT - &H1%
             .AddRange(BitConverter.GetBytes(CUShort(CPU.GetWord(AddressesE.CursorPositions + (VideoPage * &H2%)))))
          Next VideoPage
-         .Add(CPU.Memory(AddressesE.CursorScanLines))
-         .Add(CPU.Memory(AddressesE.CursorScanLines + &H1%))
-         .Add(CPU.Memory(AddressesE.VideoPage))
+         .Add(Memory(AddressesE.CursorScanLines))
+         .Add(Memory(AddressesE.CursorScanLines + &H1%))
+         .Add(Memory(AddressesE.VideoPage))
          .AddRange(BitConverter.GetBytes(CUShort(IOPortsE.CGAIndex)))
          .Add(ToByte(ReadIOPort(IOPortsE.CGAMode).Value))
          .Add(ToByte(ReadIOPort(IOPortsE.CGAColor).Value))
@@ -123,13 +123,13 @@ Public Class VGAClass
 
       For Index As Integer = Start To Start + Count
          SelectAddress(Index)
-         Red = CPU.Memory(Address)
+         Red = Memory(Address)
          Address += &H1%
          WriteToDAC(Red)
-         Green = CPU.Memory(Address)
+         Green = Memory(Address)
          Address += &H1%
          WriteToDAC(Green)
-         Blue = CPU.Memory(Address)
+         Blue = Memory(Address)
          Address += &H1%
          WriteToDAC(Blue)
       Next Index

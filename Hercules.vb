@@ -54,7 +54,7 @@ Public Class HerculesClass
                   ByteOffset = x \ PIXELS_PER_BYTE
                   Position = AddressesE.HerculesBuffer + (Bank * BANK_SIZE) + RowOffset + ByteOffset
                   Bit = &H7% - (x Mod PIXELS_PER_BYTE)
-                  PixelOff = ((CPU.Memory(Position) And (&H1% << Bit)) = &H0%)
+                  PixelOff = ((Memory(Position) And (&H1% << Bit)) = &H0%)
                   .FillRectangle(If(PixelOff, BLACK_BRUSH, WHITE_BRUSH), x * HORIZONTAL_SCALING, y * VERTICAL_SCALING, HORIZONTAL_SCALING, VERTICAL_SCALING)
                Next x
             Next y
@@ -73,7 +73,7 @@ Public Class HerculesClass
    Public Sub Initialize() Implements VideoAdapterClass.Initialize
       ClearBuffer()
 
-      CPU.Memory(AddressesE.VideoPage) = &H0%
+      Memory(AddressesE.VideoPage) = &H0%
       ResetCursor()
    End Sub
 

@@ -175,7 +175,7 @@ Public Class MCCClass
             MCC.BlinkingOn = False
       End Select
 
-      CPU.Memory(AddressesE.CRTModeControlRegisterValue) = ToByte(NewMode)
+      Memory(AddressesE.CRTModeControlRegisterValue) = ToByte(NewMode)
    End Sub
 
    'This procedure returns the monochrome display adapter status port's current value.
@@ -291,12 +291,12 @@ Public Class MCCClass
       Select Case Value
          Case &H0%
             SelectedPalette = Value
-            CPU.Memory(AddressesE.CGACurrentPalette) = ToByte(Value)
+            Memory(AddressesE.CGACurrentPalette) = ToByte(Value)
             ActivePalette = If(IntenseColors, PALETTE0H, PALETTE0L)
             CreateBrushes()
          Case &H1%
             SelectedPalette = Value
-            CPU.Memory(AddressesE.CGACurrentPalette) = ToByte(Value)
+            Memory(AddressesE.CGACurrentPalette) = ToByte(Value)
             ActivePalette = If(IntenseColors, PALETTE1H, PALETTE1L)
             CreateBrushes()
       End Select
@@ -353,21 +353,21 @@ Public Class MCCClass
               VideoModesE.CGA640x200
             Address = AddressesE.CGABuffer
          Case VideoModesE.EGA320x200
-            Address = AddressesE.VGABuffer + (CPU.Memory(AddressesE.VideoPage) * VideoPageSizesE.EGA320x200)
+            Address = AddressesE.VGABuffer + (Memory(AddressesE.VideoPage) * VideoPageSizesE.EGA320x200)
          Case VideoModesE.EGA640x200
-            Address = AddressesE.VGABuffer + (CPU.Memory(AddressesE.VideoPage) * VideoPageSizesE.EGA640x200)
+            Address = AddressesE.VGABuffer + (Memory(AddressesE.VideoPage) * VideoPageSizesE.EGA640x200)
          Case VideoModesE.EGA640x350
-            Address = AddressesE.VGABuffer + (CPU.Memory(AddressesE.VideoPage) * VideoPageSizesE.EGA640x350)
+            Address = AddressesE.VGABuffer + (Memory(AddressesE.VideoPage) * VideoPageSizesE.EGA640x350)
          Case VideoModesE.EGA640x350Mono
-            Address = AddressesE.VGABuffer + (CPU.Memory(AddressesE.VideoPage) * VideoPageSizesE.EGA640x350Mono)
+            Address = AddressesE.VGABuffer + (Memory(AddressesE.VideoPage) * VideoPageSizesE.EGA640x350Mono)
          Case VideoModesE.Text40x25Color
-            Address = AddressesE.VGABuffer + (CPU.Memory(AddressesE.VideoPage) * VideoPageSizesE.Text40x25Color)
+            Address = AddressesE.VGABuffer + (Memory(AddressesE.VideoPage) * VideoPageSizesE.Text40x25Color)
          Case VideoModesE.Text40x25Mono
-            Address = AddressesE.VGABuffer + (CPU.Memory(AddressesE.VideoPage) * VideoPageSizesE.Text40x25Mono)
+            Address = AddressesE.VGABuffer + (Memory(AddressesE.VideoPage) * VideoPageSizesE.Text40x25Mono)
          Case VideoModesE.Text80x25Color
-            Address = AddressesE.Text80x25ColorBuffer + (CPU.Memory(AddressesE.VideoPage) * VideoPageSizesE.Text80x25Color)
+            Address = AddressesE.Text80x25ColorBuffer + (Memory(AddressesE.VideoPage) * VideoPageSizesE.Text80x25Color)
          Case VideoModesE.Text80x25Gray
-            Address = AddressesE.VGABuffer + (CPU.Memory(AddressesE.VideoPage) * VideoPageSizesE.Text80x25Gray)
+            Address = AddressesE.VGABuffer + (Memory(AddressesE.VideoPage) * VideoPageSizesE.Text80x25Gray)
          Case VideoModesE.VGA320x200,
               VideoModesE.VGA640x480,
               VideoModesE.VGA640x480Mono

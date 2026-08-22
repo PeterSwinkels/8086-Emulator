@@ -67,15 +67,13 @@ Public Class CGA320x200Class
    Public Sub DrawCharacter(Index As Integer, Attribute As Integer) Implements VideoAdapterClass.DrawCharacter
       Dim Background As New Byte
       Dim BitSet(&H0% To &H7%) As Boolean
-      Dim Character(&H0% To &H7%) As Byte
+      Dim Character() As Byte = Memory.GetRange(If(Index < &H80%, AddressesE.Characters + (Index * &H8%), AddressesE.ExtendedCharacters + ((Index - &H80%) * &H8%)), Length:=&H8%)
       Dim Invert As Boolean = (Attribute And INVERT_BIT) = INVERT_BIT
       Dim Position As New Integer
       Dim RemainingBits As New Integer
       Dim Shift As New Integer
       Dim x As New Integer
       Dim y As Integer = Cursor.Y * &H8%
-
-      Array.Copy(CPU.Memory, If(Index < &H80%, AddressesE.Characters + (Index * &H8%), AddressesE.ExtendedCharacters + ((Index - &H80%) * &H8%)), Character, &H0%, Character.Length)
 
       Attribute = Attribute And &H3%
 
@@ -91,16 +89,16 @@ Public Class CGA320x200Class
          x = Cursor.X * &H8%
          Position += (x \ CGA_320_X_200_PIXELS_PER_BYTE)
 
-         Background = CPU.Memory(Position)
-         CPU.Memory(Position) = &H0%
+         Background = Memory(Position)
+         Memory(Position) = &H0%
          Shift = &H6%
          For Bit As Integer = &H0% To &H7%
-            CPU.Memory(Position) = CByte(CPU.Memory(Position) Or If(BitSet(Bit), Attribute << Shift, &H0%))
+            Memory(Position) = CByte(Memory(Position) Or If(BitSet(Bit), Attribute << Shift, &H0%))
             Shift -= &H2%
 
             If Bit = &H3% Then
                Position += &H1%
-               CPU.Memory(Position) = &H0%
+               Memory(Position) = &H0%
                Shift = &H6%
                x += 1
             End If
@@ -117,7 +115,7 @@ Public Class CGA320x200Class
    Public Sub Initialize() Implements VideoAdapterClass.Initialize
       ClearBuffer()
 
-      CPU.Memory(AddressesE.VideoPage) = &H0%
+      Memory(AddressesE.VideoPage) = &H0%
       ResetCursor()
       MCC.SelectActivePalette(&H1%)
    End Sub
@@ -138,7 +136,7 @@ Public Class CGA320x200Class
          For Row As Integer = ScrollArea.ULCRow * CGA_320_X_200_LINES_PER_CHARACTER To (ScrollArea.LRCRow + &H1%) * CGA_320_X_200_LINES_PER_CHARACTER
             For Column As Integer = ScrollArea.ULCColumn * &H2% To (ScrollArea.LRCColumn + &H1%) * &H2%
                Address = AddressesE.CGABuffer + If((Row And &H1%) = &H0%, &H0%, VideoPageSizesE.CGA320x200A \ &H2%) + ((Row \ &H2%) * CGA_320_X_200_BYTES_PER_ROW) + Column
-               CPU.Memory(Address) = Attribute
+               Memory(Address) = Attribute
             Next Column
          Next Row
       Else
@@ -148,11 +146,11 @@ Public Class CGA320x200Class
                   For Row As Integer = ScrollArea.ULCRow * CGA_320_X_200_LINES_PER_CHARACTER To ScrollArea.LRCRow * CGA_320_X_200_LINES_PER_CHARACTER
                      For Column As Integer = ScrollArea.ULCColumn * &H2% To (ScrollArea.LRCColumn * &H2%) + &H1%
                         Address = AddressesE.CGABuffer + If((Row And &H1%) = &H0%, &H0%, VideoPageSizesE.CGA320x200A \ &H2%) + ((Row \ &H2%) * CGA_320_X_200_BYTES_PER_ROW) + Column
-                        CharacterByte = CPU.Memory(Address)
-                        CPU.Memory(Address) = Attribute
+                        CharacterByte = Memory(Address)
+                        Memory(Address) = Attribute
                         If Row > ScrollArea.ULCRow * CGA_320_X_200_LINES_PER_CHARACTER Then
                            NewAddress = AddressesE.CGABuffer + If(((Row - &H1%) And &H1%) = &H0%, &H0%, VideoPageSizesE.CGA320x200A \ &H2%) + (((Row - &H1%) \ &H2%) * CGA_320_X_200_BYTES_PER_ROW) + Column
-                           CPU.Memory(NewAddress) = CharacterByte
+                           Memory(NewAddress) = CharacterByte
                         End If
                      Next Column
                   Next Row
@@ -160,11 +158,11 @@ Public Class CGA320x200Class
                   For Row As Integer = ScrollArea.LRCRow * CGA_320_X_200_LINES_PER_CHARACTER To ScrollArea.ULCRow * CGA_320_X_200_LINES_PER_CHARACTER Step -&H1%
                      For Column As Integer = ScrollArea.ULCColumn * &H2% To (ScrollArea.LRCColumn * &H2%) + &H1%
                         Address = AddressesE.CGABuffer + If((Row And &H1%) = &H0%, &H0%, VideoPageSizesE.CGA320x200A \ &H2%) + ((Row \ &H2%) * CGA_320_X_200_BYTES_PER_ROW) + Column
-                        CharacterByte = CPU.Memory(Address)
-                        CPU.Memory(Address) = Attribute
+                        CharacterByte = Memory(Address)
+                        Memory(Address) = Attribute
                         If Row > ScrollArea.ULCRow * CGA_320_X_200_LINES_PER_CHARACTER Then
                            NewAddress = AddressesE.CGABuffer + If(((Row + &H1%) And &H1%) = &H0%, &H0%, VideoPageSizesE.CGA320x200A \ &H2%) + (((Row + &H1%) \ &H2%) * CGA_320_X_200_BYTES_PER_ROW) + Column
-                           CPU.Memory(NewAddress) = CharacterByte
+                           Memory(NewAddress) = CharacterByte
                         End If
                      Next Column
                   Next Row

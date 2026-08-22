@@ -46,6 +46,7 @@ ST                            Displays all word values from SS:SP to SS:BP.
 T                             Executes and displays a single instruction.
 TE                            Executes and displays instructions.
 TS                            Stops executing and displaying instructions.
+VOLUME [value]                Displays or sets the emulated PC-Speaker's volume.
 WAIT                          Waits for the CPU to become inactive before accepting new commands, if it is active.
 
 Notes:

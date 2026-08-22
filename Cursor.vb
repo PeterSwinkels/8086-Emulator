@@ -28,8 +28,8 @@ Public Module CursorModule
    'This procedure ensures the cursor will blink.
    Private Sub CursorBlink_Tick(sender As Object, e As EventArgs) Handles CursorBlink.Tick
       Try
-         Cursor.ScanLineStart = CPU.Memory(AddressesE.CursorScanLines + &H1%)
-         Cursor.ScanLineEnd = CPU.Memory(AddressesE.CursorScanLines)
+         Cursor.ScanLineStart = Memory(AddressesE.CursorScanLines + &H1%)
+         Cursor.ScanLineEnd = Memory(AddressesE.CursorScanLines)
 
          If Not Cursor.Off Then
             Cursor.Visible = Not Cursor.Visible
@@ -45,10 +45,10 @@ Public Module CursorModule
    'This procedure updates the cursor's position. 
    Public Sub CursorPositionUpdate()
       Try
-         Dim VideoPage As Integer = CPU.Memory(AddressesE.VideoPage)
+         Dim VideoPage As Integer = Memory(AddressesE.VideoPage)
 
-         Cursor.X = CPU.Memory(AddressesE.CursorPositions + (VideoPage * &H2%))
-         Cursor.Y = CPU.Memory((AddressesE.CursorPositions + (VideoPage * &H2%)) + &H1%)
+         Cursor.X = Memory(AddressesE.CursorPositions + (VideoPage * &H2%))
+         Cursor.Y = Memory((AddressesE.CursorPositions + (VideoPage * &H2%)) + &H1%)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try

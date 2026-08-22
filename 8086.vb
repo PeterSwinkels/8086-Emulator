@@ -420,7 +420,6 @@ Public Class CPU8086Class
       Public Value2 As Integer               'Defines the value referred to be the second operand.
    End Structure
 
-   Public Const ADDRESS_MASK As Integer = &HFFFFF%     'Defines the 20 bits used to address memory.
    Public Const INVALID_OPCODE As Integer = &H6%       'Defines the invalid opcode interrupt vector.
    Public Const KEYBOARD As Integer = &H9%             'Defines the keyboard hardware interrupt vector.
    Public Const SYSTEM_TIMER As Integer = &H8%         'Defines the system timer's interrupt vector.
@@ -437,7 +436,6 @@ Public Class CPU8086Class
    Public HLTEnabled As Boolean = False                                            'Indicates whether the HLT instruction halts the CPU is ignored.
    Public INT6Enabled As Boolean = False                                           'Indicates whether or not interrupt 6h is triggered for invalid opcodes.
    Public LastOverride As SegmentRegistersE? = Nothing                             'Contains the most recent segment override used.
-   Public Memory() As Byte = Enumerable.Repeat(CByte(&H0%), &H100000%).ToArray()   'Contains the memory used by the emulated 8086 CPU.
    Public Tracing As Boolean = False                                               'Indicates whether or not tracing is enabled.
 
    Public Event Halt()                                                                   'Defines the halt event.
@@ -446,7 +444,7 @@ Public Class CPU8086Class
    Public Event Trace()                                                                  'Defines the trace event.
    Public Event WriteIOPort(Port As Integer, Value As Integer, Is8Bit As Boolean)        'Defines the IO port write event.
 
-   Public ReadOnly GET_FLAT_CS_IP As Func(Of Integer) = Function() (Registers(SegmentRegistersE.CS) << &H4%) + Registers(Registers16BitE.IP) And ADDRESS_MASK  'Returns the flat memory address for the emulated CPU's CS:IP registers.
+   Public ReadOnly GET_FLAT_CS_IP As Func(Of Integer) = Function() (Registers(SegmentRegistersE.CS) << &H4%) + Registers(Registers16BitE.IP) And MemoryClass.ADDRESS_MASK  'Returns the flat memory address for the emulated CPU's CS:IP registers.
 
    'This procedure initializes the CPU.
    Public Sub New()
@@ -463,8 +461,6 @@ Public Class CPU8086Class
       Next Register
 
       Registers(FlagRegistersE.IF, NewValue:=True)
-
-      Memory = Enumerable.Repeat(CByte(&H0%), &H100000%).ToArray()
    End Sub
 
    'This procedure returns the memory address indicated by the specified operand and current data segment.
@@ -528,7 +524,7 @@ Public Class CPU8086Class
             Addresses.Address = (Addresses.Address + Displacement.Value) And &HFFFF%
          End If
 
-         Addresses.FlatAddress = ((If(Override Is Nothing, Registers(Segment), Registers(Override)) << &H4%) + Addresses.Address) And ADDRESS_MASK
+         Addresses.FlatAddress = ((If(Override Is Nothing, Registers(Segment), Registers(Override)) << &H4%) + Addresses.Address) And MemoryClass.ADDRESS_MASK
          LastAddresses = Addresses
       End If
 
@@ -1470,7 +1466,7 @@ Public Class CPU8086Class
             End With
          Case OpcodesE.XLAT
             Override = SegmentOverride()
-            Address = ((Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + (Registers(Registers16BitE.BX) + Registers(SubRegisters8BitE.AL) And &HFFFF%)) And ADDRESS_MASK
+            Address = ((Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + (Registers(Registers16BitE.BX) + Registers(SubRegisters8BitE.AL) And &HFFFF%)) And MemoryClass.ADDRESS_MASK
             Registers(SubRegisters8BitE.AL, NewValue:=Memory(Address))
          Case OpcodesE.EXT_INT
             RaiseEvent Interrupt(GetByteCSIP(), Registers(SubRegisters8BitE.AH))
@@ -1528,8 +1524,8 @@ Public Class CPU8086Class
 
       Select Case Opcode
          Case OpcodesE.CMPSB
-            SourceValue = Memory(((Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + Registers(Registers16BitE.SI)) And ADDRESS_MASK)
-            TargetValue = Memory(((Registers(SegmentRegistersE.ES) << &H4%) + Registers(Registers16BitE.DI)) And ADDRESS_MASK)
+            SourceValue = Memory(((Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + Registers(Registers16BitE.SI)) And MemoryClass.ADDRESS_MASK)
+            TargetValue = Memory(((Registers(SegmentRegistersE.ES) << &H4%) + Registers(Registers16BitE.DI)) And MemoryClass.ADDRESS_MASK)
             NewValue = TargetValue - SourceValue
             AdjustFlags(TargetValue, SourceValue, NewValue)
          Case OpcodesE.CMPSW
@@ -1538,16 +1534,16 @@ Public Class CPU8086Class
             NewValue = TargetValue - SourceValue
             AdjustFlags(TargetValue, SourceValue, NewValue, Is8Bit:=False)
          Case OpcodesE.LODSB
-            Registers(SubRegisters8BitE.AL, NewValue:=Memory(((Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + Registers(Registers16BitE.SI)) And ADDRESS_MASK))
+            Registers(SubRegisters8BitE.AL, NewValue:=Memory(((Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + Registers(Registers16BitE.SI)) And MemoryClass.ADDRESS_MASK))
          Case OpcodesE.LODSW
             Registers(Registers16BitE.AX, NewValue:=GetWord((Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + Registers(Registers16BitE.SI)))
          Case OpcodesE.MOVSB
-            Memory(((Registers(SegmentRegistersE.ES) << &H4%) + Registers(Registers16BitE.DI)) And ADDRESS_MASK) = Memory(((Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + Registers(Registers16BitE.SI)) And ADDRESS_MASK)
+            Memory(((Registers(SegmentRegistersE.ES) << &H4%) + Registers(Registers16BitE.DI)) And MemoryClass.ADDRESS_MASK) = Memory(((Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + Registers(Registers16BitE.SI)) And MemoryClass.ADDRESS_MASK)
          Case OpcodesE.MOVSW
             PutWord((Registers(SegmentRegistersE.ES) << &H4%) + Registers(Registers16BitE.DI), GetWord((Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + Registers(Registers16BitE.SI)))
          Case OpcodesE.SCASB
             SourceValue = Registers(SubRegisters8BitE.AL)
-            TargetValue = Memory(((Registers(If(Override Is Nothing, SegmentRegistersE.ES, Override)) << &H4%) + Registers(Registers16BitE.DI)) And ADDRESS_MASK)
+            TargetValue = Memory(((Registers(If(Override Is Nothing, SegmentRegistersE.ES, Override)) << &H4%) + Registers(Registers16BitE.DI)) And MemoryClass.ADDRESS_MASK)
             NewValue = TargetValue - SourceValue
             AdjustFlags(TargetValue, SourceValue, NewValue)
          Case OpcodesE.SCASW
@@ -1556,7 +1552,7 @@ Public Class CPU8086Class
             NewValue = TargetValue - SourceValue
             AdjustFlags(TargetValue, SourceValue, NewValue, Is8Bit:=False)
          Case OpcodesE.STOSB
-            Memory(((Registers(If(Override Is Nothing, SegmentRegistersE.ES, Override)) << &H4%) + Registers(Registers16BitE.DI)) And ADDRESS_MASK) = CByte(Registers(SubRegisters8BitE.AL))
+            Memory(((Registers(If(Override Is Nothing, SegmentRegistersE.ES, Override)) << &H4%) + Registers(Registers16BitE.DI)) And MemoryClass.ADDRESS_MASK) = CByte(Registers(SubRegisters8BitE.AL))
          Case OpcodesE.STOSW
             PutWord((Registers(If(Override Is Nothing, SegmentRegistersE.ES, Override)) << &H4%) + Registers(Registers16BitE.DI), Registers(Registers16BitE.AX))
          Case Else
@@ -1581,7 +1577,7 @@ Public Class CPU8086Class
    'This procedure returns the byte located at CS:IP and adjusts the IP register.
    Private Function GetByteCSIP() As Byte
       Dim IP As Integer = Registers(Registers16BitE.IP)
-      Dim [Byte] As Byte = Memory(((Registers(SegmentRegistersE.CS) << &H4%) + IP) And ADDRESS_MASK)
+      Dim [Byte] As Byte = Memory(((Registers(SegmentRegistersE.CS) << &H4%) + IP) And MemoryClass.ADDRESS_MASK)
 
       Registers(Registers16BitE.IP, NewValue:=(IP + &H1%) And &HFFFF%)
 

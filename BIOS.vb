@@ -140,13 +140,13 @@ Public Module BIOSModule
             MCC.CurrentVideoMode = VideoModesE.Text80x25Mono_Hercules
             VideoAdapter = New Text80x25MonoClass
             CPU.PutWord(AddressesE.EquipmentFlags, INITIAL_MODE_FLAGS_MDA)
-            CPU.Memory(AddressesE.VideoMode) = MCC.CurrentVideoMode
+            Memory(AddressesE.VideoMode) = MCC.CurrentVideoMode
             CPU.PutWord(AddressesE.CRTControllerBasePort, IOPortsE.MDAIndex)
          Else
             MCC.CurrentVideoMode = VideoModesE.Text80x25Color
             VideoAdapter = New Text80x25ColorClass
             CPU.PutWord(AddressesE.EquipmentFlags, INITIAL_MODE_FLAGS_NOT_MDA)
-            CPU.Memory(AddressesE.VideoMode) = MCC.CurrentVideoMode
+            Memory(AddressesE.VideoMode) = MCC.CurrentVideoMode
             CPU.PutWord(AddressesE.CRTControllerBasePort, IOPortsE.CGAIndex)
 
             Address = EXTENDED_CHARACTERS_VECTOR * &H4%
@@ -155,7 +155,7 @@ Public Module BIOSModule
 
             LoadCharacterBitmaps()
 
-            Array.Copy(VGA.STATIC_FUNCTIONALITY, &H0%, CPU.Memory, VGA.STATIC_FUNCTIONALITY_ADDRESS, VGA.STATIC_FUNCTIONALITY.Length)
+            Memory.PutRange(VGA.STATIC_FUNCTIONALITY_ADDRESS, VGA.STATIC_FUNCTIONALITY)
          End If
 
          SwitchVideoAdapter()
@@ -166,10 +166,10 @@ Public Module BIOSModule
          UpdateClockCounter()
 
          CPU.PutWord(AddressesE.BIOSMemorySize, BIOS_MEMORY_SIZE)
-         CPU.Memory(AddressesE.ColumnCount) = MCC.ColumnCount()
-         CPU.Memory(AddressesE.KeyboardBufferHead) = INITIAL_KEYBOARD_HEAD_TAIL
-         CPU.Memory(AddressesE.KeyboardBufferTail) = INITIAL_KEYBOARD_HEAD_TAIL
-         CPU.Memory(AddressesE.MachineID) = MACHINE_ID
+         Memory(AddressesE.ColumnCount) = MCC.ColumnCount()
+         Memory(AddressesE.KeyboardBufferHead) = INITIAL_KEYBOARD_HEAD_TAIL
+         Memory(AddressesE.KeyboardBufferTail) = INITIAL_KEYBOARD_HEAD_TAIL
+         Memory(AddressesE.MachineID) = MACHINE_ID
 
          CPU.Registers(SegmentRegistersE.SS, NewValue:=AddressesE.BIOSStack)
          CPU.Registers(Registers16BitE.SP, NewValue:=INITIAL_STACK_SIZE)
@@ -187,8 +187,8 @@ Public Module BIOSModule
          Bitmaps = File.ReadAllBytes(Path.Combine(My.Application.Info.DirectoryPath, "FONT.BIN"))
          ExtendedBitmaps = File.ReadAllBytes(Path.Combine(My.Application.Info.DirectoryPath, "EXTFONT.BIN"))
 
-         Bitmaps.CopyTo(CPU.Memory, AddressesE.Characters)
-         ExtendedBitmaps.CopyTo(CPU.Memory, AddressesE.ExtendedCharacters)
+         Memory.PutRange(AddressesE.Characters, Bitmaps)
+         Memory.PutRange(AddressesE.ExtendedCharacters, ExtendedBitmaps)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -227,14 +227,14 @@ Public Module BIOSModule
    Public Sub Teletype(Character As Byte, Optional Attribute As Integer? = Nothing)
       Try
          Dim ScrollAttribute As New Byte?
-         Dim VideoPage As Integer = CPU.Memory(AddressesE.VideoPage)
+         Dim VideoPage As Integer = Memory(AddressesE.VideoPage)
          Dim VideoPageAddress As Integer = MCC.VideoPageAddress()
 
          CursorPositionUpdate()
 
          Select Case MCC.CurrentVideoMode
             Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono_Hercules
-               ScrollAttribute = CPU.Memory(VideoPageAddress + ((Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%)) + &H1%)
+               ScrollAttribute = Memory(VideoPageAddress + ((Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%)) + &H1%)
             Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B, VideoModesE.CGA640x200, VideoModesE.VGA320x200
                Attribute = CPU.Registers(SubRegisters8BitE.BL)
          End Select
@@ -268,9 +268,9 @@ Public Module BIOSModule
                   Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B, VideoModesE.CGA640x200, VideoModesE.VGA320x200
                      VideoAdapter.DrawCharacter(Character, Attribute.Value)
                   Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono_Hercules
-                     CPU.Memory(VideoPageAddress + (Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%)) = Character
+                     Memory(VideoPageAddress + (Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%)) = Character
                      If Attribute IsNot Nothing Then
-                        CPU.Memory(VideoPageAddress + (Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%) + &H1%) = CByte(Attribute.Value)
+                        Memory(VideoPageAddress + (Cursor.Y * TEXT_80_X_25_BYTES_PER_ROW) + (Cursor.X * &H2%) + &H1%) = CByte(Attribute.Value)
                      End If
                End Select
 
@@ -286,8 +286,8 @@ Public Module BIOSModule
                End If
          End Select
 
-         CPU.Memory(AddressesE.CursorPositions + (VideoPage * &H2%)) = CByte(Cursor.X)
-         CPU.Memory((AddressesE.CursorPositions + (VideoPage * &H2%)) + &H1%) = CByte(Cursor.Y)
+         Memory(AddressesE.CursorPositions + (VideoPage * &H2%)) = CByte(Cursor.X)
+         Memory((AddressesE.CursorPositions + (VideoPage * &H2%)) + &H1%) = CByte(Cursor.Y)
          CursorPositionUpdate()
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -299,7 +299,7 @@ Public Module BIOSModule
       Try
          If ClockCounter = MAXIMUM_CLOCK_VALUE Then
             ClockCounter = &H0%
-            CPU.Memory(AddressesE.ClockRollover) = &H1%
+            Memory(AddressesE.ClockRollover) = &H1%
          Else
             ClockCounter += &H1%
          End If
@@ -318,19 +318,19 @@ Public Module BIOSModule
    'This procedure writes to the keyboard buffer.
    Public Sub WriteToKeyboardBuffer()
       Try
-         Dim NextTail As Integer = CPU.Memory(AddressesE.KeyboardBufferTail) + &H2
+         Dim NextTail As Integer = Memory(AddressesE.KeyboardBufferTail) + &H2
          Dim TargetAddress As New Integer
 
          If NextTail >= KEY_BUFFER_END Then
             NextTail = KEY_BUFFER_START
          End If
 
-         If NextTail = CPU.Memory(AddressesE.KeyboardBufferHead) Then
+         If NextTail = Memory(AddressesE.KeyboardBufferHead) Then
             CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1%)
          Else
-            TargetAddress = (BIOS_SEGMENT << &H4%) + CPU.Memory(AddressesE.KeyboardBufferTail)
+            TargetAddress = (BIOS_SEGMENT << &H4%) + Memory(AddressesE.KeyboardBufferTail)
             CPU.PutWord(TargetAddress, CPU.Registers(Registers16BitE.CX))
-            CPU.Memory(AddressesE.KeyboardBufferTail) = ToByte(NextTail)
+            Memory(AddressesE.KeyboardBufferTail) = ToByte(NextTail)
             CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
          End If
       Catch ExceptionO As Exception
@@ -353,38 +353,38 @@ Public Module BIOSModule
          Dim PreviousRow As New Byte
          Dim Row As Byte = CByte(CPU.Registers(SubRegisters8BitE.DH))
          Dim Segment As Integer = CPU.Registers(SegmentRegistersE.ES)
-         Dim VideoPage As Integer = CPU.Memory(AddressesE.VideoPage)
+         Dim VideoPage As Integer = Memory(AddressesE.VideoPage)
 
          If Not HasAttributes Then
             Attribute = CByte(CPU.Registers(SubRegisters8BitE.BL))
          End If
          If Not MoveCursor Then
-            PreviousColumn = CPU.Memory((AddressesE.CursorPositions + (VideoPage * &H2%)) + &H1%)
-            PreviousRow = CPU.Memory(AddressesE.CursorPositions + (VideoPage * &H2%))
+            PreviousColumn = Memory((AddressesE.CursorPositions + (VideoPage * &H2%)) + &H1%)
+            PreviousRow = Memory(AddressesE.CursorPositions + (VideoPage * &H2%))
          End If
          If VideoPage >= MCC.VideoPageCount() Then
             VideoPage = &H0%
          End If
 
-         CPU.Memory(AddressesE.CursorPositions + (VideoPage * &H2%)) = Column
-         CPU.Memory((AddressesE.CursorPositions + (VideoPage * &H2%)) + &H1%) = Row
+         Memory(AddressesE.CursorPositions + (VideoPage * &H2%)) = Column
+         Memory((AddressesE.CursorPositions + (VideoPage * &H2%)) + &H1%) = Row
          CursorPositionUpdate()
 
          Do While Count > &H0%
-            Character = CPU.Memory((Segment << &H4%) + (Offset And &HFFFF%))
+            Character = Memory((Segment << &H4%) + (Offset And &HFFFF%))
             If HasAttributes Then
-               Attribute = CPU.Memory((Segment << &H4%) + ((Offset + &H1%) And &HFFFF%))
+               Attribute = Memory((Segment << &H4%) + ((Offset + &H1%) And &HFFFF%))
                Offset += &H2%
             Else
                Offset += &H1%
             End If
-            TeleType(Character, Attribute)
+            Teletype(Character, Attribute)
             Count -= &H1%
          Loop
 
          If Not MoveCursor Then
-            CPU.Memory(AddressesE.CursorPositions + (VideoPage * &H2%)) = PreviousColumn
-            CPU.Memory((AddressesE.CursorPositions + (VideoPage * &H2%)) + &H1%) = PreviousRow
+            Memory(AddressesE.CursorPositions + (VideoPage * &H2%)) = PreviousColumn
+            Memory((AddressesE.CursorPositions + (VideoPage * &H2%)) + &H1%) = PreviousRow
             CursorPositionUpdate()
          End If
       Catch ExceptionO As Exception

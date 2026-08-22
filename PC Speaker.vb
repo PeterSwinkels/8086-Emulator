@@ -12,9 +12,9 @@ Imports System.Runtime.InteropServices
 'This class contains the PC-Speaker.
 Public Class PCSpeakerClass
    Private Const PIT_CLOCK As Double = 1193182.0   'Defines the PIT's frequency.
-   Private Const VOLUME As Short = 1000S           'Defines the tone's frequency.
 
    Public Enabled As Boolean = False                             'Indicates whether or not the pc-speaker is enabled.
+   Public Volume As Short = 1000S                                'Defines the tone's volume.
    Private AudioCallbackDelegate As SDL_AudioCallback = Nothing   'Contains the delegate used to play tones.
    Private DeviceID As UInteger = &H0UI                           'Contains the audio device's id.
    Private Frequency As Double = 0.0                              'Contains the tone's frequency.
@@ -44,7 +44,7 @@ Public Class PCSpeakerClass
 
          For Sample As Integer = &H0% To SampleCount - &H1%
             Position = LocalPhase Mod SamplesPerPeriod
-            Buffer(Sample) = If(Position < SamplesPerPeriod / 2, VOLUME, -VOLUME)
+            Buffer(Sample) = If(Position < SamplesPerPeriod / 2, Volume, -Volume)
             LocalPhase += 1
          Next Sample
 

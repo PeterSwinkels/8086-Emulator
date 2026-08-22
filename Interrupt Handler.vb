@@ -53,23 +53,23 @@ Public Module InterruptHandlerModule
                PIC.WriteCommand(&H20%)
                Success = True
             Case &H9%
-               CPU.Memory(AddressesE.KeyboardFlags) = ToByte(GetKeyboardFlags() And &HFF%)
-               CPU.Memory(AddressesE.KeyboardFlags + &H1%) = ToByte(GetKeyboardFlags() >> &H8%)
+               Memory(AddressesE.KeyboardFlags) = ToByte(GetKeyboardFlags() And &HFF%)
+               Memory(AddressesE.KeyboardFlags + &H1%) = ToByte(GetKeyboardFlags() >> &H8%)
 
                If LastBIOSKeyCode() IsNot Nothing Then
-                  CPU.PutWord((BIOS_SEGMENT << &H4%) + CPU.Memory(AddressesE.KeyboardBufferHead), LastBIOSKeyCode().Value)
+                  CPU.PutWord((BIOS_SEGMENT << &H4%) + Memory(AddressesE.KeyboardBufferHead), LastBIOSKeyCode().Value)
 
-                  CPU.Memory(AddressesE.KeyboardBufferHead) = ToByte(CPU.Memory(AddressesE.KeyboardBufferHead) + &H2)
+                  Memory(AddressesE.KeyboardBufferHead) = ToByte(Memory(AddressesE.KeyboardBufferHead) + &H2)
 
-                  If CPU.Memory(AddressesE.KeyboardBufferHead) >= KEY_BUFFER_END Then
-                     CPU.Memory(AddressesE.KeyboardBufferHead) = KEY_BUFFER_START
+                  If Memory(AddressesE.KeyboardBufferHead) >= KEY_BUFFER_END Then
+                     Memory(AddressesE.KeyboardBufferHead) = KEY_BUFFER_START
                   End If
 
-                  If CPU.Memory(AddressesE.KeyboardBufferHead) >= CPU.Memory(AddressesE.KeyboardBufferTail) Then
-                     CPU.Memory(AddressesE.KeyboardBufferTail) = ToByte(CPU.Memory(AddressesE.KeyboardBufferTail) + &H2)
+                  If Memory(AddressesE.KeyboardBufferHead) >= Memory(AddressesE.KeyboardBufferTail) Then
+                     Memory(AddressesE.KeyboardBufferTail) = ToByte(Memory(AddressesE.KeyboardBufferTail) + &H2)
 
-                     If CPU.Memory(AddressesE.KeyboardBufferTail) >= KEY_BUFFER_END Then
-                        CPU.Memory(AddressesE.KeyboardBufferTail) = KEY_BUFFER_START
+                     If Memory(AddressesE.KeyboardBufferTail) >= KEY_BUFFER_END Then
+                        Memory(AddressesE.KeyboardBufferTail) = KEY_BUFFER_START
                      End If
                   End If
                End If
@@ -92,8 +92,8 @@ Public Module InterruptHandlerModule
                      End Select
 
                      If VideoModeValid Then
-                        CPU.Memory(AddressesE.VideoMode) = VideoMode
-                        CPU.Memory(AddressesE.VideoModeOptions) = CByte(SET_BIT(CPU.Memory(AddressesE.VideoModeOptions), VideoModeBit7, &H7%))
+                        Memory(AddressesE.VideoMode) = VideoMode
+                        Memory(AddressesE.VideoModeOptions) = CByte(SET_BIT(Memory(AddressesE.VideoModeOptions), VideoModeBit7, &H7%))
 
                         MCC.CurrentVideoMode = DirectCast(VideoMode, VideoModesE)
                      End If
@@ -124,7 +124,7 @@ Public Module InterruptHandlerModule
                   Case &H5%
                      VideoPage = CByte(CPU.Registers(SubRegisters8BitE.AL))
                      If VideoPage < MCC.VideoPageCount() Then
-                        CPU.Memory(AddressesE.VideoPage) = VideoPage
+                        Memory(AddressesE.VideoPage) = VideoPage
                      End If
                      Success = True
                   Case &H6%
@@ -165,8 +165,8 @@ Public Module InterruptHandlerModule
                            CursorPositionUpdate()
                            Position = VideoPageAddress + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)
                            Do While Count > &H0%
-                              CPU.Memory(Position) = Character
-                              If AH = &H9% Then CPU.Memory(Position + &H1%) = Attribute
+                              Memory(Position) = Character
+                              If AH = &H9% Then Memory(Position + &H1%) = Attribute
                               Count -= &H1%
                               Position += &H2%
                            Loop
@@ -192,7 +192,7 @@ Public Module InterruptHandlerModule
                            Pixel = x And &H3%
                            Shift = (&H3% - Pixel) * &H2%
                            Mask = CByte(&H3% << Shift)
-                           Value = CPU.Memory(Position)
+                           Value = Memory(Position)
 
                            If (AL And &H80%) = &H0% Then
                               Value = (Value And Not Mask) Or CByte(PixelColor << Shift)
@@ -200,14 +200,14 @@ Public Module InterruptHandlerModule
                               Value = Value Xor CByte(PixelColor << Shift)
                            End If
 
-                           CPU.Memory(Position) = CByte(Value)
+                           Memory(Position) = CByte(Value)
                         Case VideoModesE.CGA640x200
                            PixelColor = CByte(AL And &H1%)
                            Position = AddressesE.CGABuffer + If((y And 1) = 0, 0, VideoPageSizesE.CGA640x200 \ 2) + (y \ 2) * 80 + (x \ 4)
                            Pixel = x And &H6%
                            Shift = (&H6% - Pixel) * &H4%
                            Mask = CByte(&H6% << Shift)
-                           Value = CPU.Memory(Position)
+                           Value = Memory(Position)
 
                            If (AL And &H80%) = &H0% Then
                               Value = (Value And Not Mask) Or CByte(PixelColor << Shift)
@@ -215,10 +215,10 @@ Public Module InterruptHandlerModule
                               Value = Value Xor CByte(PixelColor << Shift)
                            End If
 
-                           CPU.Memory(Position) = CByte(Value)
+                           Memory(Position) = CByte(Value)
                         Case VideoModesE.VGA320x200
                            Position = AddressesE.VGABuffer + ((y * 320) + x)
-                           CPU.Memory(Position) = CByte(AL)
+                           Memory(Position) = CByte(AL)
                      End Select
 
                      Success = True
@@ -228,9 +228,9 @@ Public Module InterruptHandlerModule
                   Case &HF%
                      VideoMode = MCC.CurrentVideoMode
                      CPU.Registers(SubRegisters8BitE.AH, NewValue:=MCC.ColumnCount())
-                     VideoMode = VideoMode Or (CPU.Memory(AddressesE.VideoModeOptions) >> &H7%)
+                     VideoMode = VideoMode Or (Memory(AddressesE.VideoModeOptions) >> &H7%)
                      CPU.Registers(SubRegisters8BitE.AL, NewValue:=VideoMode)
-                     CPU.Registers(SubRegisters8BitE.BH, NewValue:=CPU.Memory(AddressesE.VideoPage))
+                     CPU.Registers(SubRegisters8BitE.BH, NewValue:=Memory(AddressesE.VideoPage))
                      Success = True
                   Case &H10%
                      Select Case MCC.CurrentVideoMode
@@ -240,7 +240,7 @@ Public Module InterruptHandlerModule
                            Select Case CPU.Registers(SubRegisters8BitE.AL)
                               Case &H2%
                                  Address = (CPU.Registers(SegmentRegistersE.ES) << &H4%) + CPU.Registers(Registers16BitE.DX)
-                                 EGA.SetEntirePalette(CPU.Memory.ToList().GetRange(Address, count:=&H10%).ToArray())
+                                 EGA.SetEntirePalette(Memory.GetRange(Address, Length:=&H10%).ToArray())
                                  Success = True
                               Case &H3%
                                  MCC.BlinkingOn = CBool(CPU.Registers(SubRegisters8BitE.BL))
@@ -294,7 +294,7 @@ Public Module InterruptHandlerModule
                               Address = (CPU.Registers(SegmentRegistersE.ES) << &H4%)
                               Position = CPU.Registers(Registers16BitE.DI)
                               For Each [Byte] As Byte In VGA.GetDynamicFunctionality()
-                                 CPU.Memory(Address + (Position And &HFFFF%)) = [Byte]
+                                 Memory(Address + (Position And &HFFFF%)) = [Byte]
                               Next [Byte]
                            End If
                      End Select
@@ -345,9 +345,9 @@ Public Module InterruptHandlerModule
                         If Value IsNot Nothing Then CPU.Registers(Registers16BitE.AX, NewValue:=Value)
                      Loop While (CPU.Registers(Registers16BitE.AX) = &H0%) AndAlso (Not CPU.ClockToken.IsCancellationRequested)
 
-                     CPU.Memory(AddressesE.KeyboardBufferTail) = ToByte(CPU.Memory(AddressesE.KeyboardBufferTail) + &H2)
-                     If CPU.Memory(AddressesE.KeyboardBufferTail) >= KEY_BUFFER_END Then
-                        CPU.Memory(AddressesE.KeyboardBufferTail) = KEY_BUFFER_START
+                     Memory(AddressesE.KeyboardBufferTail) = ToByte(Memory(AddressesE.KeyboardBufferTail) + &H2)
+                     If Memory(AddressesE.KeyboardBufferTail) >= KEY_BUFFER_END Then
+                        Memory(AddressesE.KeyboardBufferTail) = KEY_BUFFER_START
                      End If
 
                      LastBIOSKeyCode(, Clear:=True)
@@ -358,7 +358,7 @@ Public Module InterruptHandlerModule
                      Flags = SET_BIT(Flags, (Value Is Nothing), ZERO_FLAG_INDEX)
                      Success = True
                   Case &H2%
-                     CPU.Registers(SubRegisters8BitE.AL, NewValue:=CPU.Memory(AddressesE.KeyboardFlags))
+                     CPU.Registers(SubRegisters8BitE.AL, NewValue:=Memory(AddressesE.KeyboardFlags))
                      Success = True
                   Case &H5%
                      WriteToKeyboardBuffer()
@@ -376,7 +376,7 @@ Public Module InterruptHandlerModule
             Case &H1A%
                Select Case AH
                   Case &H0%
-                     CPU.Registers(SubRegisters8BitE.AL, NewValue:=CPU.Memory(AddressesE.ClockRollover))
+                     CPU.Registers(SubRegisters8BitE.AL, NewValue:=Memory(AddressesE.ClockRollover))
                      CPU.Registers(Registers16BitE.CX, NewValue:=CPU.GetWord(AddressesE.Clock + &H2%))
                      CPU.Registers(Registers16BitE.DX, NewValue:=CPU.GetWord(AddressesE.Clock))
                      Success = True

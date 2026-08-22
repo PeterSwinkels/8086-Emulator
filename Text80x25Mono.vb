@@ -157,7 +157,7 @@ Public Class Text80x25MonoClass
    Public Sub Initialize() Implements VideoAdapterClass.Initialize
       ClearBuffer()
 
-      CPU.Memory(AddressesE.VideoPage) = &H0%
+      Memory(AddressesE.VideoPage) = &H0%
       ResetCursor()
       MCC.BlinkingOn = True
    End Sub

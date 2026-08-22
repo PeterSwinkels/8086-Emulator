@@ -51,12 +51,10 @@ Public Class VGA320x200Class
    'This procedure draws the specified character.
    Public Sub DrawCharacter(Index As Integer, Attribute As Integer) Implements VideoAdapterClass.DrawCharacter
       Dim BitSet(&H0% To &H7%) As Boolean
-      Dim Character(&H0% To &H7%) As Byte
+      Dim Character() As Byte = Memory.GetRange(If(Index < &H80%, AddressesE.Characters + (Index * &H8%), AddressesE.ExtendedCharacters + ((Index - &H80%) * &H8%)), Length:=&H8%)
       Dim Position As New Integer
       Dim RemainingBits As New Integer
       Dim y As Integer = Cursor.Y * &H8%
-
-      Array.Copy(CPU.Memory, If(Index < &H80%, AddressesE.Characters, AddressesE.ExtendedCharacters) + (Index * &H8%), Character, &H0%, Character.Length)
 
       For Each ScanLine As Byte In Character
          RemainingBits = ScanLine
@@ -68,7 +66,7 @@ Public Class VGA320x200Class
          Position = AddressesE.VGABuffer + (y * VGA_320_X_200_BYTES_PER_ROW) + (Cursor.X * &H8%)
 
          For Bit As Integer = &H0% To &H7%
-            CPU.Memory(Position) = CByte(Attribute * Math.Abs(CInt(BitSet(Bit))))
+            Memory(Position) = CByte(Attribute * Math.Abs(CInt(BitSet(Bit))))
             Position += &H1%
          Next Bit
          y += 1
@@ -83,7 +81,7 @@ Public Class VGA320x200Class
          VGA.VGABrushes(Index) = New SolidBrush(Color.FromArgb(VGA.VGA_DEFAULT_PALETTE(Index) Or &HFF000000%))
       Next Index
 
-      CPU.Memory(AddressesE.VideoPage) = &H0%
+      Memory(AddressesE.VideoPage) = &H0%
       ResetCursor()
       CursorBlink.Enabled = False
    End Sub
@@ -104,7 +102,7 @@ Public Class VGA320x200Class
          For Row As Integer = ScrollArea.ULCRow * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE To (ScrollArea.LRCRow * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE) + (VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE - &H1%)
             For Column As Integer = ScrollArea.ULCColumn * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE To (ScrollArea.LRCColumn * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE) + VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE
                Address = AddressesE.VGABuffer + ((Row * VGA_320_X_200_BYTES_PER_ROW) + Column)
-               CPU.Memory(Address) = Attribute
+               Memory(Address) = Attribute
             Next Column
          Next Row
       Else
@@ -114,11 +112,11 @@ Public Class VGA320x200Class
                   For Row As Integer = ScrollArea.ULCRow * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE To (ScrollArea.LRCRow * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE) + (VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE - &H1%)
                      For Column As Integer = ScrollArea.ULCColumn * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE To (ScrollArea.LRCColumn * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE) + VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE
                         Address = AddressesE.VGABuffer + ((Row * VGA_320_X_200_BYTES_PER_ROW) + Column)
-                        CharacterByte = CPU.Memory(Address)
-                        CPU.Memory(Address) = Attribute
+                        CharacterByte = Memory(Address)
+                        Memory(Address) = Attribute
                         If Row > ScrollArea.ULCRow * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE Then
                            NewAddress = AddressesE.VGABuffer + ((Row - &H1%) * VGA_320_X_200_BYTES_PER_ROW) + Column
-                           CPU.Memory(NewAddress) = CharacterByte
+                           Memory(NewAddress) = CharacterByte
                         End If
                      Next Column
                   Next Row
@@ -126,11 +124,11 @@ Public Class VGA320x200Class
                   For Row As Integer = ScrollArea.LRCRow * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE To ScrollArea.ULCRow * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE Step -&H1%
                      For Column As Integer = ScrollArea.ULCColumn * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE To (ScrollArea.LRCColumn * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE) + VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE
                         Address = AddressesE.VGABuffer + ((Row * VGA_320_X_200_BYTES_PER_ROW) + Column)
-                        CharacterByte = CPU.Memory(Address)
-                        CPU.Memory(Address) = Attribute
+                        CharacterByte = Memory(Address)
+                        Memory(Address) = Attribute
                         If Row < ScrollArea.LRCRow * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE Then
                            NewAddress = AddressesE.VGABuffer + ((Row + &H1%) * VGA_320_X_200_BYTES_PER_ROW) + Column
-                           CPU.Memory(NewAddress) = CharacterByte
+                           Memory(NewAddress) = CharacterByte
                         End If
                      Next Column
                   Next Row

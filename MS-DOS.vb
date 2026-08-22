@@ -327,7 +327,7 @@ Public Class MSDOSClass
       Try
          Dim Address As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
          Dim Buffer As New List(Of Byte)
-         Dim Maximum As Integer = CPU.Memory(Address)
+         Dim Maximum As Integer = Memory(Address)
          Dim KeyCode As New Integer
 
          Do Until Buffer.Count = Maximum OrElse CPU.ClockToken.IsCancellationRequested OrElse Application.OpenForms.Count = 0
@@ -347,7 +347,7 @@ Public Class MSDOSClass
                      Buffer.RemoveAt(Buffer.Count - &H1%)
                   End If
                Case TeletypeE.CR
-                  CPU.Memory(Address + &H1%) = ToByte(Buffer.Count)
+                  Memory(Address + &H1%) = ToByte(Buffer.Count)
                   Buffer.Add(ToByte(KeyCode))
                   WriteBytesToMemory(Buffer.ToArray(), Address + &H2%)
                   Exit Do
@@ -620,7 +620,7 @@ Public Class MSDOSClass
          WriteBytesToMemory(PSPFCB(1).ToArray(), Address + PSP_FCB_2)
          WriteBytesToMemory(INT_21H_RETN, Address + PSP_INT_21H_RN)
          WriteBytesToMemory(INT_21H_RETF, Address + PSP_INT_21H_RF)
-         CPU.Memory(Address + PSP_COMMAND_TAIL) = ToByte(CommandTail.Length)
+         Memory(Address + PSP_COMMAND_TAIL) = ToByte(CommandTail.Length)
          WriteStringToMemory($"{CommandTail}{ToChar(&HD%)}", Address + PSP_COMMAND_TAIL + &H1%)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -686,7 +686,7 @@ Public Class MSDOSClass
                KeyCode = LastBIOSKeyCode()
 
                Application.DoEvents()
-            Loop Until KeyCode.HasValue OrElse CPU.ClockToken.IsCancellationRequested OrElse Application.OpenForms.count = 0
+            Loop Until KeyCode.HasValue OrElse CPU.ClockToken.IsCancellationRequested OrElse Application.OpenForms.Count = 0
             If KeyCode IsNot Nothing AndAlso (KeyCode.Value And &HFF%) = Nothing Then
                ExtendedKeyCode = KeyCode >> &H8%
             End If
@@ -966,8 +966,8 @@ Public Class MSDOSClass
             Extension = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Extension, Length:=3).Trim(ToChar(&H0%)).Trim()
             SearchPattern = $"{FileName}.{Extension}"
 
-            If CPU.Memory((CPU.Registers(SegmentRegistersE.DS) << &H4%) + ((CPU.Registers(Registers16BitE.DX) + FCBE.ExtendedFCBFlag) And &HFFF%)) = EXTENDED_FCB Then
-               Attributes = CPU.Memory((CPU.Registers(SegmentRegistersE.DS) << &H4%) + ((CPU.Registers(Registers16BitE.DX) + FCBE.Attribute) And &HFFF%))
+            If Memory((CPU.Registers(SegmentRegistersE.DS) << &H4%) + ((CPU.Registers(Registers16BitE.DX) + FCBE.ExtendedFCBFlag) And &HFFF%)) = EXTENDED_FCB Then
+               Attributes = Memory((CPU.Registers(SegmentRegistersE.DS) << &H4%) + ((CPU.Registers(Registers16BitE.DX) + FCBE.Attribute) And &HFFF%))
             Else
                Attributes = &H0%
             End If
@@ -1050,7 +1050,7 @@ Public Class MSDOSClass
             End If
 
             CPU.PutWord(FCBOffset + FCBE.CurrentBlock, &H0%)
-            CPU.Memory(FCBOffset + FCBE.RelativeRecordInBlock) = &H0%
+            Memory(FCBOffset + FCBE.RelativeRecordInBlock) = &H0%
             PutDWord(FCBOffset + FCBE.RelativeRecordFromStart, &H0%)
             CPU.PutWord(FCBOffset + FCBE.FileSize, CInt(FileSize And &HFFFF%))
             CPU.PutWord(FCBOffset + FCBE.FileSize + &H2%, CInt(FileSize) >> &H10%)
@@ -1128,9 +1128,9 @@ Public Class MSDOSClass
          End If
 
          If FCBDrive = Nothing Then
-            CPU.Memory(FCBAddress) = &H0%
+            Memory(FCBAddress) = &H0%
          Else
-            CPU.Memory(FCBAddress) = ToByte(CInt(ToByte(FCBDrive.ToCharArray().First()) - ToByte("@"c)))
+            Memory(FCBAddress) = ToByte(CInt(ToByte(FCBDrive.ToCharArray().First()) - ToByte("@"c)))
          End If
 
          WriteStringToMemory(FCBFileName.ToString(), FCBAddress + &H1%)
@@ -1247,7 +1247,7 @@ Public Class MSDOSClass
          Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim()
          Dim RecordSize As Integer = CPU.GetWord(FCBOffset + FCBE.RecordSize)
          Dim RelativeRecordFromStart As Long = GetDWord(FCBOffset + FCBE.RelativeRecordFromStart)
-         Dim Buffer() As Byte = CPU.Memory.ToList.GetRange((DTASegment << &H4%) + DTAOffset, RecordSize).ToArray()
+         Dim Buffer() As Byte = Memory.GetRange((DTASegment << &H4%) + DTAOffset, RecordSize).ToArray()
 
          FileSystemItems = GetFileSystemItems(CurrentDirectory, "*.*")
 
@@ -1282,7 +1282,7 @@ Public Class MSDOSClass
          Dim CurrentBlock As Integer = CPU.GetWord(FCBOffset + FCBE.CurrentBlock)
          Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim()
          Dim RecordSize As Integer = CPU.GetWord(FCBOffset + FCBE.RecordSize)
-         Dim RelativeRecord As Integer = CPU.Memory(FCBOffset + FCBE.RelativeRecordInBlock)
+         Dim RelativeRecord As Integer = Memory(FCBOffset + FCBE.RelativeRecordInBlock)
 
          If IsDeviceFile(FileName) Then
             CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1%)
@@ -1316,7 +1316,7 @@ Public Class MSDOSClass
             End Using
 
             CPU.PutWord(FCBOffset + FCBE.CurrentBlock, CurrentBlock)
-            CPU.Memory(FCBOffset + FCBE.RelativeRecordInBlock) = ToByte(RelativeRecord)
+            Memory(FCBOffset + FCBE.RelativeRecordInBlock) = ToByte(RelativeRecord)
             WriteBytesToMemory(Buffer, (DTASegment << &H4%) + DTAOffset)
          End If
       Catch ExceptionO As Exception
@@ -1332,8 +1332,8 @@ Public Class MSDOSClass
          Dim CurrentBlock As Integer = CPU.GetWord(FCBOffset + FCBE.CurrentBlock)
          Dim FileName As String = GetString(CPU.Registers(SegmentRegistersE.DS), CPU.Registers(Registers16BitE.DX) + FCBE.Filename, Length:=8).Trim()
          Dim RecordSize As Integer = CPU.GetWord(FCBOffset + FCBE.RecordSize)
-         Dim RelativeRecord As Integer = CPU.Memory(FCBOffset + FCBE.RelativeRecordInBlock)
-         Dim Buffer() As Byte = CPU.Memory.ToList.GetRange((DTASegment << &H4%) + DTAOffset, RecordSize).ToArray()
+         Dim RelativeRecord As Integer = Memory(FCBOffset + FCBE.RelativeRecordInBlock)
+         Dim Buffer() As Byte = Memory.GetRange((DTASegment << &H4%) + DTAOffset, RecordSize).ToArray()
 
          If IsDeviceFile(FileName) Then
             CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
@@ -1353,7 +1353,7 @@ Public Class MSDOSClass
                End If
 
                CPU.PutWord(FCBOffset + FCBE.CurrentBlock, CurrentBlock)
-               CPU.Memory(FCBOffset + FCBE.RelativeRecordInBlock) = ToByte(RelativeRecord)
+               Memory(FCBOffset + FCBE.RelativeRecordInBlock) = ToByte(RelativeRecord)
 
                CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
             Catch
@@ -1375,9 +1375,9 @@ Public Class MSDOSClass
 
          If Extension.StartsWith("."c) Then Extension = Extension.Substring(1)
 
-         CPU.Memory(DTAAddress + FCBE.ExtendedFCBFlag) = EXTENDED_FCB
-         CPU.Memory(DTAAddress + FCBE.Attribute) = ToByte(File.GetAttributes(FilePath) And ATTRIBUTES_MASK)
-         CPU.Memory(DTAAddress + FCBE.Drive) = &H0%
+         Memory(DTAAddress + FCBE.ExtendedFCBFlag) = EXTENDED_FCB
+         Memory(DTAAddress + FCBE.Attribute) = ToByte(File.GetAttributes(FilePath) And ATTRIBUTES_MASK)
+         Memory(DTAAddress + FCBE.Drive) = &H0%
          WriteStringToMemory($"{Path.GetFileNameWithoutExtension(ItemName),-8}", DTAAddress + FCBE.Filename)
          WriteStringToMemory($"{Extension,-3}", DTAAddress + FCBE.Extension)
          CPU.PutWord(DTAAddress + FCBE.CurrentBlock, &H0%)
@@ -1937,8 +1937,8 @@ Public Class MSDOSClass
                      Success = True
                   Case &H9%
                      Position = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
-                     Do Until ToChar(CPU.Memory(Position And ADDRESS_MASK)) = "$"c OrElse CPU.ClockToken.IsCancellationRequested
-                        Teletype(CPU.Memory(Position And ADDRESS_MASK))
+                     Do Until ToChar(Memory(Position And MemoryClass.ADDRESS_MASK)) = "$"c OrElse CPU.ClockToken.IsCancellationRequested
+                        Teletype(Memory(Position And MemoryClass.ADDRESS_MASK))
                         Position += &H1%
                      Loop
 
@@ -1950,8 +1950,8 @@ Public Class MSDOSClass
                      CPU.Registers(SubRegisters8BitE.AL, NewValue:=If(LastBIOSKeyCode() Is Nothing, &H0%, &HFF%))
                      Success = True
                   Case &HC%
-                     CPU.Memory(AddressesE.KeyboardBufferHead) = INITIAL_KEYBOARD_HEAD_TAIL
-                     CPU.Memory(AddressesE.KeyboardBufferTail) = INITIAL_KEYBOARD_HEAD_TAIL
+                     Memory(AddressesE.KeyboardBufferHead) = INITIAL_KEYBOARD_HEAD_TAIL
+                     Memory(AddressesE.KeyboardBufferTail) = INITIAL_KEYBOARD_HEAD_TAIL
                      ExtendedKeyCode = New Integer?
                      KeyScancode = Nothing
                      LastBIOSKeyCode(, Clear:=True)
@@ -2011,7 +2011,7 @@ Public Class MSDOSClass
                      CPU.PutWord(Address, CPU.Registers(Registers16BitE.DX))
                      Success = True
                   Case &H26%
-                     Array.Copy(CPU.Memory, ProcessIDs.Last() << &H4%, CPU.Memory, CPU.Registers(Registers16BitE.DX) << &H4%, PSP_SIZE)
+                     Memory.PutRange(CPU.Registers(Registers16BitE.DX) << &H4%, Memory.GetRange(ProcessIDs.Last() << &H4%, PSP_SIZE))
                      Success = True
                   Case &H27%
                      FCBRandomBlockReadFile()
@@ -2057,7 +2057,7 @@ Public Class MSDOSClass
                   Case &H34%
                      CPU.Registers(SegmentRegistersE.ES, NewValue:=LOWEST_EXECUTABLE_ADDRESS - &H1%)
                      CPU.Registers(Registers16BitE.BX, NewValue:=&H0%)
-                     CPU.Memory((CPU.Registers(SegmentRegistersE.ES) << &H4%) + CPU.Registers(Registers16BitE.BX)) = &H0%
+                     Memory((CPU.Registers(SegmentRegistersE.ES) << &H4%) + CPU.Registers(Registers16BitE.BX)) = &H0%
                      Success = True
                   Case &H35%
                      Address = CPU.Registers(SubRegisters8BitE.AL) * &H4%
@@ -2225,9 +2225,9 @@ Public Class MSDOSClass
                            ExtendedErrorInformation.ExtendedErrorCode = CPU.GetWord(Address + ExtendedErrorInformationE.ErrorCode)
                            ExtendedErrorInformation.DriverOffset = CPU.GetWord(Address + ExtendedErrorInformationE.DriverAddress)
                            ExtendedErrorInformation.DriverSegment = CPU.GetWord(Address + ExtendedErrorInformationE.DriverAddress + &H2%)
-                           ExtendedErrorInformation.ActionCode = CPU.Memory(Address + ExtendedErrorInformationE.ActionCode)
-                           ExtendedErrorInformation.ClassCode = CPU.Memory(Address + ExtendedErrorInformationE.ClassCode)
-                           ExtendedErrorInformation.LocusCode = CPU.Memory(Address + ExtendedErrorInformationE.LocusCode)
+                           ExtendedErrorInformation.ActionCode = Memory(Address + ExtendedErrorInformationE.ActionCode)
+                           ExtendedErrorInformation.ClassCode = Memory(Address + ExtendedErrorInformationE.ClassCode)
+                           ExtendedErrorInformation.LocusCode = Memory(Address + ExtendedErrorInformationE.LocusCode)
 
                            CPU.Registers(Registers16BitE.AX, NewValue:=&H0%)
                            Success = True
@@ -2247,13 +2247,13 @@ Public Class MSDOSClass
                      Select Case CPU.Registers(SubRegisters8BitE.AL)
                         Case &H2%
                            Address = (CPU.Registers(SegmentRegistersE.ES) << &H4%) + CPU.Registers(Registers16BitE.DI)
-                           CPU.Memory(Address) = &H2%
+                           Memory(Address) = &H2%
                            CPU.PutWord(Address + &H1%, &H0%)
                            CPU.PutWord(Address + &H3%, CTT_SEGMENT << &H4%)
                            Success = True
                         Case &H4%
                            Address = (CPU.Registers(SegmentRegistersE.ES) << &H4%) + CPU.Registers(Registers16BitE.DI)
-                           CPU.Memory(Address) = &H4%
+                           Memory(Address) = &H4%
                            CPU.PutWord(Address + &H1%, &H0%)
                            CPU.PutWord(Address + &H3%, FCTT_SEGMENT << &H4%)
                            Success = True
@@ -2492,7 +2492,7 @@ Public Class MSDOSClass
 
          CreatePSP(LoadAddress)
 
-         Executable.CopyTo(CPU.Memory, LoadAddress + PSP_SIZE)
+         Memory.PutRange(LoadAddress + PSP_SIZE, Executable.ToArray())
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -2526,7 +2526,7 @@ Public Class MSDOSClass
 
          CPU.PutWord(CTT_SEGMENT << &H4%, &H80%)
          For Character As Integer = &H80% To &HFF%
-            CPU.Memory((CTT_SEGMENT << &H4%) + &H2% + Character) = ToByte(Character)
+            Memory((CTT_SEGMENT << &H4%) + &H2% + Character) = ToByte(Character)
          Next Character
 
          CPU.PutWord(DBCS_SEGMENT << &H4%, &H0%)
@@ -2602,7 +2602,7 @@ Public Class MSDOSClass
          Dim RelocationTable As Integer = BitConverter.ToUInt16(Executable.ToArray(), EXE_RELOCATION_ITEM_TABLE)
          Dim RelocationTableSize As Integer = BitConverter.ToUInt16(Executable.ToArray(), EXE_RELOCATION_ITEM_COUNT) * &H4%
 
-         If LoadAddress + (ImageSize - HeaderSize) <= CPU.Memory.Length Then
+         If LoadAddress + (ImageSize - HeaderSize) <= Memory.Length Then
             SyncLock SYNCHRONIZER
                CPU_EVENT.Append($"Loading the MZ-executable ""{FileName}"" at address {LoadAddress:X8}.{NewLine}")
             End SyncLock
@@ -2622,7 +2622,7 @@ Public Class MSDOSClass
 
             CreatePSP(LoadAddress)
 
-            Executable.GetRange(HeaderSize, ImageSize - HeaderSize).CopyTo(CPU.Memory, LoadAddress + PSP_SIZE)
+            Memory.PutRange(LoadAddress + PSP_SIZE, Executable.GetRange(HeaderSize, ImageSize - HeaderSize).ToArray())
 
             If RelocationTableSize > &H0% Then
                Position = RelocationTable
@@ -2633,7 +2633,7 @@ Public Class MSDOSClass
 
                   RelocationItemFlatAddress = LoadAddress + (RelocationItemSegment << &H4%) + ((PSP_SIZE + RelocationItemOffset) And &HFFFF%)
 
-                  RelocationItem = BitConverter.ToUInt16(CPU.Memory, RelocationItemFlatAddress)
+                  RelocationItem = BitConverter.ToUInt16(Memory.AsArray, RelocationItemFlatAddress)
                   RelocationItem += ((LoadAddress + PSP_SIZE) >> &H4%)
 
                   CPU.PutWord(RelocationItemFlatAddress, RelocationItem)
@@ -2705,7 +2705,7 @@ Public Class MSDOSClass
 
                If Executable.Count >= &H2% AndAlso Executable.GetRange(&H0%, EXE_MZ_SIGNATURE.Length).SequenceEqual(EXE_MZ_SIGNATURE) Then
                   ImageSize = ((BitConverter.ToUInt16(Executable.ToArray(), EXE_IMAGE_SIZE) - &H1%) * PAGE_SIZE) + BitConverter.ToUInt16(Executable.ToArray(), EXE_IMAGE_REMAINDER_SIZE)
-                  If Address.Value + (ImageSize - HeaderSize) <= CPU.Memory.Length Then
+                  If Address.Value + (ImageSize - HeaderSize) <= Memory.Length Then
                      HeaderSize = BitConverter.ToUInt16(Bytes, EXE_HEADER_SIZE) << &H4%
 
                      ProgramCS = CodeBaseSegment + BitConverter.ToUInt16(Bytes, EXE_INITIAL_CS)
@@ -2718,7 +2718,7 @@ Public Class MSDOSClass
 
                      CreatePSP(Address.Value)
 
-                     Executable.GetRange(HeaderSize, ImageSize - HeaderSize).CopyTo(CPU.Memory, CodeBaseFlatAddress)
+                     Memory.PutRange(CodeBaseFlatAddress, Executable.GetRange(HeaderSize, ImageSize - HeaderSize).ToArray())
 
                      If RelocationTableSize > &H0% Then
                         Position = RelocationTable
@@ -2729,7 +2729,7 @@ Public Class MSDOSClass
 
                            RelocationItemFlatAddress = CodeBaseFlatAddress + (RelocationItemSegment << &H4%) + RelocationItemOffset
 
-                           RelocationItem = BitConverter.ToUInt16(CPU.Memory, RelocationItemFlatAddress)
+                           RelocationItem = BitConverter.ToUInt16(Memory.AsArray, RelocationItemFlatAddress)
                            RelocationItem = (RelocationItem + CodeBaseSegment) And &HFFFF%
 
                            CPU.PutWord(RelocationItemFlatAddress, RelocationItem)
@@ -2747,7 +2747,7 @@ Public Class MSDOSClass
                   ProgramSP = &HFFFE%
 
                   CreatePSP(Address.Value)
-                  Executable.CopyTo(CPU.Memory, CodeBaseFlatAddress)
+                  Memory.PutRange(CodeBaseFlatAddress, Executable.ToArray)
                End If
 
                If Success Then
@@ -2916,7 +2916,7 @@ Public Class MSDOSClass
                   ExtendedKeyCode = (KeyCode.Value >> &H8%)
                   KeyCode = (KeyCode And &HFF%)
                End If
-            Loop While (KeyCode Is Nothing) AndAlso (ExtendedKeyCode Is Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested) AndAlso (Application.Openforms.Count > 0)
+            Loop While (KeyCode Is Nothing) AndAlso (ExtendedKeyCode Is Nothing) AndAlso (Not CPU.ClockToken.IsCancellationRequested) AndAlso (Application.OpenForms.Count > 0)
 
             LastBIOSKeyCode(, Clear:=True)
          Else
@@ -3293,19 +3293,19 @@ Public Class MSDOSClass
          Dim Address As Integer = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX)
 
          For Offset As Integer = Address To Address + COUNTRY_INFORMATION_BUFFER_SIZE
-            CPU.Memory(Address) = &H0%
+            Memory(Address) = &H0%
          Next Offset
 
          CPU.PutWord(CountryCodesE.DateTimeFormat, &H0%)
-         CPU.Memory(CountryCodesE.CurrencySymbol) = ToByte("$"c)
-         CPU.Memory(CountryCodesE.ThousandsSeparator) = ToByte(","c)
-         CPU.Memory(CountryCodesE.DecimalSeparator) = ToByte(","c)
-         CPU.Memory(CountryCodesE.DateSeparator) = ToByte("-"c)
-         CPU.Memory(CountryCodesE.TimeSeparator) = ToByte(":"c)
-         CPU.Memory(CountryCodesE.CurrencySymbolFormat) = &H0%
-         CPU.Memory(CountryCodesE.DigitsAfterDecimal) = &H2%
-         CPU.Memory(CountryCodesE.TimeFormat) = &H0%
-         CPU.Memory(CountryCodesE.DataListSeparator) = ToByte(","c)
+         Memory(CountryCodesE.CurrencySymbol) = ToByte("$"c)
+         Memory(CountryCodesE.ThousandsSeparator) = ToByte(","c)
+         Memory(CountryCodesE.DecimalSeparator) = ToByte(","c)
+         Memory(CountryCodesE.DateSeparator) = ToByte("-"c)
+         Memory(CountryCodesE.TimeSeparator) = ToByte(":"c)
+         Memory(CountryCodesE.CurrencySymbolFormat) = &H0%
+         Memory(CountryCodesE.DigitsAfterDecimal) = &H2%
+         Memory(CountryCodesE.TimeFormat) = &H0%
+         Memory(CountryCodesE.DataListSeparator) = ToByte(","c)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -3318,11 +3318,11 @@ Public Class MSDOSClass
          Dim FileSize As Long = If(IsDirectory, Nothing, New FileInfo(FilePath).Length)
          Dim ItemName As String = Path.GetFileName(GetShortName(FileSystemItems, FilePath))
 
-         CPU.Memory(DTAAddress + DTAE.Attribute) = ToByte(File.GetAttributes(FilePath) And ATTRIBUTES_MASK)
+         Memory(DTAAddress + DTAE.Attribute) = ToByte(File.GetAttributes(FilePath) And ATTRIBUTES_MASK)
          CPU.PutWord(DTAAddress + DTAE.FileSystemItemTime, TIME_TO_MSDOS_TIME(File.GetLastWriteTime(FilePath)))
          CPU.PutWord(DTAAddress + DTAE.FileSystemItemDate, DATE_TO_MSDOS_DATE(File.GetLastWriteTime(FilePath)))
          CPU.PutWord(DTAAddress + DTAE.FileSystemItemSize, CInt(FileSize And &HFFFF%))
-         CPU.PutWord(DTAAddress + DTAE.FileSystemItemSize + &H2%, CInt(FileSize) >> &H10%)
+         CPU.PutWord(DTAAddress + DTAE.FileSystemItemSize + &H2%, CInt(FileSize And &H7FFFFFFF%) >> &H10%)
          WriteStringToMemory($"{ItemName}{ToChar(&H0%)}", DTAAddress + DTAE.FileSystemItemName)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
@@ -3358,7 +3358,7 @@ Public Class MSDOSClass
                         End Select
 
                         For Character As Integer = &H0% To Count - &H1%
-                           Buffer.Append(ESCAPE_BYTE(CPU.Memory(Position And ADDRESS_MASK)))
+                           Buffer.Append(ESCAPE_BYTE(Memory(Position And MemoryClass.ADDRESS_MASK)))
                            Position += &H1%
                         Next Character
 
@@ -3366,7 +3366,7 @@ Public Class MSDOSClass
                      End SyncLock
                   Case Else
                      For Character As Integer = &H0% To Count - &H1%
-                        Teletype(CPU.Memory(Position And ADDRESS_MASK))
+                        Teletype(Memory(Position And MemoryClass.ADDRESS_MASK))
                         Position += &H1%
                      Next Character
                End Select
@@ -3375,7 +3375,7 @@ Public Class MSDOSClass
                Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
             Case Else
                OpenFileToBeWritten = OpenFiles.FirstOrDefault(Function(OpenedFile) OpenedFile.Handle = Handle)
-               Bytes = CPU.Memory.ToList.GetRange((CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX), Count).ToArray()
+               Bytes = Memory.GetRange((CPU.Registers(SegmentRegistersE.DS) << &H4%) + CPU.Registers(Registers16BitE.DX), Count).ToArray()
 
                Try
                   OpenFileToBeWritten.Value.FileStreamV.Write(Bytes, offset:=&H0%, Count)

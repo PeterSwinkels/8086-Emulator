@@ -51,12 +51,14 @@ Public Module CoreModule
    Public AssemblyModeOn As Boolean = False             'Indicates whether input is interpreted as assembly language.
    Public DMA As New DMAClass                           'Contains a reference to the 8237 DMA controller.
    Public Output As TextBox = Nothing                   'Contains a reference to an output.
+   Public Memory As New MemoryClass                     'Contains a reference to the emulated memory.
    Public MSDOS As New MSDOSClass                       'Contains a reference to the emulated MS-DOS.
    Public PC_Speaker As PCSpeakerClass = Nothing        'Contains a reference to the PC-Speaker class.
    Public PIC As New PICClass                           'Contains a reference to the 8259 Programmable Interrupt Controller.
    Public PIT As New PITClass                           'Contains a reference to the 8253 Programmable Interval Timer class.
    Public PPI As New PPIClass                           'Contains a reference to the 8255 Programmable Peripheral Interface .
    Public RTC As New RTCClass                           'Contains a reference to the Real Time Clock.
+   Public StopSearch As Boolean = False                 'Indicates whether or not a memory search will be stopped.
    Public VideoAdapter As VideoAdapterClass = Nothing   'Contains a reference to the video adapter used.
 
    Public ReadOnly CPU_EVENT As New StringBuilder                                                                                                                                                                                                                                        'Contains CPU event specific text.
@@ -126,13 +128,13 @@ Public Module CoreModule
                      Output.AppendText($"Undefined error.{NewLine}")
                   Else
                      Output.AppendText($"{Address:X8}   {Input,-25} -> {String.Join(Nothing, (From Opcode In Opcodes Select Opcode.ToString("X2")).ToArray())}{NewLine}")
-                     Array.Copy(Opcodes.ToArray(), 0, CPU.Memory, Address, Opcodes.Count)
+                     Memory.PutRange(Address, Opcodes.ToArray())
                      PreviousAddress = Address
-                     Address = (Address + Opcodes.Count) And ADDRESS_MASK
+                     Address = (Address + Opcodes.Count) And MemoryClass.ADDRESS_MASK
                   End If
             End Select
          ElseIf StartAddress IsNot Nothing Then
-            Address = CInt(StartAddress) And ADDRESS_MASK
+            Address = CInt(StartAddress) And MemoryClass.ADDRESS_MASK
             PreviousAddress = Address
             AssemblyModeOn = True
             Output.AppendText($"Assembler started at 0x{Address:X8}.{NewLine}")
@@ -237,16 +239,16 @@ Public Module CoreModule
                   CPU_EVENT.Append($"{NewLine}")
                End If
             Else
-               Opcode = DirectCast(CPU.Memory(FlatCSIP), OpcodesE)
+               Opcode = DirectCast(Memory(FlatCSIP), OpcodesE)
 
                Select Case Opcode
                   Case OpcodesE.REPNE, OpcodesE.REPZ
-                     Code = Disassemble(CPU.Memory, FlatCSIP, Count:=&H2%)
-                     If IS_SEGMENT_PREFIX(DirectCast(CPU.Memory((FlatCSIP + &H1%) And ADDRESS_MASK), OpcodesE)) Then
-                        Code = $"{Code}{Disassemble(CPU.Memory, (FlatCSIP + &H2%) And ADDRESS_MASK, Count:=&H1%)}"
+                     Code = Disassemble(Memory.AsArray, FlatCSIP, Count:=&H2%)
+                     If IS_SEGMENT_PREFIX(DirectCast(Memory((FlatCSIP + &H1%) And MemoryClass.ADDRESS_MASK), OpcodesE)) Then
+                        Code = $"{Code}{Disassemble(Memory.AsArray, (FlatCSIP + &H2%) And MemoryClass.ADDRESS_MASK, Count:=&H1%)}"
                      End If
                   Case Else
-                     Code = Disassemble(CPU.Memory, FlatCSIP, Count:=&H1%)
+                     Code = Disassemble(Memory.AsArray, FlatCSIP, Count:=&H1%)
                End Select
 
                If Code IsNot Nothing Then
@@ -262,7 +264,7 @@ Public Module CoreModule
                End If
 
                If IS_SEGMENT_PREFIX(Opcode) Then
-                  SegmentPrefix = Disassemble(CPU.Memory, FlatCSIP, Count:=&H1%)
+                  SegmentPrefix = Disassemble(Memory.AsArray, FlatCSIP, Count:=&H1%)
                End If
             End If
 
@@ -301,7 +303,7 @@ Public Module CoreModule
          EndPosition = If(CInt(Count) = &H0%, Code.Count, Position + CInt(Count))
 
          With Disassembler
-            Do Until Position >= EndPosition OrElse Position > CPU.Memory.GetUpperBound(0)
+            Do Until Position >= EndPosition OrElse Position > Memory.AsArray.GetUpperBound(0)
                PreviousPosition = Position + &H1%
                Instruction = .Disassemble(Code, Position)
                HexadecimalCode = .BytesToHexadecimal(.GetBytes(Code, PreviousPosition - &H1%, (Position - PreviousPosition) + &H1%), NoPrefix:=True, Reverse:=False)
@@ -371,7 +373,7 @@ Public Module CoreModule
          If Address Is Nothing Then
             CPU_EVENT.Append($"{MEMORY_OPERAND_START}0x???{MEMORY_OPERAND_END} = ???{NewLine}")
          Else
-            Address = Address And ADDRESS_MASK
+            Address = Address And MemoryClass.ADDRESS_MASK
             CPU_EVENT.Append($"{MEMORY_OPERAND_START}0x{Address:X8}{MEMORY_OPERAND_END} = {GetMemoryValue(CInt(Address))}")
          End If
 
@@ -388,7 +390,7 @@ Public Module CoreModule
          Dim Offset As Integer = Address And &HFFFF%
          Dim Segment As Integer = Address And &HF0000%
 
-         Return CPU.Memory(Segment + Offset) Or (CInt(CPU.Memory(Segment + ((Offset + &H1%) And &HFFFF%))) << &H8%) Or (CInt(CPU.Memory(Segment + ((Offset + &H2%) And &HFFFF%))) << &H10%) Or (CInt(CPU.Memory(Segment + ((Offset + &H3%) And &HFFFF%))) << &H18%)
+         Return Memory(Segment + Offset) Or (CInt(Memory(Segment + ((Offset + &H1%) And &HFFFF%))) << &H8%) Or (CInt(Memory(Segment + ((Offset + &H2%) And &HFFFF%))) << &H10%) Or (CInt(Memory(Segment + ((Offset + &H3%) And &HFFFF%))) << &H18%)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -410,7 +412,7 @@ Public Module CoreModule
                Literal = ToByte(Element.Chars(1))
             ElseIf IS_MEMORY_OPERAND(Element) Then
                Address = AddressFromOperand(Element.Trim())
-               If Address IsNot Nothing Then Literal = If(Is8Bit, CPU.Memory(CInt(Address)), CPU.GetWord(CInt(Address)))
+               If Address IsNot Nothing Then Literal = If(Is8Bit, Memory(CInt(Address)), CPU.GetWord(CInt(Address)))
             ElseIf Integer.TryParse(Element, NumberStyles.HexNumber, Nothing, Buffer) Then
                Literal = Buffer
             Else
@@ -435,16 +437,16 @@ Public Module CoreModule
          Dim Dump As New StringBuilder
 
          If Count Is Nothing Then Count = DEFAULT_MEMORY_DUMP_COUNT
-         If Offset + Count >= CPU.Memory.Length Then Count = CPU.Memory.Length - Offset
+         If Offset + Count >= Memory.Length Then Count = Memory.Length - Offset
 
          With Dump
-            If Offset > ADDRESS_MASK Then
+            If Offset > MemoryClass.ADDRESS_MASK Then
                .Append($"Address is out of range.{NewLine}{NewLine}")
             Else
                If AllHexadecimal Then
-                  CPU.Memory.ToList().GetRange(Offset, CInt(Count)).ForEach(Sub([Byte] As Byte) .Append($"{[Byte]:X2} "))
+                  Memory.GetRange(Offset, CInt(Count)).ToList().ForEach(Sub([Byte] As Byte) .Append($"{[Byte]:X2} "))
                Else
-                  CPU.Memory.ToList().GetRange(Offset, CInt(Count)).ForEach(Sub([Byte] As Byte) .Append(ESCAPE_BYTE([Byte])))
+                  Memory.GetRange(Offset, CInt(Count)).ToList().ForEach(Sub([Byte] As Byte) .Append(ESCAPE_BYTE([Byte])))
                End If
             End If
             .Append($"{NewLine}{NewLine}")
@@ -462,7 +464,7 @@ Public Module CoreModule
    Private Function GetMemoryValue(Address As Integer) As String
       Dim Word As Integer = CPU.GetWord(Address)
 
-      Return $"Byte = 0x{CPU.Memory(Address):X2}   Word = 0x{CPU.GetWord(Address):X4}   Characters = '{ESCAPE_BYTE(CByte((Word And &HFF00%) >> &H8%))}{ESCAPE_BYTE(CByte(Word And &HFF%))}'{NewLine}"
+      Return $"Byte = 0x{Memory(Address):X2}   Word = 0x{CPU.GetWord(Address):X4}   Characters = '{ESCAPE_BYTE(CByte((Word And &HFF00%) >> &H8%))}{ESCAPE_BYTE(CByte(Word And &HFF%))}'{NewLine}"
    End Function
 
    'This procedure returns the emulated CPU register with the specified name.
@@ -549,7 +551,7 @@ Public Module CoreModule
          Dim StringV As New StringBuilder
 
          For Position As Integer = &H0% To Length - &H1%
-            StringV.Append(ToChar(CPU.Memory((((Segment << &H4%) + Offset) + Position) And ADDRESS_MASK)))
+            StringV.Append(ToChar(Memory((((Segment << &H4%) + Offset) + Position) And MemoryClass.ADDRESS_MASK)))
          Next Position
 
          Return StringV.ToString()
@@ -566,8 +568,8 @@ Public Module CoreModule
          Dim Position As Integer = (Segment << &H4%) + Offset
          Dim StringZ As New StringBuilder
 
-         Do Until CPU.Memory(Position And ADDRESS_MASK) = &H0%
-            StringZ.Append(ToChar(CPU.Memory(Position And ADDRESS_MASK)))
+         Do Until Memory(Position And MemoryClass.ADDRESS_MASK) = &H0%
+            StringZ.Append(ToChar(Memory(Position And MemoryClass.ADDRESS_MASK)))
             Position += &H1%
          Loop
 
@@ -585,9 +587,9 @@ Public Module CoreModule
          Dim Binary As New List(Of Byte)(File.ReadAllBytes(FileName))
          Dim Success As Boolean = True
 
-         If Offset + Binary.Count <= CPU.Memory.Length Then
+         If Offset + Binary.Count <= Memory.Length Then
             Output.AppendText($"Loading ""{FileName}"" ({Binary.Count:X8} bytes) at address {Offset:X8}.{NewLine}")
-            Binary.CopyTo(CPU.Memory, Offset)
+            Memory.PutRange(Offset, Binary.ToArray)
          Else
             Output.AppendText($"""{FileName}"" does not fit inside the emulated memory.{NewLine}")
             Success = False
@@ -771,7 +773,7 @@ Public Module CoreModule
                      Case "IRET"
                         CPU.ExecuteOpcode(OpcodesE.IRET)
                      Case "L"
-                        Address = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + (CPU.Registers(Registers16BitE.DI)) And ADDRESS_MASK
+                        Address = (CPU.Registers(SegmentRegistersE.DS) << &H4%) + (CPU.Registers(Registers16BitE.DI)) And MemoryClass.ADDRESS_MASK
                         FileName = If(Operands Is Nothing, RequestFileName("Load binary."), Operands)
                         If Not FileName = Nothing Then Success = LoadBinary(FileName, CInt(Address))
                      Case "M", "MD", "MT"
@@ -785,10 +787,10 @@ Public Module CoreModule
 
                         If Address Is Nothing Then
                            Output.AppendText($"Invalid or no address specified. CS:IP used instead.{NewLine}")
-                           Address = (CPU.Registers(SegmentRegistersE.CS) << &H4%) + CPU.Registers(Registers16BitE.IP) And ADDRESS_MASK
+                           Address = (CPU.Registers(SegmentRegistersE.CS) << &H4%) + CPU.Registers(Registers16BitE.IP) And MemoryClass.ADDRESS_MASK
                         End If
 
-                        Output.AppendText(If(Input.ToUpper().StartsWith("MD"), Disassemble(CPU.Memory, CInt(Address), Count), GetMemoryDump(AllHexadecimal:=Not Input.ToUpper().StartsWith("MT"), CInt(Address), Count)))
+                        Output.AppendText(If(Input.ToUpper().StartsWith("MD"), Disassemble(Memory.AsArray, CInt(Address), Count), GetMemoryDump(AllHexadecimal:=Not Input.ToUpper().StartsWith("MT"), CInt(Address), Count)))
                      Case "MA"
                         Parsed.Remainder = Input
                         Parsed = ParseElement(Parsed.Remainder.Trim(), Start:=" "c, Ending:=" "c)
@@ -832,7 +834,7 @@ Public Module CoreModule
                      Case "MS"
                         FileName = If(Operands Is Nothing, RequestFileName("Save memory.", Save:=True), Operands)
                         If Not FileName = Nothing Then
-                           File.WriteAllBytes(FileName, CPU.Memory)
+                           File.WriteAllBytes(FileName, Memory.AsArray)
                            Output.AppendText($"Memory saved to ""{FileName}"".{NewLine}")
                            Success = True
                         End If
@@ -865,6 +867,7 @@ Public Module CoreModule
                            PC_Speaker.Enabled = False
                         End If
 
+                        Memory = New MemoryClass
                         MSDOS = New MSDOSClass
                         PIC = New PICClass
                         PIT.HighPrecisionTimer.ClockToken.Cancel()
@@ -936,6 +939,12 @@ Public Module CoreModule
                         CPU.ClockToken.Cancel()
                         CPU.Tracing = False
                         Output.AppendText($"Tracing {If(CPU.Clock.Status = TaskStatus.Running, "stopped.", " is not active.")}{NewLine}")
+                     Case "VOLUME"
+                        If Operands Is Nothing Then
+                           Output.AppendText($"{PC_Speaker.Volume}{NewLine}")
+                        Else
+                           PC_Speaker.Volume = CShort(Operands)
+                        End If
                      Case "WAIT"
                         If CPU.Clock.Status = TaskStatus.Running Then
                            Output.AppendText($"Waiting for CPU to stop...{NewLine}")
@@ -1072,10 +1081,10 @@ Public Module CoreModule
          Dim Offset As Integer = Address And &HFFFF%
          Dim Segment As Integer = Address And &HF0000%
 
-         CPU.Memory(Segment + Offset) = CByte(DWord And &HFF%)
-         CPU.Memory(Segment + ((Offset + &H1%) And &HFFFF%)) = CByte((DWord And &HFF00%) >> &H8%)
-         CPU.Memory(Segment + ((Offset + &H2%) And &HFFFF%)) = CByte((DWord And &HFF0000%) >> &H10%)
-         CPU.Memory(Segment + ((Offset + &H3%) And &HFFFF%)) = CByte((DWord And &HFF000000%) >> &H18%)
+         Memory(Segment + Offset) = CByte(DWord And &HFF%)
+         Memory(Segment + ((Offset + &H1%) And &HFFFF%)) = CByte((DWord And &HFF00%) >> &H8%)
+         Memory(Segment + ((Offset + &H2%) And &HFFFF%)) = CByte((DWord And &HFF0000%) >> &H10%)
+         Memory(Segment + ((Offset + &H3%) And &HFFFF%)) = CByte((DWord And &HFF000000%) >> &H18%)
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
@@ -1156,7 +1165,7 @@ Public Module CoreModule
    Private Sub ScreenRefresh_Tick(sender As Object, e As EventArgs) Handles ScreenRefresh.Tick
       Try
          Dim AdapterVideoMode As VideoModesE = VideoAdapterToVideoMode()
-         Dim MemoryVideoMode As VideoModesE = DirectCast(CPU.Memory(AddressesE.VideoMode), VideoModesE)
+         Dim MemoryVideoMode As VideoModesE = DirectCast(Memory(AddressesE.VideoMode), VideoModesE)
 
          If VideoModesEquivalent(MCC.CurrentVideoMode, MemoryVideoMode) Then
             If ScreenWindow.Visible Then
@@ -1177,16 +1186,19 @@ Public Module CoreModule
          Dim Found As Boolean = False
          Dim NextOffset As New Integer
 
-         NextOffset = FindBytes(CPU.Memory, Bytes)
+         StopSearch = False
+
+         NextOffset = FindBytes(Memory.AsArray, Bytes)
 
          If NextOffset >= 0 Then
             Output.AppendText($"Found at:{NewLine}")
             Found = True
          End If
 
-         Do While NextOffset >= 0
+         Do While NextOffset >= 0 AndAlso Application.OpenForms.Count > 0 AndAlso Not StopSearch
             Output.AppendText($"{NextOffset:X8}{NewLine}")
-            NextOffset = FindBytes(CPU.Memory, Bytes, NextOffset + Bytes.Length)
+            Application.DoEvents()
+            NextOffset = FindBytes(Memory.AsArray, Bytes, NextOffset + Bytes.Length)
          Loop
 
          If Not Found Then
@@ -1342,7 +1354,7 @@ Public Module CoreModule
    'This procedure writes the specified bytes to memory at the specified address and returns the last address written to.
    Public Function WriteBytesToMemory(Bytes() As Byte, Address As Integer) As Integer
       Try
-         Array.Copy(Bytes, &H0%, CPU.Memory, Address, Bytes.Count)
+         Memory.PutRange(Address, Bytes)
 
          Return Address + Bytes.Count
       Catch ExceptionO As Exception
@@ -1356,7 +1368,7 @@ Public Module CoreModule
    Public Function WriteStringToMemory([String] As String, Address As Integer) As Integer
       Try
          For Each Character As Char In [String].ToCharArray()
-            CPU.Memory(Address) = ToByte(Character)
+            Memory(Address) = ToByte(Character)
             Address += &H1%
          Next Character
 
@@ -1372,7 +1384,7 @@ Public Module CoreModule
    Private Sub WriteValueToMemory(NewValue As Integer, Address As Integer, Is8Bit As Boolean)
       Try
          If Is8Bit Then
-            CPU.Memory(Address) = CByte(NewValue And &HFF%)
+            Memory(Address) = CByte(NewValue And &HFF%)
          Else
             CPU.PutWord(Address, NewValue)
          End If

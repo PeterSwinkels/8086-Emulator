@@ -103,19 +103,24 @@ Public Class InterfaceWindow
    'This procedure handles the user's keystrokes.
    Private Sub InterfaceWindow_KeyUp(sender As Object, e As KeyEventArgs) Handles MyBase.KeyUp
       Try
-         If Not LastCommand = Nothing Then
-            If Not (e.Alt OrElse e.Control OrElse e.Shift) Then
-               Select Case e.KeyCode
-                  Case Keys.F3
-                     CommandBox.Text = LastCommand
-                     CommandBox.Select(CommandBox.Text.Length, 0)
-                  Case Keys.F5
-                     CommandBox.Text = LastCommand
-                     CommandBox.Select(CommandBox.Text.Length, 0)
-                     EnterButton.PerformClick()
-               End Select
-            End If
-         End If
+         Select Case e.KeyCode
+            Case Keys.Escape
+               StopSearch = True
+            Case Else
+               If Not LastCommand = Nothing Then
+                  If Not (e.Alt OrElse e.Control OrElse e.Shift) Then
+                     Select Case e.KeyCode
+                        Case Keys.F3
+                           CommandBox.Text = LastCommand
+                           CommandBox.Select(CommandBox.Text.Length, 0)
+                        Case Keys.F5
+                           CommandBox.Text = LastCommand
+                           CommandBox.Select(CommandBox.Text.Length, 0)
+                           EnterButton.PerformClick()
+                     End Select
+                  End If
+               End If
+         End Select
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)
       End Try
