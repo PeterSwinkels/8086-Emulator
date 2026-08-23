@@ -13,7 +13,6 @@ Public Class VGA320x200Class
    Implements VideoAdapterClass
 
    Private Const HEIGHT As Integer = 200     'Defines the graphic mode's height in pixels.
-   Private Const SCALING As Integer = &H3%   'Defines the scale factor.
    Private Const WIDTH As Integer = 320      'Defines the graphic mode's width in pixels.
 
    'This procedure clears video adapter's buffer.
@@ -29,7 +28,7 @@ Public Class VGA320x200Class
    End Sub
 
    'This procedure draws the specified video buffer's context on the specified image.
-   Public Sub Display(Screen As Image, Memory() As Byte, ByRef CodePage() As Integer) Implements VideoAdapterClass.Display
+   Public Sub Display(Screen As Image, Memory() As Byte) Implements VideoAdapterClass.Display
       Dim GraphicsO As Graphics = Nothing
 
       Try
@@ -38,7 +37,7 @@ Public Class VGA320x200Class
          With GraphicsO
             For y As Integer = 0 To HEIGHT - 1
                For x As Integer = 0 To WIDTH - 1
-                  .FillRectangle(VGA.VGABrushes(Memory(AddressesE.VGABuffer + ((y * WIDTH) + x))), x * SCALING, y * SCALING, SCALING, SCALING)
+                  .FillRectangle(VGA.VGABrushes(Memory(AddressesE.VGABuffer + ((y * WIDTH) + x))), x * MCC.Scaling, y * MCC.Scaling, MCC.Scaling, MCC.Scaling)
                Next x
             Next y
          End With
@@ -88,7 +87,7 @@ Public Class VGA320x200Class
 
    'This procedure returns the screen size used by a video adapter.
    Public Function Resolution() As Size Implements VideoAdapterClass.Resolution
-      Return New Size(WIDTH * SCALING, HEIGHT * SCALING)
+      Return New Size(WIDTH * MCC.Scaling, HEIGHT * MCC.Scaling)
    End Function
 
    'This procedure scrolls the video adapter's buffer.

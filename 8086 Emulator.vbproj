@@ -121,7 +121,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CGA640x200.vb" />
-    <Compile Include="Code Pages.vb" />
     <Compile Include="DMA.vb" />
     <Compile Include="EGA.vb" />
     <Compile Include="Hercules.vb" />

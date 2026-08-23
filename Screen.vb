@@ -49,7 +49,7 @@ Public Class ScreenWindow
                ScreenBox.Image = New Bitmap(Me.ClientSize.Width, Me.ClientSize.Height)
             End If
 
-            Await Task.Run(Sub() VideoAdapter.Display(Me.ScreenBox.Image, Memory.AsArray, CODE_PAGE_437))
+            Await Task.Run(Sub() VideoAdapter.Display(Me.ScreenBox.Image, Memory.AsArray))
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)

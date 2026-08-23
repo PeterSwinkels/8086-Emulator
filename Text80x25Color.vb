@@ -16,7 +16,6 @@ Public Class Text80x25ColorClass
    Implements VideoAdapterClass
 
    Private Const BLINK_BITMASK As Integer = &H80%   'Defines the character blink attribute bit.
-   Private Const SCALING As Integer = &H2%          'Defines the scale factor.
    Private Const SCANLINE_COUNT As Integer = &HE%   'Defines the number of scanlines per character.
 
    Private ReadOnly COLORS() As Color = {Color.Black, Color.DarkBlue, Color.DarkGreen, Color.DarkCyan, Color.DarkRed, Color.Purple, Color.Brown, Color.DarkGray, Color.Gray, Color.Blue, Color.LimeGreen, Color.Cyan, Color.Red, Color.Magenta, Color.Yellow, Color.White}  'Defines the colors.
@@ -47,7 +46,7 @@ Public Class Text80x25ColorClass
    End Sub
 
    'This procedure draws the specified video buffer's context on the specified image.
-   Public Sub Display(Screen As Image, Memory() As Byte, ByRef CodePage() As Integer) Implements VideoAdapterClass.Display
+   Public Sub Display(Screen As Image, Memory() As Byte) Implements VideoAdapterClass.Display
       Dim Attribute As New Byte
       Dim BitSet(,,) As Boolean = GetCharacterBits()
       Dim CharacterColor As Brush = Nothing
@@ -69,7 +68,7 @@ Public Class Text80x25ColorClass
                Else
                   Attribute = ToByte(Memory(Position + &H1%) \ &H10%)
                End If
-               .FillRectangle(EGA.EGABrushes(Attribute), Target.X * SCALING, Target.Y * SCALING, CHARACTER_SIZE.Width * SCALING, CHARACTER_SIZE.Height * SCALING)
+               .FillRectangle(EGA.EGABrushes(Attribute), Target.X * MCC.Scaling, Target.Y * MCC.Scaling, CHARACTER_SIZE.Width * MCC.Scaling, CHARACTER_SIZE.Height * MCC.Scaling)
 
                If Target.X < TEXT_SCREEN_SIZE.Width - CHARACTER_SIZE.Width Then
                   Target.X += CHARACTER_SIZE.Width
@@ -92,7 +91,7 @@ Public Class Text80x25ColorClass
                      Shift = &H7%
                      For Bit As Integer = &H0% To &H7%
                         If BitSet(Index, y, Bit) Then
-                           .FillRectangle(CharacterColor, (Target.X + Shift) * SCALING, ((Target.Y + y) * SCALING) + CInt(SCALING * 1.6), SCALING, SCALING)
+                           .FillRectangle(CharacterColor, (Target.X + Shift) * MCC.Scaling, ((Target.Y + y) * MCC.Scaling) + CInt(MCC.Scaling * 1.6), MCC.Scaling, MCC.Scaling)
                         End If
                         Shift -= &H1%
                      Next Bit
@@ -109,7 +108,7 @@ Public Class Text80x25ColorClass
 
             If (Not Cursor.Off) AndAlso Cursor.Visible Then
                Attribute = ToByte(Memory((AddressesE.Text80x25ColorBuffer + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)) + &H1%) And &HF%)
-               .FillRectangle(EGA.EGABrushes(Attribute), Cursor.X * CHARACTER_SIZE.Width, (Cursor.Y * CHARACTER_SIZE.Height) + (CursorScanlineStart * PIXELS_PER_SCANLINE) - &H4%, CHARACTER_SIZE.Width, (CursorScanlineEnd * PIXELS_PER_SCANLINE) - (CursorScanlineStart * PIXELS_PER_SCANLINE))
+               .FillRectangle(EGA.EGABrushes(Attribute), (Cursor.X * CHARACTER_SIZE.Width) * MCC.Scaling, ((Cursor.Y * CHARACTER_SIZE.Height) + (CursorScanlineStart * PIXELS_PER_SCANLINE) - &H4%) * MCC.Scaling, CHARACTER_SIZE.Width * MCC.Scaling, ((CursorScanlineEnd * PIXELS_PER_SCANLINE) - (CursorScanlineStart * PIXELS_PER_SCANLINE)) * MCC.Scaling)
             End If
          End With
       Catch
@@ -162,7 +161,7 @@ Public Class Text80x25ColorClass
 
    'This procedure returns the screen size used by a video adapter.
    Public Function Resolution() As Size Implements VideoAdapterClass.Resolution
-      Return New Size(TEXT_SCREEN_SIZE.Width * SCALING, TEXT_SCREEN_SIZE.Height * SCALING)
+      Return New Size(TEXT_SCREEN_SIZE.Width * MCC.Scaling, TEXT_SCREEN_SIZE.Height * MCC.Scaling)
    End Function
 
    'This procedure scrolls the video adapter's buffer.

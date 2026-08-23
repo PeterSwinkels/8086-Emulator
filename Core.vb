@@ -890,6 +890,12 @@ Public Module CoreModule
                            PC_Speaker.SetFrequency(Nothing)
                            PC_Speaker.Enabled = False
                         End If
+                     Case "SCALING"
+                        If Operands Is Nothing Then
+                           Output.AppendText($"{MCC.Scaling}{NewLine}")
+                        Else
+                           MCC.Scaling = ToInt32(Operands)
+                        End If
                      Case "SCO"
                         FileName = If(Operands Is Nothing, RequestFileName("Save console output.", Save:=True), Operands)
                         If Not FileName = Nothing Then
@@ -943,7 +949,7 @@ Public Module CoreModule
                         If Operands Is Nothing Then
                            Output.AppendText($"{PC_Speaker.Volume}{NewLine}")
                         Else
-                           PC_Speaker.Volume = CShort(Operands)
+                           PC_Speaker.Volume = ToInt16(Operands)
                         End If
                      Case "WAIT"
                         If CPU.Clock.Status = TaskStatus.Running Then

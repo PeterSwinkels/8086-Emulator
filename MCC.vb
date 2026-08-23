@@ -56,10 +56,11 @@ Public Class MCCClass
    Public ActivePalette(&H0% To &H3%) As Color                                                    'Contains the active palette.
    Public BlinkingOn As Boolean = True                                                            'Incidates whether or not blinking colors are enabled.
    Public CurrentVideoMode As New VideoModesE                                                     'Contains the current video mode.
+   Public HerculesGraphicsOn As Boolean = False                                                   'Indicates whether or not Hercules graphics are on.
    Public IsMDA As Boolean = True                                                                 'Indicates whether or not an MDA will be emulated.
    Public PaintBrushes(&H0% To &H3%) As Brush                                                     'Contains the paint brushes created using the active palette.
+   Public Scaling As Integer = 2                                                                  'Contains the scaling factor used for the emulated screen.
    Public SelectedRegister As New RegistersE                                                      'Contains the selected register.
-   Public HerculesGraphicsOn As Boolean = False                                                   'Indicates whether or not Hercules graphics are on.
    Private IntenseColors As Boolean = True                                                         'Indicates whether or not intense colors are turned on.
    Private MDACGAStatusToggle As New Boolean                                                       'Indicates what value the MDA and CGA status ports return.
    Private RegisterValue(RegistersE.HorizontalTotalCharacters To RegistersE.LightPenLSB) As Byte   'Contains the register values.

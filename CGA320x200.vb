@@ -5,7 +5,6 @@ Option Infer Off
 Option Strict On
 
 Imports Emulator8086Program.CPU8086Class
-Imports System
 Imports System.Drawing
 
 'This class emulates the CGA 320x200 video mode.
@@ -15,7 +14,6 @@ Public Class CGA320x200Class
    Private Const HEIGHT As Integer = 200             'Defines the graphic mode's height in pixels.
    Private Const INVERT_BIT As Integer = &H80%       'Defines the inverted character color bit.
    Private Const PIXELS_PER_BYTE As Integer = &H4%   'Defines the number of pixels per byte.
-   Private Const SCALING As Integer = &H2%           'Defines the scale factor.
    Private Const WIDTH As Integer = 320              'Defines the graphic mode's width in pixels.
 
    'This procedure clears video adapter's buffer.
@@ -31,7 +29,7 @@ Public Class CGA320x200Class
    End Sub
 
    'This procedure draws the specified video buffer's context on the specified image.
-   Public Sub Display(Screen As Image, Memory() As Byte, ByRef CodePage() As Integer) Implements VideoAdapterClass.Display
+   Public Sub Display(Screen As Image, Memory() As Byte) Implements VideoAdapterClass.Display
       Dim BaseX As New Integer
       Dim GraphicsO As Graphics = Nothing
       Dim Index As New Integer
@@ -50,7 +48,7 @@ Public Class CGA320x200Class
                      For Pixel As Integer = &H0% To PIXELS_PER_BYTE - &H1%
                         Shift = Pixel * &H2%
                         Index = ((Memory(Position) And (&H3% << Shift)) >> Shift)
-                        .FillRectangle(MCC.PaintBrushes(Index), (BaseX - Pixel) * SCALING, (y1 + y2) * SCALING, SCALING, SCALING)
+                        .FillRectangle(MCC.PaintBrushes(Index), (BaseX - Pixel) * MCC.Scaling, (y1 + y2) * MCC.Scaling, MCC.Scaling, MCC.Scaling)
                      Next Pixel
                      Position += &H1%
                   Next x
@@ -122,7 +120,7 @@ Public Class CGA320x200Class
 
    'This procedure returns the screen size used by a video adapter.
    Public Function Resolution() As Size Implements VideoAdapterClass.Resolution
-      Return New Size(WIDTH * SCALING, HEIGHT * SCALING)
+      Return New Size(WIDTH * MCC.Scaling, HEIGHT * MCC.Scaling)
    End Function
 
    'This procedure scrolls the video adapter's buffer.

@@ -14,8 +14,6 @@ Public Class HerculesClass
    Private Const BANK_SIZE As Integer = &H2000%         'Defines the graphics mode's memory bank size.
    Private Const HEIGHT As Integer = 348                'Defines the graphics mode's height in pixels.
    Private Const PIXELS_PER_BYTE As Integer = &H8%      'Defines the number of pixels per byte.
-   Private Const HORIZONTAL_SCALING As Integer = &H2%   'Defines the horizontal scale factor.
-   Private Const VERTICAL_SCALING As Integer = &H2%     'Defines the vertical scale factor.
    Private Const WIDTH As Integer = 720                 'Defines the graphics mode's width in pixels.
 
    Private ReadOnly BLACK_BRUSH As New SolidBrush(Color.Black)   'Defines a black brush.
@@ -34,7 +32,7 @@ Public Class HerculesClass
    End Sub
 
    'This procedure draws the specified video buffer's context on the specified image.
-   Public Sub Display(Screen As Image, Memory() As Byte, ByRef CodePage() As Integer) Implements VideoAdapterClass.Display
+   Public Sub Display(Screen As Image, Memory() As Byte) Implements VideoAdapterClass.Display
       Dim Bank As New Integer
       Dim Bit As New Integer
       Dim ByteOffset As New Integer
@@ -55,7 +53,7 @@ Public Class HerculesClass
                   Position = AddressesE.HerculesBuffer + (Bank * BANK_SIZE) + RowOffset + ByteOffset
                   Bit = &H7% - (x Mod PIXELS_PER_BYTE)
                   PixelOff = ((Memory(Position) And (&H1% << Bit)) = &H0%)
-                  .FillRectangle(If(PixelOff, BLACK_BRUSH, WHITE_BRUSH), x * HORIZONTAL_SCALING, y * VERTICAL_SCALING, HORIZONTAL_SCALING, VERTICAL_SCALING)
+                  .FillRectangle(If(PixelOff, BLACK_BRUSH, WHITE_BRUSH), x * MCC.Scaling, y * MCC.Scaling, MCC.Scaling, MCC.Scaling)
                Next x
             Next y
          End With
@@ -79,7 +77,7 @@ Public Class HerculesClass
 
    'This procedure returns the screen size used by a video adapter.
    Public Function Resolution() As Size Implements VideoAdapterClass.Resolution
-      Return New Size(WIDTH * HORIZONTAL_SCALING, HEIGHT * VERTICAL_SCALING)
+      Return New Size(WIDTH * MCC.Scaling, HEIGHT * MCC.Scaling)
    End Function
 
    'This procedure is ignored.

@@ -5,7 +5,6 @@ Option Infer Off
 Option Strict On
 
 Imports Emulator8086Program.CPU8086Class
-Imports System
 Imports System.Drawing
 
 'This class emulates the CGA 640x200 video mode.
@@ -14,8 +13,6 @@ Public Class CGA640x200Class
 
    Private Const HEIGHT As Integer = 200                'Defines the graphics mode's height in pixels.
    Private Const PIXELS_PER_BYTE As Integer = &H8%      'Defines the number of pixels per byte.
-   Private Const HORIZONTAL_SCALING As Integer = &H1%   'Defines the horizontal scale factor.
-   Private Const VERTICAL_SCALING As Integer = &H2%     'Defines the vertical scale factor.
    Private Const WIDTH As Integer = 640                 'Defines the graphics mode's width in pixels.
 
    Private ReadOnly BLACK_BRUSH As New SolidBrush(Color.Black)   'Defines a black brush.
@@ -34,7 +31,7 @@ Public Class CGA640x200Class
    End Sub
 
    'This procedure draws the specified video buffer's context on the specified image.
-   Public Sub Display(Screen As Image, Memory() As Byte, ByRef CodePage() As Integer) Implements VideoAdapterClass.Display
+   Public Sub Display(Screen As Image, Memory() As Byte) Implements VideoAdapterClass.Display
       Dim BaseX As New Integer
       Dim GraphicsO As Graphics = Nothing
       Dim PixelOff As New Boolean
@@ -51,7 +48,7 @@ Public Class CGA640x200Class
                      BaseX = x + (PIXELS_PER_BYTE - &H1%)
                      For Pixel As Integer = &H0% To PIXELS_PER_BYTE - &H1%
                         PixelOff = (((Memory(Position) And (&H1% << Pixel)) >> Pixel) = &H0%)
-                        .FillRectangle(If(PixelOff, BLACK_BRUSH, WHITE_BRUSH), (BaseX - Pixel) * HORIZONTAL_SCALING, (y1 + y2) * VERTICAL_SCALING, HORIZONTAL_SCALING, VERTICAL_SCALING)
+                        .FillRectangle(If(PixelOff, BLACK_BRUSH, WHITE_BRUSH), (BaseX - Pixel) * MCC.Scaling, (y1 + y2) * MCC.Scaling, MCC.Scaling, MCC.Scaling)
                      Next Pixel
                      Position += &H1%
                   Next x
@@ -108,7 +105,7 @@ Public Class CGA640x200Class
 
    'This procedure returns the screen size used by a video adapter.
    Public Function Resolution() As Size Implements VideoAdapterClass.Resolution
-      Return New Size(WIDTH * HORIZONTAL_SCALING, HEIGHT * VERTICAL_SCALING)
+      Return New Size(WIDTH * MCC.Scaling, HEIGHT * MCC.Scaling)
    End Function
 
    'This procedure scrolls the video adapter's buffer.
