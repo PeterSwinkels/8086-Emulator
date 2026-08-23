@@ -91,6 +91,8 @@ Public Module IOHandlerModule
       HGCConfigurationSwitch = &H3BF%          'Hercules Graphics Card (HGC) "Configuration Switch".
       VGAVideoDACPELAddress = &H3C8%           'VGA video DAC PEL address.
       VGAVideoDAC = &H3C9%                     'VGA video DAC.
+      VGAGraphicsIndex = &H3CE%                'VGA graphics index.
+      VGAData = &H3CF%                         'VGA data.
       CGA3D0 = &H3D0%                          '6845 CGA.
       CGA3D1 = &H3D1%                          '6845 CGA.
       CGA3D2 = &H3D2%                          '6845 CGA.
@@ -185,6 +187,10 @@ Public Module IOHandlerModule
                Value = &HFF%
             Case IOPortsE.SN76496
                Value = &HFF%
+            Case IOPortsE.VGAData
+               Value = VGA.Register()
+            Case IOPortsE.VGAGraphicsIndex
+               Value = VGA.GraphicsIndex
          End Select
 
          Return Value
@@ -263,12 +269,6 @@ Public Module IOHandlerModule
                Value = RTC.ReadRegister()
             Case IOPortsE.RTCRegisterSelect
                Success = True
-            Case IOPortsE.SN76496
-               Success = True
-            Case IOPortsE.VGAVideoDAC
-               VGA.WriteToDAC(Value)
-            Case IOPortsE.VGAVideoDACPELAddress
-               VGA.SelectAddress(Value)
             Case IOPortsE.Reserved1 To IOPortsE.Reserved2,
                  IOPortsE.Reserved3 To IOPortsE.Reserved4,
                  IOPortsE.Reserved5 To IOPortsE.Reserved6,
@@ -282,6 +282,16 @@ Public Module IOHandlerModule
                Success = True
             Case IOPortsE.SDLC38A To IOPortsE.SDLC38B
                Success = True
+            Case IOPortsE.SN76496
+               Success = True
+            Case IOPortsE.VGAData
+               VGA.Register(NewValue:=Value)
+            Case IOPortsE.VGAVideoDAC
+               VGA.WriteToDAC(Value)
+            Case IOPortsE.VGAVideoDACPELAddress
+               VGA.SelectAddress(Value)
+            Case IOPortsE.VGAGraphicsIndex
+               VGA.GraphicsIndex = Value
             Case Else
                Success = False
          End Select

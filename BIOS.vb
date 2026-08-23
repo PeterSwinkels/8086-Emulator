@@ -28,6 +28,7 @@ Public Module BIOSModule
       CRTModeControlRegisterValue = &H465%   'CRT mode control register value.
       CursorPositions = &H450%               'Cursor positions.
       CursorScanLines = &H460%               'Cursor scan line start/end.
+      DCC = &H48A%                           'Display Combination Code.
       EquipmentFlags = &H410%                'Equipment flags.
       ExtendedCharacters = &HC0000%          'Extended character bitmaps.
       HerculesBuffer = &HB0000%              'Hercules video buffer.
@@ -139,14 +140,17 @@ Public Module BIOSModule
          If MCC.IsMDA Then
             MCC.CurrentVideoMode = VideoModesE.Text80x25Mono_Hercules
             VideoAdapter = New Text80x25MonoClass
-            CPU.PutWord(AddressesE.EquipmentFlags, INITIAL_MODE_FLAGS_MDA)
+
             Memory(AddressesE.VideoMode) = MCC.CurrentVideoMode
+            CPU.PutWord(AddressesE.EquipmentFlags, INITIAL_MODE_FLAGS_MDA)
             CPU.PutWord(AddressesE.CRTControllerBasePort, IOPortsE.MDAIndex)
          Else
             MCC.CurrentVideoMode = VideoModesE.Text80x25Color
             VideoAdapter = New Text80x25ColorClass
-            CPU.PutWord(AddressesE.EquipmentFlags, INITIAL_MODE_FLAGS_NOT_MDA)
+
+            Memory(AddressesE.DCC) = &HB%
             Memory(AddressesE.VideoMode) = MCC.CurrentVideoMode
+            CPU.PutWord(AddressesE.EquipmentFlags, INITIAL_MODE_FLAGS_NOT_MDA)
             CPU.PutWord(AddressesE.CRTControllerBasePort, IOPortsE.CGAIndex)
 
             Address = EXTENDED_CHARACTERS_VECTOR * &H4%

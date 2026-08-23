@@ -271,33 +271,40 @@ Public Module InterruptHandlerModule
                      End Select
                      Success = True
                   Case &H12%
-                     Select Case MCC.CurrentVideoMode
-                        Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray
-                           Success = True
-                        Case VideoModesE.Text80x25Mono_Hercules
-                           Success = True
-                     End Select
+                     If MCC.IsMDA Then
+                        Success = True
+                     Else
+                        Select Case CPU.Registers(SubRegisters8BitE.BL)
+                           Case &H10%
+                              CPU.Registers(Registers16BitE.BX, NewValue:=&H3%)
+                              CPU.Registers(Registers16BitE.CX, NewValue:=&H9%)
+                              Success = True
+                           Case &H20%
+                              Success = True
+                        End Select
+                     End If
                   Case &H13%
                      WriteString()
                      Success = True
                   Case &H18%, &H19%
                      Success = True
                   Case &H1A%
-                     CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1A%)
+                     If Not MCC.IsMDA Then
+                        CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1A%)
+                        CPU.Registers(Registers16BitE.BX, NewValue:=&H8%)
+                     End If
                      Success = True
                   Case &H1B%
-                     Select Case MCC.CurrentVideoMode
-                        Case VideoModesE.Text80x25Mono_Hercules
-                        Case Else
-                           If CPU.Registers(Registers16BitE.BX) = &H0% Then
-                              CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1B%)
-                              Address = (CPU.Registers(SegmentRegistersE.ES) << &H4%)
-                              Position = CPU.Registers(Registers16BitE.DI)
-                              For Each [Byte] As Byte In VGA.GetDynamicFunctionality()
-                                 Memory(Address + (Position And &HFFFF%)) = [Byte]
-                              Next [Byte]
-                           End If
-                     End Select
+                     If Not MCC.IsMDA Then
+                        If CPU.Registers(Registers16BitE.BX) = &H0% Then
+                           CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1B%)
+                           Address = (CPU.Registers(SegmentRegistersE.ES) << &H4%)
+                           Position = CPU.Registers(Registers16BitE.DI)
+                           For Each [Byte] As Byte In VGA.GetDynamicFunctionality()
+                              Memory(Address + (Position And &HFFFF%)) = [Byte]
+                           Next [Byte]
+                        End If
+                     End If
                      Success = True
                   Case &H1C%
                      Select Case MCC.CurrentVideoMode
