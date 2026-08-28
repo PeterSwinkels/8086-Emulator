@@ -91,7 +91,7 @@ Public Class Text80x25ColorClass
                      Shift = &H7%
                      For Bit As Integer = &H0% To &H7%
                         If BitSet(Index, y, Bit) Then
-                           .FillRectangle(CharacterColor, (Target.X + Shift) * MCC.Scaling, ((Target.Y + y) * MCC.Scaling) + CInt(MCC.Scaling * 1.6), MCC.Scaling, MCC.Scaling)
+                           .FillRectangle(CharacterColor, (Target.X + Shift) * MCC.Scaling, CInt(Target.Y + y * 1.5) * MCC.Scaling, MCC.Scaling, CInt(1.5 * MCC.Scaling + (MCC.Scaling * 0.6)))
                         End If
                         Shift -= &H1%
                      Next Bit

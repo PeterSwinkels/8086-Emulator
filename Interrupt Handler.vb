@@ -238,6 +238,8 @@ Public Module InterruptHandlerModule
                            Success = True
                         Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.VGA320x200
                            Select Case CPU.Registers(SubRegisters8BitE.AL)
+                              Case &H1%
+                                 Success = True
                               Case &H2%
                                  Address = (CPU.Registers(SegmentRegistersE.ES) << &H4%) + CPU.Registers(Registers16BitE.DX)
                                  EGA.SetEntirePalette(Memory.GetRange(Address, Length:=&H10%).ToArray())
@@ -267,6 +269,7 @@ Public Module InterruptHandlerModule
                                  Address = &H1F% * &H4%
                                  CPU.Registers(SegmentRegistersE.ES, NewValue:=CPU.GetWord(Address + &H2%))
                                  CPU.Registers(Registers16BitE.BP, NewValue:=CPU.GetWord(Address))
+                                 CPU.Registers(SubRegisters8BitE.DL, NewValue:=MCC.RowCount)
                            End Select
                      End Select
                      Success = True
@@ -276,7 +279,7 @@ Public Module InterruptHandlerModule
                      Else
                         Select Case CPU.Registers(SubRegisters8BitE.BL)
                            Case &H10%
-                              CPU.Registers(Registers16BitE.BX, NewValue:=&H3%)
+                              CPU.Registers(Registers16BitE.BX, NewValue:=&H0%)
                               CPU.Registers(Registers16BitE.CX, NewValue:=&H9%)
                               Success = True
                            Case &H20%

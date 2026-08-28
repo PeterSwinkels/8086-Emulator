@@ -187,7 +187,7 @@ Public Module CoreModule
          If NewValue Is Nothing Then
             CPU.ClockToken.Cancel()
             SyncLock SYNCHRONIZER
-               CPU_EVENT.Append($"IN {If(Is8Bit, "AL", "AX")}, {Port:X}{NewLine}")
+               CPU_EVENT.Append($"IN {If(Is8Bit, "AL", "AX")}, {If(Is8Bit, $"{Port:X}", $"{Port:X}-{Port + &H1%:X}")}{NewLine}")
             End SyncLock
          Else
             Value = CInt(NewValue)
@@ -281,7 +281,7 @@ Public Module CoreModule
          If Not If(Is8Bit, WriteIOPort(Port, Value), WriteIOPort(Port, Value >> &H8%) AndAlso WriteIOPort(Port + &H1%, Value And &HFF%)) Then
             CPU.ClockToken.Cancel()
             SyncLock SYNCHRONIZER
-               CPU_EVENT.Append($"OUT {Port:X}, {If(Is8Bit, $"{Value:X2}", $"{Value:X4}")}{NewLine}")
+               CPU_EVENT.Append($"OUT {If(Is8Bit, $"{Port:X}", $"{Port:X}-{Port + &H1%:X}")}, {If(Is8Bit, $"{Value:X2}", $"{Value:X4}")}{NewLine}")
             End SyncLock
          End If
       Catch ExceptionO As Exception
@@ -894,7 +894,11 @@ Public Module CoreModule
                         If Operands Is Nothing Then
                            Output.AppendText($"{MCC.Scaling}{NewLine}")
                         Else
-                           MCC.Scaling = ToInt32(Operands)
+                           If ToInt32(Operands) > 0 Then
+                              MCC.Scaling = ToInt32(Operands)
+                           Else
+                              Output.AppendText($"Invalid parameter.{NewLine}")
+                           End If
                         End If
                      Case "SCO"
                         FileName = If(Operands Is Nothing, RequestFileName("Save console output.", Save:=True), Operands)

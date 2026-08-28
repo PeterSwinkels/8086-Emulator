@@ -89,6 +89,8 @@ Public Module IOHandlerModule
       MDAStatus = &H3BA%                       'Status register.
       MDALightPenStrobeReset = &H3BB%          'Light pen strobe reset.
       HGCConfigurationSwitch = &H3BF%          'Hercules Graphics Card (HGC) "Configuration Switch".
+      CGAEGAVGASequencerIndex = &H3C4%         'CGA, EGA, VGA sequencer index.
+      CGAEGAVGASequencerRegister = &H3C5%      'CGA, EGA, VGA sequencer.
       VGAVideoDACPELAddress = &H3C8%           'VGA video DAC PEL address.
       VGAVideoDAC = &H3C9%                     'VGA video DAC.
       VGAGraphicsIndex = &H3CE%                'VGA graphics index.
@@ -126,6 +128,18 @@ Public Module IOHandlerModule
                Value = If(MCC.IsMDA, &HFF%, MCC.Register())
             Case IOPortsE.CGA3D2, IOPortsE.CGA3D3, IOPortsE.CGAColor, IOPortsE.CGAMode, IOPortsE.CGALightPenStrobeReset, IOPortsE.CGAPresetLightPenLatch
                Value = &HFF%
+            Case IOPortsE.CGAEGAVGASequencerIndex
+               If MCC.IsMDA Then
+                  Value = &HFF%
+               Else
+                  Value = VGA.SequencerIndex
+               End If
+            Case IOPortsE.CGAEGAVGASequencerRegister
+               If MCC.IsMDA Then
+                  Value = &HFF%
+               Else
+                  Value = VGA.SequencerRegister()
+               End If
             Case IOPortsE.CGAStatus
                Value = If(MCC.IsMDA, &HFF%, MCC.CGAStatus())
             Case IOPortsE.COM13F8 To IOPortsE.COM13FF
@@ -188,9 +202,17 @@ Public Module IOHandlerModule
             Case IOPortsE.SN76496
                Value = &HFF%
             Case IOPortsE.VGAData
-               Value = VGA.Register()
+               If MCC.IsMDA Then
+                  Value = &HFF%
+               Else
+                  Value = VGA.Register()
+               End If
             Case IOPortsE.VGAGraphicsIndex
-               Value = VGA.GraphicsIndex
+               If MCC.IsMDA Then
+                  Value = &HFF%
+               Else
+                  Value = VGA.GraphicsIndex
+               End If
          End Select
 
          Return Value
@@ -219,6 +241,14 @@ Public Module IOHandlerModule
                End If
             Case IOPortsE.CGAColor
                MCC.SelectActivePalette(Value)
+            Case IOPortsE.CGAEGAVGASequencerIndex
+               If Not MCC.IsMDA Then
+                  VGA.SequencerIndex = Value
+               End If
+            Case IOPortsE.CGAEGAVGASequencerRegister
+               If Not MCC.IsMDA Then
+                  VGA.SequencerRegister(NewValue:=Value)
+               End If
             Case IOPortsE.CGAMode
                Success = True
             Case IOPortsE.COM13F8 To IOPortsE.COM13FF
@@ -289,9 +319,13 @@ Public Module IOHandlerModule
             Case IOPortsE.VGAVideoDAC
                VGA.WriteToDAC(Value)
             Case IOPortsE.VGAVideoDACPELAddress
-               VGA.SelectAddress(Value)
+               If Not MCC.IsMDA Then
+                  VGA.SelectAddress(Value)
+               End If
             Case IOPortsE.VGAGraphicsIndex
-               VGA.GraphicsIndex = Value
+               If Not MCC.IsMDA Then
+                  VGA.GraphicsIndex = Value
+               End If
             Case Else
                Success = False
          End Select

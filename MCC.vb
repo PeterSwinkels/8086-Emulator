@@ -6,7 +6,6 @@ Option Strict On
 
 Imports System
 Imports System.Convert
-Imports System.Diagnostics
 Imports System.Drawing
 
 'This class contains the 6845 Motorola CRT Controller's related procedures.

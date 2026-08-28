@@ -22,10 +22,12 @@ Public Class VGAClass
 
 
    Public GraphicsIndex As New Integer              'Contains the VGA graphic's index.
+   Public SequencerIndex As New Integer             'Contains CGA/EGA/VGA sequencer index.
    Public VGABrushes(&H0% To &HFF%) As SolidBrush   'Contains the brushes created using the current palette.
 
-   Private Data(0 To 8) As Integer          'Contains the VGA register's data.
-   Private SelectedAddress As New Integer   'Contains the VGA video DAC PEL address.
+   Private Data(0 To 8) As Integer            'Contains the VGA register's data.
+   Private SelectedAddress As New Integer     'Contains the VGA video DAC PEL address.
+   Private SequencerData(0 To 4) As Integer   'Contains the CGA/EGA/VGA sequencer register's data.
 
    'This procedure manages the data.
    Public Function Register(Optional NewValue As Integer? = Nothing) As Integer
@@ -123,6 +125,15 @@ Public Class VGAClass
    Public Sub SelectAddress(NewAddress As Integer)
       SelectedAddress = NewAddress And &HFF%
    End Sub
+
+   'This procedure manages the sequencer's data.
+   Public Function SequencerRegister(Optional NewValue As Integer? = Nothing) As Integer
+      If NewValue IsNot Nothing AndAlso GraphicsIndex <= SequencerData.GetUpperBound(0) Then
+         SequencerData(GraphicsIndex) = NewValue.Value
+      End If
+
+      Return SequencerData(GraphicsIndex)
+   End Function
 
    'This procedure sets a block of DAC color registers.
    Public Sub SetDACBlock()

@@ -37,6 +37,7 @@ Public Module BIOSModule
       KeyboardBufferTail = &H41C%            'Keyboard buffer tail offset.
       KeyboardBuffer = &H41E%                'Keyboard buffer.
       MachineID = &HFFFFE%                   'Machine ID.
+      RowCount = &H484%                      'Row count.
       Text80x25MonoBuffer = &HB0000%         '80x25 monochrome text video buffer.
       Text80x25ColorBuffer = &HB8000%        '80x25 color text video buffer.
       VGABuffer = &HA0000%                   'VGA video buffer.
@@ -149,6 +150,7 @@ Public Module BIOSModule
             VideoAdapter = New Text80x25ColorClass
 
             Memory(AddressesE.DCC) = &HB%
+            Memory(AddressesE.RowCount) = MCC.RowCount
             Memory(AddressesE.VideoMode) = MCC.CurrentVideoMode
             CPU.PutWord(AddressesE.EquipmentFlags, INITIAL_MODE_FLAGS_NOT_MDA)
             CPU.PutWord(AddressesE.CRTControllerBasePort, IOPortsE.CGAIndex)
