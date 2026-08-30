@@ -89,6 +89,7 @@ Public Module IOHandlerModule
       MDAStatus = &H3BA%                       'Status register.
       MDALightPenStrobeReset = &H3BB%          'Light pen strobe reset.
       HGCConfigurationSwitch = &H3BF%          'Hercules Graphics Card (HGC) "Configuration Switch".
+      VGAAttributeAndSequencer = &H3C0%        'VGA attribute and sequencer register.
       CGAEGAVGASequencerIndex = &H3C4%         'CGA, EGA, VGA sequencer index.
       CGAEGAVGASequencerRegister = &H3C5%      'CGA, EGA, VGA sequencer.
       VGAVideoDACPELAddress = &H3C8%           'VGA video DAC PEL address.
@@ -201,6 +202,12 @@ Public Module IOHandlerModule
                Value = &HFF%
             Case IOPortsE.SN76496
                Value = &HFF%
+            Case IOPortsE.VGAAttributeAndSequencer
+               If MCC.IsMDA Then
+                  Value = &HFF%
+               Else
+                  Value = VGA.AttributeAndSequencerIndex
+               End If
             Case IOPortsE.VGAData
                If MCC.IsMDA Then
                   Value = &HFF%
@@ -314,6 +321,10 @@ Public Module IOHandlerModule
                Success = True
             Case IOPortsE.SN76496
                Success = True
+            Case IOPortsE.VGAAttributeAndSequencer
+               If Not MCC.IsMDA Then
+                  VGA.AttributeAndSequencerIndex = Value
+               End If
             Case IOPortsE.VGAData
                VGA.Register(NewValue:=Value)
             Case IOPortsE.VGAVideoDAC

@@ -1239,6 +1239,8 @@ Public Module CoreModule
                   VideoAdapter = New CGA320x200Class
                Case VideoModesE.CGA640x200
                   VideoAdapter = New CGA640x200Class
+               Case VideoModesE.EGA320x200
+                  VideoAdapter = New EGA320x200Class
                Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray
                   VideoAdapter = New Text80x25ColorClass
                Case VideoModesE.VGA320x200
@@ -1319,6 +1321,8 @@ Public Module CoreModule
                VideoMode = VideoModesE.CGA320x200A
             Case TypeOf VideoAdapter Is CGA640x200Class
                VideoMode = VideoModesE.CGA640x200
+            Case TypeOf VideoAdapter Is EGA320x200Class
+               VideoMode = VideoModesE.EGA320x200
             Case TypeOf VideoAdapter Is HerculesClass
                VideoMode = VideoModesE.Text80x25Mono_Hercules
             Case TypeOf VideoAdapter Is Text80x25ColorClass

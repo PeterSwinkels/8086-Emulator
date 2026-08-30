@@ -29,6 +29,7 @@ Public Module BIOSModule
       CursorPositions = &H450%               'Cursor positions.
       CursorScanLines = &H460%               'Cursor scan line start/end.
       DCC = &H48A%                           'Display Combination Code.
+      EGABuffer = &HA0000%                   'EGA video buffer.
       EquipmentFlags = &H410%                'Equipment flags.
       ExtendedCharacters = &HC0000%          'Extended character bitmaps.
       HerculesBuffer = &HB0000%              'Hercules video buffer.

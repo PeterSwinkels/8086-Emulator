@@ -236,7 +236,7 @@ Public Module InterruptHandlerModule
                      Select Case MCC.CurrentVideoMode
                         Case VideoModesE.Text80x25Mono_Hercules
                            Success = True
-                        Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.VGA320x200
+                        Case VideoModesE.EGA320x200, VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.VGA320x200
                            Select Case CPU.Registers(SubRegisters8BitE.AL)
                               Case &H1%
                                  Success = True
@@ -279,8 +279,9 @@ Public Module InterruptHandlerModule
                      Else
                         Select Case CPU.Registers(SubRegisters8BitE.BL)
                            Case &H10%
-                              CPU.Registers(Registers16BitE.BX, NewValue:=&H0%)
-                              CPU.Registers(Registers16BitE.CX, NewValue:=&H9%)
+                              CPU.Registers(SubRegisters8BitE.BH, NewValue:=If(EGAClass.MONO_MODE, &H1%, &H0%))
+                              CPU.Registers(SubRegisters8BitE.BL, NewValue:=EGAClass.EGA_MEMORY_SIZE)
+                              CPU.Registers(Registers16BitE.CX, NewValue:=EGAClass.EGA_FEATURE_SWITCH_BITS)
                               Success = True
                            Case &H20%
                               Success = True
@@ -303,9 +304,7 @@ Public Module InterruptHandlerModule
                            CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1B%)
                            Address = (CPU.Registers(SegmentRegistersE.ES) << &H4%)
                            Position = CPU.Registers(Registers16BitE.DI)
-                           For Each [Byte] As Byte In VGA.GetDynamicFunctionality()
-                              Memory(Address + (Position And &HFFFF%)) = [Byte]
-                           Next [Byte]
+                           Memory.PutRange(Address, VGA.GetDynamicFunctionality)
                         End If
                      End If
                      Success = True

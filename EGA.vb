@@ -9,6 +9,18 @@ Imports System.Drawing
 
 'This class contains the EGA related procedures.
 Public Class EGAClass
+   'This enumeration lists the supported EGA video memory sizes.
+   Public Enum MemorySizesE As Byte
+      k64   '64 kb.
+      k128  '128 kb.
+      k192  '192 kb.
+      k256  '256 kb.
+   End Enum
+
+   Public Const EGA_FEATURE_SWITCH_BITS As Integer = &HC%            'Defines the feature and switch bits.
+   Public Const EGA_MEMORY_SIZE As MemorySizesE = MemorySizesE.k256  'Defines the reported video memory size.
+   Public Const MONO_MODE As Boolean = False                         'Indicates whether or not mono mode is enabled.
+
    Public EGABrushes As New List(Of SolidBrush)   'Contains the brushes created using the current palette.
 
    'This procedure returns the 6-bit RGB code as a 24-bit RGB color.

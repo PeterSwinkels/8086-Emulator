@@ -13,6 +13,11 @@ Imports System.Linq
 
 'This class contains the VGA related procedures.
 Public Class VGAClass
+   'This enumeration defines the supported sequencer (I/O port 3C4h/3C5h) registers.
+   Public Enum SequencerRegistersE As Integer
+      ActiveBitPlanes = &H2%   'Active bit planes.
+   End Enum
+
    Public STATIC_FUNCTIONALITY_ADDRESS As Integer = &HC2700%   'Defines the static video functionality table address.
    Private DYNAMIC_FUNCTIONALITY_SIZE As Integer = &H40%        'Defines the dynamic video functionality table buffer size.
 
@@ -20,23 +25,14 @@ Public Class VGAClass
    Public ReadOnly VGA_DEFAULT_PALETTE() As Integer = {&H0%, &HA8%, &HA800%, &HA8A8%, &HA80000%, &HA800A8%, &HA85400%, &HA8A8A8%, &H545454%, &H5454FC%, &H54FC54%, &H54FCFC%, &HFC5454%, &HFC54FC%, &HFCFC54%, &HFCFCFC%, &H0%, &H141414%, &H202020%, &H2C2C2C%, &H383838%, &H444444%, &H505050%, &H606060%, &H707070%, &H808080%, &H909090%, &HA0A0A0%, &HB4B4B4%, &HC8C8C8%, &HE0E0E0%, &HFCFCFC%, &HFC%, &H4000FC%, &H7C00FC%, &HBC00FC%, &HFC00FC%, &HFC00BC%, &HFC007C%, &HFC0040%, &HFC0000%, &HFC4000%, &HFC7C00%, &HFCBC00%, &HFCFC00%, &HBCFC00%, &H7CFC00%, &H40FC00%, &HFC00%, &HFC40%, &HFC7C%, &HFCBC%, &HFCFC%, &HBCFC%, &H7CFC%, &H40FC%, &H7C7CFC%, &H9C7CFC%, &HBC7CFC%, &HDC7CFC%, &HFC7CFC%, &HFC7CDC%, &HFC7CBC%, &HFC7C9C%, &HFC7C7C%, &HFC9C7C%, &HFCBC7C%, &HFCDC7C%, &HFCFC7C%, &HDCFC7C%, &HBCFC7C%, &H9CFC7C%, &H7CFC7C%, &H7CFC9C%, &H7CFCBC%, &H7CFCDC%, &H7CFCFC%, &H7CDCFC%, &H7CBCFC%, &H7C9CFC%, &HB4B4FC%, &HC4B4FC%, &HD8B4FC%, &HE8B4FC%, &HFCB4FC%, &HFCB4E8%, &HFCB4D8%, &HFCB4C4%, &HFCB4B4%, &HFCC4B4%, &HFCD8B4%, &HFCE8B4%, &HFCFCB4%, &HE8FCB4%, &HD8FCB4%, &HC4FCB4%, &HB4FCB4%, &HB4FCC4%, &HB4FCD8%, &HB4FCE8%, &HB4FCFC%, &HB4E8FC%, &HB4D8FC%, &HB4C4FC%, &H70%, &H1C0070%, &H380070%, &H540070%, &H700070%, &H700054%, &H700038%, &H70001C%, &H700000%, &H701C00%, &H703800%, &H705400%, &H707000%, &H547000%, &H387000%, &H1C7000%, &H7000%, &H701C%, &H7038%, &H7054%, &H7070%, &H5470%, &H3870%, &H1C70%, &H383870%, &H443870%, &H543870%, &H603870%, &H703870%, &H703860%, &H703854%, &H703844%, &H703838%, &H704438%, &H705438%, &H706038%, &H707038%, &H607038%, &H547038%, &H447038%, &H387038%, &H387044%, &H387054%, &H387060%, &H387070%, &H386070%, &H385470%, &H384470%, &H505070%, &H585070%, &H605070%, &H685070%, &H705070%, &H705068%, &H705060%, &H705058%, &H705050%, &H705850%, &H706050%, &H706850%, &H707050%, &H687050%, &H607050%, &H587050%, &H507050%, &H507058%, &H507060%, &H507068%, &H507070%, &H506870%, &H506070%, &H505870%, &H40%, &H100040%, &H200040%, &H300040%, &H400040%, &H400030%, &H400020%, &H400010%, &H400000%, &H401000%, &H402000%, &H403000%, &H404000%, &H304000%, &H204000%, &H104000%, &H4000%, &H4010%, &H4020%, &H4030%, &H4040%, &H3040%, &H2040%, &H1040%, &H202040%, &H282040%, &H302040%, &H382040%, &H402040%, &H402038%, &H402030%, &H402028%, &H402020%, &H402820%, &H403020%, &H403820%, &H404020%, &H384020%, &H304020%, &H284020%, &H204020%, &H204028%, &H204030%, &H204038%, &H204040%, &H203840%, &H203040%, &H202840%, &H2C2C40%, &H302C40%, &H342C40%, &H3C2C40%, &H402C40%, &H402C3C%, &H402C34%, &H402C30%, &H402C2C%, &H40302C%, &H40342C%, &H403C2C%, &H40402C%, &H3C402C%, &H34402C%, &H30402C%, &H2C402C%, &H2C4030%, &H2C4034%, &H2C403C%, &H2C4040%, &H2C3C40%, &H2C3440%, &H2C3040%, &H0%, &H0%, &H0%, &H0%, &H0%, &H0%, &H0%, &H0%}  'Defines the VGA default palette.
    Private ReadOnly TO_FROM_8_BIT As Double = (&HFF% / &H3F%)   'Defines the value used to/ convert 6-bit values to/from 8-bit values.
 
+   Public AttributeAndSequencerIndex As New Integer   'Contains the VGA attribute and sequencer's index.
+   Public Brushes(&H0% To &HFF%) As SolidBrush        'Contains the brushes created using the current palette.
+   Public GraphicsIndex As New Integer                'Contains the VGA graphic's index.
+   Public SequencerIndex As New Integer               'Contains CGA/EGA/VGA sequencer index.
 
-   Public GraphicsIndex As New Integer              'Contains the VGA graphic's index.
-   Public SequencerIndex As New Integer             'Contains CGA/EGA/VGA sequencer index.
-   Public VGABrushes(&H0% To &HFF%) As SolidBrush   'Contains the brushes created using the current palette.
-
-   Private Data(0 To 8) As Integer            'Contains the VGA register's data.
-   Private SelectedAddress As New Integer     'Contains the VGA video DAC PEL address.
-   Private SequencerData(0 To 4) As Integer   'Contains the CGA/EGA/VGA sequencer register's data.
-
-   'This procedure manages the data.
-   Public Function Register(Optional NewValue As Integer? = Nothing) As Integer
-      If NewValue IsNot Nothing AndAlso GraphicsIndex <= Data.GetUpperBound(0) Then
-         Data(GraphicsIndex) = NewValue.Value
-      End If
-
-      Return Data(GraphicsIndex)
-   End Function
+   Private Data(0 To 8) As Integer              'Contains the VGA register's data.
+   Private SelectedAddress As New Integer       'Contains the VGA video DAC PEL address.
+   Private SequencerData(0 To 255) As Integer   'Contains the CGA/EGA/VGA sequencer register's data.
 
    'This procedure gets a block of DAC color registers.
    Public Sub GetDACBlock()
@@ -72,7 +68,7 @@ Public Class VGAClass
          .AddRange(BitConverter.GetBytes(Segment))
          .Add(MCC.CurrentVideoMode)
          .AddRange(BitConverter.GetBytes(CUShort(MCC.ColumnCount())))
-         .AddRange(BitConverter.GetBytes(CUShort({&H4000%, &H4000%, &H4000%, &H2000%, &H4000%, &H8000%, &H8000%, Nothing, Nothing, Nothing, &H800%, &H800%, &H1000%, &H1000%, Nothing, &H2000%, &HA000%, &HA000%}(MCC.CurrentVideoMode))))
+         .AddRange(BitConverter.GetBytes(CUShort(VideoBufferLength())))
          .AddRange({&H0%, &H0%})
          For VideoPage As Integer = &H0% To MAXIMUM_VIDEO_PAGE_COUNT - &H1%
             .AddRange(BitConverter.GetBytes(CUShort(CPU.GetWord(AddressesE.CursorPositions + (VideoPage * &H2%)))))
@@ -94,7 +90,7 @@ Public Class VGAClass
          .Add(&H0%)
          .Add(&H0%)
          .AddRange({&H0%, &H0%, &H0%})
-         .Add(MCCClass.VIDEO_RAM_256KB)
+         .Add(EGAClass.EGA_MEMORY_SIZE)
          .Add(&H0%)
          .AddRange({&H0%, &H0%, &H0%, &H0%})
       End With
@@ -110,7 +106,7 @@ Public Class VGAClass
       Static Values As New List(Of Integer)
 
       If Not Values.Any Then
-         Values = New List(Of Integer)({CInt(VGA.VGABrushes(SelectedAddress).Color.R / TO_FROM_8_BIT), CInt(VGA.VGABrushes(SelectedAddress).Color.G / TO_FROM_8_BIT), CInt(VGA.VGABrushes(SelectedAddress).Color.B / TO_FROM_8_BIT)})
+         Values = New List(Of Integer)({CInt(VGA.Brushes(SelectedAddress).Color.R / TO_FROM_8_BIT), CInt(VGA.Brushes(SelectedAddress).Color.G / TO_FROM_8_BIT), CInt(VGA.Brushes(SelectedAddress).Color.B / TO_FROM_8_BIT)})
       End If
 
       If Values.Any Then
@@ -121,6 +117,15 @@ Public Class VGAClass
       Return Value
    End Function
 
+   'This procedure manages the data.
+   Public Function Register(Optional NewValue As Integer? = Nothing) As Integer
+      If NewValue IsNot Nothing AndAlso GraphicsIndex <= Data.GetUpperBound(0) Then
+         Data(GraphicsIndex) = NewValue.Value
+      End If
+
+      Return Data(GraphicsIndex)
+   End Function
+
    'This procedure selects the specified VGA video DAC PEL address.
    Public Sub SelectAddress(NewAddress As Integer)
       SelectedAddress = NewAddress And &HFF%
@@ -128,11 +133,19 @@ Public Class VGAClass
 
    'This procedure manages the sequencer's data.
    Public Function SequencerRegister(Optional NewValue As Integer? = Nothing) As Integer
-      If NewValue IsNot Nothing AndAlso GraphicsIndex <= SequencerData.GetUpperBound(0) Then
-         SequencerData(GraphicsIndex) = NewValue.Value
+      If NewValue IsNot Nothing AndAlso SequencerIndex <= SequencerData.GetUpperBound(0) Then
+         SequencerData(SequencerIndex) = NewValue.Value
+
+         ''--->>>
+         If DirectCast(SequencerIndex, SequencerRegistersE) = SequencerRegistersE.ActiveBitPlanes Then
+            SyncLock SYNCHRONIZER
+               CPU_EVENT.Append($"Active bit planes: {SequencerData(SequencerRegistersE.ActiveBitPlanes)} {Environment.NewLine}")
+            End SyncLock
+         End If
+         ''<<<---
       End If
 
-      Return SequencerData(GraphicsIndex)
+      Return SequencerData(SequencerIndex)
    End Function
 
    'This procedure sets a block of DAC color registers.
@@ -158,6 +171,52 @@ Public Class VGAClass
       Next Index
    End Sub
 
+   'This procedure returns the video buffer length for the current video mode.
+   Private Function VideoBufferLength() As Integer
+      Dim BufferLength As New Integer
+
+      Select Case MCC.CurrentVideoMode
+         Case VideoModesE.CGA320x200A
+            BufferLength = &H4000%
+         Case VideoModesE.CGA320x200B
+            BufferLength = &H4000%
+         Case VideoModesE.CGA640x200
+            BufferLength = &H4000%
+         Case VideoModesE.EGA320x200
+            BufferLength = &H2000%
+         Case VideoModesE.EGA640x200
+            BufferLength = &H4000%
+         Case VideoModesE.EGA640x350
+            BufferLength = &H8000%
+         Case VideoModesE.EGA640x350Mono
+            BufferLength = &H8000%
+         Case VideoModesE.PCjr160x200
+            BufferLength = Nothing
+         Case VideoModesE.PCjr320x200
+            BufferLength = Nothing
+         Case VideoModesE.PCjr640x200
+            BufferLength = Nothing
+         Case VideoModesE.Text40x25Color
+            BufferLength = &H800%
+         Case VideoModesE.Text40x25Mono
+            BufferLength = &H800%
+         Case VideoModesE.Text80x25Color
+            BufferLength = &H1000%
+         Case VideoModesE.Text80x25Gray
+            BufferLength = &H1000%
+         Case VideoModesE.Text80x25Mono_Hercules
+            BufferLength = Nothing
+         Case VideoModesE.VGA320x200
+            BufferLength = &H2000%
+         Case VideoModesE.VGA640x480
+            BufferLength = &HA000%
+         Case VideoModesE.VGA640x480Mono
+            BufferLength = &H2000%
+      End Select
+
+      Return BufferLength
+   End Function
+
    'This procedure writes the specified value to the VGA video DAC.
    Public Sub WriteToDAC(Value As Integer)
       Static Values As New List(Of Integer)
@@ -166,7 +225,7 @@ Public Class VGAClass
 
       If Values.Count = &H3% Then
          VGA_DEFAULT_PALETTE(SelectedAddress) = (Values(&H0%) << &H10%) Or (Values(&H1%) << &H8%) Or Values(&H2%)
-         VGA.VGABrushes(SelectedAddress) = New SolidBrush(Color.FromArgb(VGA_DEFAULT_PALETTE(SelectedAddress) Or &HFF000000%))
+         VGA.Brushes(SelectedAddress) = New SolidBrush(Color.FromArgb(VGA_DEFAULT_PALETTE(SelectedAddress) Or &HFF000000%))
          Values.Clear()
       End If
    End Sub

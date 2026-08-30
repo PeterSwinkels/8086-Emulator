@@ -41,7 +41,6 @@ Public Class MCCClass
    End Enum
 
    Public Const INTENSITY_BIT As Integer = &H10%              'Defines the color intensity bit.
-   Public Const VIDEO_RAM_256KB As Byte = &H3%                 'Defines the value for 256 kb of video RAM.
    Private Const CHARACTER_SCANLINE_COUNT As Byte = &HE%       'Defines the number of scanlines per character.
    Private Const DEFAULT_CHARACTER_ROW_COUNT As Byte = &H19%   'Defines the default number of character rows.
 

@@ -37,7 +37,7 @@ Public Class VGA320x200Class
          With GraphicsO
             For y As Integer = 0 To HEIGHT - 1
                For x As Integer = 0 To WIDTH - 1
-                  .FillRectangle(VGA.VGABrushes(Memory(AddressesE.VGABuffer + ((y * WIDTH) + x))), x * MCC.Scaling, y * MCC.Scaling, MCC.Scaling, MCC.Scaling)
+                  .FillRectangle(VGA.Brushes(Memory(AddressesE.VGABuffer + ((y * WIDTH) + x))), x * MCC.Scaling, y * MCC.Scaling, MCC.Scaling, MCC.Scaling)
                Next x
             Next y
          End With
@@ -77,7 +77,7 @@ Public Class VGA320x200Class
       ClearBuffer()
 
       For Index As Integer = VGA.VGA_DEFAULT_PALETTE.GetLowerBound(0) To VGA.VGA_DEFAULT_PALETTE.GetUpperBound(0)
-         VGA.VGABrushes(Index) = New SolidBrush(Color.FromArgb(VGA.VGA_DEFAULT_PALETTE(Index) Or &HFF000000%))
+         VGA.Brushes(Index) = New SolidBrush(Color.FromArgb(VGA.VGA_DEFAULT_PALETTE(Index) Or &HFF000000%))
       Next Index
 
       Memory(AddressesE.VideoPage) = &H0%
