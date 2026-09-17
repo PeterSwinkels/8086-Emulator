@@ -29,7 +29,7 @@ For more details, see Help.txt in the Documents folder.
 
 Important:
 
-- Ensure the emulator can find the files Font.bin and FontExt.bin in ./Documents/Bin when the BIOS initializes a video mode other than MDA.
+- Ensure the emulator can find the files Font.bin and FontExt.bin in ./Documents/Bin when the BIOS is initialized.
   These need to be in the same directory as the emulator's executable when it attempts to load these files.
 - Copy ./Documents/Bin/SDL2.DLL to the folder containing the emulator's executable.
 - Use the Nuget Package Manager to install SDL2-CS.dll in the solution.
