@@ -800,8 +800,8 @@ Public Module CoreModule
                            Output.AppendText($"Invalid or no address specified. CS:IP used instead.{NewLine}")
                            Address = CPU.GET_FLAT_CS_IP()
                         Else
-                           CPU.Registers(SegmentRegistersE.CS, NewValue:=(Address >> &H4%))
-                           CPU.Registers(Registers16BitE.IP, NewValue:=Address - (Address And &HFFF0%))
+                           CPU.Registers(SegmentRegistersE.CS, NewValue:=((Address And &HF0000%) >> &H4%))
+                           CPU.Registers(Registers16BitE.IP, NewValue:=Address And &HFFFF%)
                         End If
 
                         Assemble(, StartAddress:=Address)
