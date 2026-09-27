@@ -134,8 +134,8 @@ Public Module BIOSModule
 
          For Vector As Integer = &H0% To &HFF%
             Address = Vector * &H4%
-            CPU.PutWord(Address + &H2%, AddressesE.BIOS >> &H4%)
-            CPU.PutWord(Address, Offset)
+            Memory.PutWord(Address + &H2%, AddressesE.BIOS >> &H4%)
+            Memory.PutWord(Address, Offset)
             Offset = WriteBytesToMemory({OpcodesE.EXT_INT, CByte(Vector), OpcodesE.IRET}, Offset)
          Next Vector
 
@@ -144,8 +144,8 @@ Public Module BIOSModule
             VideoAdapter = New Text80x25MonoClass
 
             Memory(AddressesE.VideoMode) = MCC.CurrentVideoMode
-            CPU.PutWord(AddressesE.EquipmentFlags, INITIAL_MODE_FLAGS_MDA)
-            CPU.PutWord(AddressesE.CRTControllerBasePort, IOPortsE.MDAIndex)
+            Memory.PutWord(AddressesE.EquipmentFlags, INITIAL_MODE_FLAGS_MDA)
+            Memory.PutWord(AddressesE.CRTControllerBasePort, IOPortsE.MDAIndex)
          Else
             MCC.CurrentVideoMode = VideoModesE.Text80x25Color
             VideoAdapter = New Text80x25ColorClass
@@ -153,12 +153,12 @@ Public Module BIOSModule
             Memory(AddressesE.DCC) = &HB%
             Memory(AddressesE.RowCount) = MCC.RowCount
             Memory(AddressesE.VideoMode) = MCC.CurrentVideoMode
-            CPU.PutWord(AddressesE.EquipmentFlags, INITIAL_MODE_FLAGS_NOT_MDA)
-            CPU.PutWord(AddressesE.CRTControllerBasePort, IOPortsE.CGAIndex)
+            Memory.PutWord(AddressesE.EquipmentFlags, INITIAL_MODE_FLAGS_NOT_MDA)
+            Memory.PutWord(AddressesE.CRTControllerBasePort, IOPortsE.CGAIndex)
 
             Address = EXTENDED_CHARACTERS_VECTOR * &H4%
-            CPU.PutWord(Address + &H2%, AddressesE.ExtendedCharacters >> &H4%)
-            CPU.PutWord(Address, AddressesE.ExtendedCharacters And &HFFFF%)
+            Memory.PutWord(Address + &H2%, AddressesE.ExtendedCharacters >> &H4%)
+            Memory.PutWord(Address, AddressesE.ExtendedCharacters And &HFFFF%)
 
             LoadCharacterBitmaps()
 
@@ -172,7 +172,7 @@ Public Module BIOSModule
          ClockCounter = CInt(DateTime.Now.TimeOfDay.TotalSeconds * TICKS_PER_SECOND)
          UpdateClockCounter()
 
-         CPU.PutWord(AddressesE.BIOSMemorySize, BIOS_MEMORY_SIZE)
+         Memory.PutWord(AddressesE.BIOSMemorySize, BIOS_MEMORY_SIZE)
          Memory(AddressesE.ColumnCount) = MCC.ColumnCount()
          Memory(AddressesE.KeyboardBufferHead) = INITIAL_KEYBOARD_HEAD_TAIL
          Memory(AddressesE.KeyboardBufferTail) = INITIAL_KEYBOARD_HEAD_TAIL
@@ -311,8 +311,8 @@ Public Module BIOSModule
             ClockCounter += &H1%
          End If
 
-         CPU.PutWord(AddressesE.Clock, ClockCounter And &HFFFF%)
-         CPU.PutWord(AddressesE.Clock + &H2%, ClockCounter >> &H10%)
+         Memory.PutWord(AddressesE.Clock, ClockCounter And &HFFFF%)
+         Memory.PutWord(AddressesE.Clock + &H2%, ClockCounter >> &H10%)
 
          SyncLock SYNCHRONIZER
             CPU.DoSystemTimerTick = True
@@ -336,7 +336,7 @@ Public Module BIOSModule
             CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H1%)
          Else
             TargetAddress = (BIOS_SEGMENT << &H4%) + Memory(AddressesE.KeyboardBufferTail)
-            CPU.PutWord(TargetAddress, CPU.Registers(Registers16BitE.CX))
+            Memory.PutWord(TargetAddress, CPU.Registers(Registers16BitE.CX))
             Memory(AddressesE.KeyboardBufferTail) = ToByte(NextTail)
             CPU.Registers(SubRegisters8BitE.AL, NewValue:=&H0%)
          End If

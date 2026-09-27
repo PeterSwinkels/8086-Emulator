@@ -46,7 +46,10 @@ Public Class MemoryClass
 
    'This procedure returns the word value at the specified address.
    Public Function GetWord(Address As Integer) As Integer
-      Return Memory(Address And ADDRESS_MASK) Or (CInt(Memory(((Address And ADDRESS_MASK) + &H1%) And &HFFFF%)) << &H8%)
+      Dim Offset As Integer = Address And &HFFFF%
+      Dim Segment As Integer = Address And &HF0000%
+
+      Return Memory(Segment + Offset) Or (CInt(Memory(Segment + ((Offset + &H1%) And &HFFFF%))) << &H8%)
    End Function
 
    'This procedure returns the memory's length.
@@ -62,8 +65,11 @@ Public Class MemoryClass
    End Sub
 
    'This procedure sets the specified word value at the specified address.
-   Public Sub PutWord(Address As Integer, NewValue As Integer)
-      Memory(Address And ADDRESS_MASK) = CByte(NewValue And &HFF%)
-      Memory(((Address And ADDRESS_MASK) + &H1%) And &HFFFF%) = CByte((NewValue >> &H8%) And &HFF%)
+   Public Sub PutWord(Address As Integer, Word As Integer)
+      Dim Offset As Integer = Address And &HFFFF%
+      Dim Segment As Integer = Address And &HF0000%
+
+      Memory(Segment + Offset) = CByte(Word And &HFF%)
+      Memory(Segment + ((Offset + &H1%) And &HFFFF%)) = CByte((Word And &HFF00%) >> &H8%)
    End Sub
 End Class

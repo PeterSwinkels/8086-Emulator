@@ -412,7 +412,7 @@ Public Module CoreModule
                Literal = ToByte(Element.Chars(1))
             ElseIf IS_MEMORY_OPERAND(Element) Then
                Address = AddressFromOperand(Element.Trim())
-               If Address IsNot Nothing Then Literal = If(Is8Bit, Memory(CInt(Address)), CPU.GetWord(CInt(Address)))
+               If Address IsNot Nothing Then Literal = If(Is8Bit, Memory(CInt(Address)), Memory.GetWord(CInt(Address)))
             ElseIf Integer.TryParse(Element, NumberStyles.HexNumber, Nothing, Buffer) Then
                Literal = Buffer
             Else
@@ -462,9 +462,9 @@ Public Module CoreModule
 
    'This procedure returns the specified memory location's value.
    Private Function GetMemoryValue(Address As Integer) As String
-      Dim Word As Integer = CPU.GetWord(Address)
+      Dim Word As Integer = Memory.GetWord(Address)
 
-      Return $"Byte = 0x{Memory(Address):X2}   Word = 0x{CPU.GetWord(Address):X4}   Characters = '{ESCAPE_BYTE(CByte((Word And &HFF00%) >> &H8%))}{ESCAPE_BYTE(CByte(Word And &HFF%))}'{NewLine}"
+      Return $"Byte = 0x{Memory(Address):X2}   Word = 0x{Memory.GetWord(Address):X4}   Characters = '{ESCAPE_BYTE(CByte((Word And &HFF00%) >> &H8%))}{ESCAPE_BYTE(CByte(Word And &HFF%))}'{NewLine}"
    End Function
 
    'This procedure returns the emulated CPU register with the specified name.
@@ -533,7 +533,7 @@ Public Module CoreModule
 
          With Stack
             For Offset As Integer = &HFFFE% To CPU.Registers(Registers16BitE.BP) Step -&H2%
-               Stack.Append($"{CPU.GetWord((SS << &H4%) + Offset):X4}{NewLine}")
+               Stack.Append($"{Memory.GetWord((SS << &H4%) + Offset):X4}{NewLine}")
             Next Offset
 
             Return .ToString()
@@ -1400,7 +1400,7 @@ Public Module CoreModule
          If Is8Bit Then
             Memory(Address) = CByte(NewValue And &HFF%)
          Else
-            CPU.PutWord(Address, NewValue)
+            Memory.PutWord(Address, NewValue)
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)

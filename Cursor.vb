@@ -57,10 +57,10 @@ Public Module CursorModule
    'This procedure resets the cursor.
    Public Sub ResetCursor()
       For VideoPage As Integer = &H0% To MAXIMUM_VIDEO_PAGE_COUNT - &H1%
-         CPU.PutWord(AddressesE.CursorPositions + (VideoPage * &H2%), Word:=&H0%)
+         Memory.PutWord(AddressesE.CursorPositions + (VideoPage * &H2%), Word:=&H0%)
       Next VideoPage
 
-      CPU.PutWord(AddressesE.CursorScanLines, Word:=CURSOR_DEFAULT)
+      Memory.PutWord(AddressesE.CursorScanLines, Word:=CURSOR_DEFAULT)
       CursorBlink.Enabled = True
    End Sub
 End Module

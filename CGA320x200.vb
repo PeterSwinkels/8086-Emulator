@@ -22,7 +22,7 @@ Public Class CGA320x200Class
       Dim Position As Integer = &H0%
 
       Do While Count > &H0%
-         CPU.PutWord(AddressesE.CGABuffer + Position, &H0%)
+         Memory.PutWord(AddressesE.CGABuffer + Position, &H0%)
          Count -= &H1%
          Position += &H2%
       Loop
@@ -104,7 +104,7 @@ Public Class CGA320x200Class
          y += 1
 
          If Invert AndAlso Background > &H0% Then
-            CPU.PutWord(Position - &H1%, CPU.GetWord(Position - &H1%) Xor &HFFFF%)
+            Memory.PutWord(Position - &H1%, Memory.GetWord(Position - &H1%) Xor &HFFFF%)
          End If
       Next ScanLine
    End Sub

@@ -71,7 +71,7 @@ Public Class VGAClass
          .AddRange(BitConverter.GetBytes(CUShort(VideoBufferLength())))
          .AddRange({&H0%, &H0%})
          For VideoPage As Integer = &H0% To MAXIMUM_VIDEO_PAGE_COUNT - &H1%
-            .AddRange(BitConverter.GetBytes(CUShort(CPU.GetWord(AddressesE.CursorPositions + (VideoPage * &H2%)))))
+            .AddRange(BitConverter.GetBytes(CUShort(Memory.GetWord(AddressesE.CursorPositions + (VideoPage * &H2%)))))
          Next VideoPage
          .Add(Memory(AddressesE.CursorScanLines))
          .Add(Memory(AddressesE.CursorScanLines + &H1%))
