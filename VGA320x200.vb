@@ -21,7 +21,7 @@ Public Class VGA320x200Class
       Dim Position As Integer = AddressesE.VGABuffer
 
       Do While Count > &H0%
-         Memory.PutWord(Position, &H0%)
+         Memory.PutWord(Position, Word:=&H0%)
          Count -= &H1%
          Position += &H2%
       Loop

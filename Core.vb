@@ -1400,7 +1400,7 @@ Public Module CoreModule
          If Is8Bit Then
             Memory(Address) = CByte(NewValue And &HFF%)
          Else
-            Memory.PutWord(Address, NewValue)
+            Memory.PutWord(Address, Word:=NewValue)
          End If
       Catch ExceptionO As Exception
          DisplayException(ExceptionO.Message)

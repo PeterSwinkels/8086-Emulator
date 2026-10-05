@@ -24,7 +24,7 @@ Public Class CGA640x200Class
       Dim Position As Integer = &H0%
 
       Do While Count > &H0%
-         Memory.PutWord(AddressesE.CGABuffer + Position, &H0%)
+         Memory.PutWord(AddressesE.CGABuffer + Position, Word:=&H0%)
          Count -= &H1%
          Position += &H2%
       Loop

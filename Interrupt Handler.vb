@@ -57,7 +57,7 @@ Public Module InterruptHandlerModule
                Memory(AddressesE.KeyboardFlags + &H1%) = ToByte(GetKeyboardFlags() >> &H8%)
 
                If LastBIOSKeyCode() IsNot Nothing Then
-                  Memory.PutWord((BIOS_SEGMENT << &H4%) + Memory(AddressesE.KeyboardBufferHead), LastBIOSKeyCode().Value)
+                  Memory.PutWord((BIOS_SEGMENT << &H4%) + Memory(AddressesE.KeyboardBufferHead), Word:=LastBIOSKeyCode().Value)
 
                   Memory(AddressesE.KeyboardBufferHead) = ToByte(Memory(AddressesE.KeyboardBufferHead) + &H2)
 
@@ -278,6 +278,8 @@ Public Module InterruptHandlerModule
                         Success = True
                      Else
                         Select Case CPU.Registers(SubRegisters8BitE.BL)
+                           Case &H0%
+                              Success = True
                            Case &H10%
                               CPU.Registers(SubRegisters8BitE.BH, NewValue:=If(EGAClass.MONO_MODE, &H1%, &H0%))
                               CPU.Registers(SubRegisters8BitE.BL, NewValue:=EGAClass.EGA_MEMORY_SIZE)
@@ -390,8 +392,8 @@ Public Module InterruptHandlerModule
                      CPU.Registers(Registers16BitE.DX, NewValue:=Memory.GetWord(AddressesE.Clock))
                      Success = True
                   Case &H1%
-                     Memory.PutWord(AddressesE.Clock + &H2%, CPU.Registers(Registers16BitE.CX))
-                     Memory.PutWord(AddressesE.Clock, CPU.Registers(Registers16BitE.DX))
+                     Memory.PutWord(AddressesE.Clock + &H2%, Word:=CPU.Registers(Registers16BitE.CX))
+                     Memory.PutWord(AddressesE.Clock, Word:=CPU.Registers(Registers16BitE.DX))
                      Success = True
                End Select
             Case &H1C%
@@ -440,7 +442,7 @@ Public Module InterruptHandlerModule
                Success = MSDOS.HandleMSDOSInterrupt(Vector, AH, Flags:=Flags, RETF:=RETF)
          End Select
 
-         Memory.PutWord((CPU.Registers((SegmentRegistersE.SS)) << &H4%) + CPU.Registers(Registers16BitE.SP) + &H4%, Flags)
+         Memory.PutWord((CPU.Registers((SegmentRegistersE.SS)) << &H4%) + CPU.Registers(Registers16BitE.SP) + &H4%, Word:=Flags)
 
          If Success Then CPU.ExecuteOpcode(If(RETF, OpcodesE.RETF, OpcodesE.IRET))
 

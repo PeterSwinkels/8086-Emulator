@@ -39,7 +39,7 @@ Public Class Text80x25ColorClass
       Dim VideoPageAddress As Integer = AddressesE.CGABuffer
 
       Do While Count > &H0%
-         Memory.PutWord(VideoPageAddress + Position, &H700%)
+         Memory.PutWord(VideoPageAddress + Position, Word:=&H700%)
          Count -= &H1%
          Position += &H2%
       Loop
@@ -175,7 +175,7 @@ Public Class Text80x25ColorClass
       If Count = &H0% OrElse Count > MCC.RowCount() Then
          For Row As Integer = ScrollArea.ULCRow To ScrollArea.LRCRow
             For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
-               Memory.PutWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Attribute << &H8%)
+               Memory.PutWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Word:=Attribute << &H8%)
             Next Column
          Next Row
       Else
@@ -188,15 +188,15 @@ Public Class Text80x25ColorClass
                      For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
                         If Row < MCC.RowCount() Then
                            CharacterCell = Memory.GetWord(VideoPageAddress + (Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%))
-                           Memory.PutWord(VideoPageAddress + ((Row - &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%), CharacterCell)
+                           Memory.PutWord(VideoPageAddress + ((Row - &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%), Word:=CharacterCell)
                         Else
-                           Memory.PutWord(VideoPageAddress + ((Row - &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%), BlankCell)
+                           Memory.PutWord(VideoPageAddress + ((Row - &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%), Word:=BlankCell)
                         End If
                      Next Column
                   Next Row
 
                   For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
-                     Memory.PutWord(VideoPageAddress + (ScrollArea.LRCRow * TEXT_80_X_25_BYTES_PER_ROW) + (Column * 2), BlankCell)
+                     Memory.PutWord(VideoPageAddress + (ScrollArea.LRCRow * TEXT_80_X_25_BYTES_PER_ROW) + (Column * 2), Word:=BlankCell)
                   Next Column
                Case False
                   BlankCell = Attribute << &H8%
@@ -205,15 +205,15 @@ Public Class Text80x25ColorClass
                      For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
                         If Row > &H0% Then
                            CharacterCell = Memory.GetWord(VideoPageAddress + (Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%))
-                           Memory.PutWord(VideoPageAddress + ((Row + &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%), CharacterCell)
+                           Memory.PutWord(VideoPageAddress + ((Row + &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%), Word:=CharacterCell)
                         Else
-                           Memory.PutWord(VideoPageAddress + ((Row + &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%), BlankCell)
+                           Memory.PutWord(VideoPageAddress + ((Row + &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%), Word:=BlankCell)
                         End If
                      Next Column
                   Next Row
 
                   For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
-                     Memory.PutWord(VideoPageAddress + (ScrollArea.ULCRow * TEXT_80_X_25_BYTES_PER_ROW) + (Column * 2), BlankCell)
+                     Memory.PutWord(VideoPageAddress + (ScrollArea.ULCRow * TEXT_80_X_25_BYTES_PER_ROW) + (Column * 2), Word:=BlankCell)
                   Next Column
             End Select
          Next Scroll

@@ -25,7 +25,7 @@ Public Class HerculesClass
       Dim Position As Integer = &H0%
 
       Do While Count > &H0%
-         Memory.PutWord(AddressesE.HerculesBuffer + Position, &H0%)
+         Memory.PutWord(AddressesE.HerculesBuffer + Position, Word:=&H0%)
          Count -= &H1%
          Position += &H2%
       Loop

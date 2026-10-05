@@ -92,6 +92,7 @@ Public Module IOHandlerModule
       VGAAttributeAndSequencer = &H3C0%        'VGA attribute and sequencer register.
       CGAEGAVGASequencerIndex = &H3C4%         'CGA, EGA, VGA sequencer index.
       CGAEGAVGASequencerRegister = &H3C5%      'CGA, EGA, VGA sequencer.
+      VGAVideoDACState = &H3C7%                'VGA video DAC state.
       VGAVideoDACPELAddress = &H3C8%           'VGA video DAC PEL address.
       VGAVideoDAC = &H3C9%                     'VGA video DAC.
       VGAGraphicsIndex = &H3CE%                'VGA graphics index.
@@ -220,6 +221,12 @@ Public Module IOHandlerModule
                Else
                   Value = VGA.GraphicsIndex
                End If
+            Case IOPortsE.VGAVideoDAC
+               If MCC.IsMDA Then
+                  Value = &HFF%
+               Else
+                  Value = VGA.ReadFromDac()
+               End If
          End Select
 
          Return Value
@@ -329,7 +336,7 @@ Public Module IOHandlerModule
                VGA.Register(NewValue:=Value)
             Case IOPortsE.VGAVideoDAC
                VGA.WriteToDAC(Value)
-            Case IOPortsE.VGAVideoDACPELAddress
+            Case IOPortsE.VGAVideoDACState, IOPortsE.VGAVideoDACPELAddress
                If Not MCC.IsMDA Then
                   VGA.SelectAddress(Value)
                End If

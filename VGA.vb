@@ -45,13 +45,13 @@ Public Class VGAClass
 
       For Index As Integer = Start To Start + Count
          SelectAddress(Index)
-         Red = ReadDac()
+         Red = ReadFromDac()
          Memory(Address) = ToByte(Red)
          Address += &H1%
-         Green = ReadDac()
+         Green = ReadFromDac()
          Memory(Address) = ToByte(Green)
          Address += &H1%
-         Blue = ReadDac()
+         Blue = ReadfromDac()
          Memory(Address) = ToByte(Blue)
          Address += &H1%
       Next Index
@@ -101,7 +101,7 @@ Public Class VGAClass
    End Function
 
    'This procedure returns a value from the VGA video DAC.
-   Private Function ReadDac() As Integer
+   Public Function ReadFromDac() As Integer
       Dim Value As New Integer
       Static Values As New List(Of Integer)
 
