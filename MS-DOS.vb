@@ -1407,7 +1407,7 @@ Public Class MSDOSClass
             End If
 
             Index = If(IsFirst, 0, Index + 1)
-            If FileSystemItems.Any AndAlso Index < FileSystemItems.Count Then
+            If FileSystemItems IsNot Nothing AndAlso FileSystemItems.Any AndAlso Index < FileSystemItems.Count Then
                FileSystemItem = FileSystemItems(Index)
                WriteDTA(FileSystemItem.Name, Not FileSystemItem.IsFile)
                Flags = SET_BIT(Flags, False, CARRY_FLAG_INDEX)
