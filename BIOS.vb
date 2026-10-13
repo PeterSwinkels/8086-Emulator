@@ -136,7 +136,8 @@ Public Module BIOSModule
             Address = Vector * &H4%
             Memory.PutWord(Address + &H2%, Word:=AddressesE.BIOS >> &H4%)
             Memory.PutWord(Address, Word:=Offset)
-            Offset = WriteBytesToMemory({OpcodesE.EXT_INT, CByte(Vector), OpcodesE.IRET}, Offset)
+            Offset = WriteBytesToMemory(CPU.EXT_INT, Offset)
+            Offset = WriteBytesToMemory({CByte(Vector), OpcodesE.IRET}, Offset)
          Next Vector
 
          If MCC.IsMDA Then

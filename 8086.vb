@@ -114,15 +114,15 @@ Public Class CPU8086Class
       DEC_SI = &H4E%                  'Decrement SI.
       DEC_SP = &H4C%                  'Decrement SP.
       DS = &H3E%                      'DS segment override.
+      EXT_INT = &H8D%                 'External interrupt call. ({0x8D, 0xFF})
       ESC_D8 = &HD8%                  'Escape (FPU).
       ESC_DF = &HDF%                  'Escape (FPU).
-      EXT_INT = &H60%                 'Externally handled interrupt.
       ES = &H26%                      'ES segment override.
       HLT = &HF4%                     'Halt.
       IN_AL_BYTE = &HE4%              'Read from port to AL.
       IN_AL_DX = &HEC%                'Read from port to AL.
       IN_AX_DX = &HED%                'Read from port to AX.
-      IN_AX_WORD = &HE5%              'Read from port to AX.
+      IN_AX_BYTE = &HE5%              'Read from port to AX.
       INC_AX = &H40%                  'Increment AX.
       INC_BP = &H45%                  'Increment BP.
       INC_BX = &H43%                  'Increment BX.
@@ -217,6 +217,7 @@ Public Class CPU8086Class
       POP_BP = &H5D%                  'Pop BP.
       POP_BX = &H5B%                  'Pop BX.
       POP_CX = &H59%                  'Pop CX.
+      POP_CS = &HF%                   'Pop CS.
       POP_DI = &H5F%                  'Pop DI.
       POP_DS = &H1F%                  'Pop DS.
       POP_DX = &H5A%                  'Pop DX.
@@ -250,6 +251,7 @@ Public Class CPU8086Class
       RSBITS_WORD_1 = &HD1%           'Rotate or shift a word's bits by one.
       RSBITS_WORD_CL = &HD3%          'Rotate or shift a word's bits by CL.
       SAHF = &H9E%                    'Save AH to AF, CF, PF, SF and ZF flags.
+      SALC = &HD6%                    'Set AL to CF.
       SBB_AL_BYTE = &H1C%             'Subtract byte from AL with borrow.
       SBB_AX_WORD = &H1D%             'Subtract word from AX with borrow.
       SBB_REG16_SRC = &H1B%           'Subtract source from 16 bit register with borrow.
@@ -274,6 +276,27 @@ Public Class CPU8086Class
       TEST_AX_WORD = &HA9%            'Test AX against word.
       TEST_SRC_REG16 = &H85%          'Test 16 bit source against target. 
       TEST_SRC_REG8 = &H84%           'Test 8 bit source against target.
+      UJA = &H67%                     'Undocumented jump on no carry and no zero.
+      UJC = &H62%                     'Undocumented jump on carry.
+      UJG = &H6F%                     'Undocumented jump on no zero or if the sign and overflow flags match.
+      UJL = &H6C%                     'Undocumented jump if the sign and overflow flags do not match.
+      UJNA = &H66%                    'Undocumented jump on carry or zero.
+      UJNC = &H63%                    'Undocumented jump on no carry.
+      UJNG = &H6E%                    'Undocumented jump on zero or if the sign and overflow flags do not match.
+      UJNL = &H6D%                    'Undocumented jump if the sign and overflow flags match.
+      UJNO = &H61%                    'Undocumented jump on no overflow.
+      UJNS = &H69%                    'Undocumented jump on no sign.
+      UJNZ = &H65%                    'Undocumented jump on no zero.
+      UJO = &H60%                     'Undocumented jump on overflow.
+      UJPE = &H6A%                    'Undocumented jump on parity equal.
+      UJPO = &H6B%                    'Undocumented jump on parity odd.
+      UJS = &H68%                     'Undocumented jump on sign.
+      UJZ = &H64%                     'Undocumented jump on zero.
+      ULOCK = &HF1%                   'Undocumented lock the bus.
+      URETF = &HC9%                   'Undocumented return far.
+      URETF_BYTES = &HC8%             'Undocumented return far and release bytes.
+      URETN = &HC1%                   'Undocumented return near.
+      URETN_BYTES = &HC0%             'Undocumented return near and release bytes.
       WAIT = &H9B%                    'Wait for FPU.
       XCHG_AX_BP = &H95%              'Exchange AX and BP.
       XCHG_AX_BX = &H93%              'Exchange AX and BX.
@@ -321,7 +344,7 @@ Public Class CPU8086Class
    'This enumeration lists the operations for the 0xF6 and 0xF7 opcodes.
    Private Enum OperationsF6_F7E As Byte
       TEST    'Test.
-      None    'No operation.
+      UTEST   'Undocumented test.
       [NOT]   'NOT.
       NEG     'Negate.
       MUL     'Multiply.
@@ -339,7 +362,7 @@ Public Class CPU8086Class
       JMP_WORD_NEAR    'Jump near.
       JMP_DWORD_FAR    'Jump far.
       PUSH             'Push.
-      None             'No operation.
+      UPUSH            'Undocumented push.
    End Enum
 
    'This enumeration lists the operations for the 0xFE:0x00-0xFE:0xBF and 0xFF:0xC0-0xFF:0xFF opcodes.
@@ -351,7 +374,7 @@ Public Class CPU8086Class
       JMP      'Jump.
       None2    'No operation.
       PUSH     'Push.
-      None3    'No operation.
+      UPUSH    'Undocumented push.
    End Enum
 
    'This enumeration lists the 16 bit registers.
@@ -446,6 +469,7 @@ Public Class CPU8086Class
    Public Event Trace()                                                                  'Defines the trace event.
    Public Event WriteIOPort(Port As Integer, Value As Integer, Is8Bit As Boolean)        'Defines the IO port write event.
 
+   Public ReadOnly EXT_INT() As Byte = {OpcodesE.EXT_INT, &HFF%}                                                                                                                                                      'Defines the external interrupt opcode.
    Public ReadOnly GET_FLAT_CS_IP As Func(Of Integer) = Function() (Registers(SegmentRegistersE.CS) << &H4%) + Registers(Registers16BitE.IP) And MemoryClass.ADDRESS_MASK                                             'Returns the flat memory address for the emulated CPU's CS:IP registers.
    Private ReadOnly STRING_OPCODES() As OpcodesE = {OpcodesE.CMPSB, OpcodesE.CMPSW, OpcodesE.LODSB, OpcodesE.LODSW, OpcodesE.MOVSB, OpcodesE.MOVSW, OpcodesE.SCASB, OpcodesE.SCASW, OpcodesE.STOSB, OpcodesE.STOSW}   'Defines the string opcodes.
 
@@ -618,8 +642,9 @@ Public Class CPU8086Class
 
    'This procedure returns the specified bits shifted/rotated as specified and sets CF to the last bit shifted out.
    Private Function BitRotateOrShift(Bits As Integer, Is8Bit As Boolean, Optional Right As Boolean = True, Optional Rotate As Boolean = True, Optional ReplicateSign As Boolean = False, Optional UpdatePFSFZF As Boolean = False, Optional RotateCFIntoTarget As Boolean = False) As Integer
-      Dim NewBits As Integer = Bits And If(Is8Bit, &HFF%, &HFFFF%)
+      Dim Bit7EMask As Integer = If(Is8Bit, &H40%, &H4000%)
       Dim CarryFlag As Integer = Registers(FlagRegistersE.CF) And &H1%
+      Dim NewBits As Integer = Bits And If(Is8Bit, &HFF%, &HFFFF%)
       Dim SignBit As Integer = NewBits And If(Is8Bit, &H80%, &H8000%)
       Dim BitOut As Integer = If(Right, NewBits And &H1%, SignBit)
       Dim SignMask As Integer = If(Is8Bit, &H80%, &H8000%)
@@ -639,7 +664,12 @@ Public Class CPU8086Class
       If ReplicateSign Then NewBits = NewBits Or SignBit
 
       Registers(FlagRegistersE.CF, NewValue:=BitOut)
-      Registers(FlagRegistersE.OF, NewValue:=(Not (NewBits And SignMask) = (Bits And SignMask)))
+
+      If Right Then
+         Registers(FlagRegistersE.OF, NewValue:=(((NewBits And SignMask) = SignMask) Xor (NewBits And Bit7EMask) = Bit7EMask))
+      Else
+         Registers(FlagRegistersE.OF, NewValue:=(CBool(Registers(FlagRegistersE.CF)) Xor ((NewBits And SignMask) = SignMask)))
+      End If
 
       If UpdatePFSFZF Then
          Registers(FlagRegistersE.PF, NewValue:=(BitCount(NewBits And &HFF%) Mod &H2%) = &H0%)
@@ -705,45 +735,45 @@ Public Class CPU8086Class
             Operand = GetWordCSIP()
             If Operand > &H7FFF% Then Operand -= &H10000%
             Registers(Registers16BitE.IP, NewValue:=Registers(Registers16BitE.IP) + Operand)
-         Case OpcodesE.JCXZ, OpcodesE.JMP_SHORT, OpcodesE.JO To OpcodesE.JG, OpcodesE.LOOP, OpcodesE.LOOPE, OpcodesE.LOOPNE
+         Case OpcodesE.JCXZ, OpcodesE.JMP_SHORT, OpcodesE.JO To OpcodesE.JG, OpcodesE.LOOP, OpcodesE.LOOPE, OpcodesE.LOOPNE, OpcodesE.UJO To OpcodesE.UJG
             Operand = GetByteCSIP()
             If Operand > &H7F% Then Operand -= &H100%
             Offset = Registers(Registers16BitE.IP) + Operand
 
             Select Case Opcode
-               Case OpcodesE.JA
+               Case OpcodesE.JA, OpcodesE.UJA
                   If Not (CBool(Registers(FlagRegistersE.CF)) OrElse CBool(Registers(FlagRegistersE.ZF))) Then Registers(Registers16BitE.IP, NewValue:=Offset)
-               Case OpcodesE.JC
+               Case OpcodesE.JC, OpcodesE.UJC
                   If CBool(Registers(FlagRegistersE.CF)) Then Registers(Registers16BitE.IP, NewValue:=Offset)
                Case OpcodesE.JCXZ
                   If Registers(Registers16BitE.CX) = &H0% Then Registers(Registers16BitE.IP, NewValue:=Offset)
-               Case OpcodesE.JG
+               Case OpcodesE.JG, OpcodesE.UJG
                   If CBool(Registers(FlagRegistersE.OF)) = CBool(Registers(FlagRegistersE.SF)) AndAlso (Not CBool(Registers(FlagRegistersE.ZF))) Then Registers(Registers16BitE.IP, NewValue:=Offset)
-               Case OpcodesE.JL
+               Case OpcodesE.JL, OpcodesE.UJL
                   If Not CBool(Registers(FlagRegistersE.OF)) = CBool(Registers(FlagRegistersE.SF)) Then Registers(Registers16BitE.IP, NewValue:=Offset)
-               Case OpcodesE.JNA
+               Case OpcodesE.JNA, OpcodesE.UJNA
                   If CBool(Registers(FlagRegistersE.CF)) OrElse CBool(Registers(FlagRegistersE.ZF)) Then Registers(Registers16BitE.IP, NewValue:=Offset)
-               Case OpcodesE.JNC
+               Case OpcodesE.JNC, OpcodesE.UJNC
                   If Not CBool(Registers(FlagRegistersE.CF)) Then Registers(Registers16BitE.IP, NewValue:=Offset)
-               Case OpcodesE.JNG
+               Case OpcodesE.JNG, OpcodesE.UJNG
                   If Not (CBool(Registers(FlagRegistersE.OF)) = CBool(Registers(FlagRegistersE.SF)) AndAlso (Not CBool(Registers(FlagRegistersE.ZF)))) Then Registers(Registers16BitE.IP, NewValue:=Offset)
-               Case OpcodesE.JNL
+               Case OpcodesE.JNL, OpcodesE.UJNL
                   If CBool(Registers(FlagRegistersE.OF)) = CBool(Registers(FlagRegistersE.SF)) Then Registers(Registers16BitE.IP, NewValue:=Offset)
-               Case OpcodesE.JNO
+               Case OpcodesE.JNO, OpcodesE.UJNO
                   If Not CBool(Registers(FlagRegistersE.OF)) Then Registers(Registers16BitE.IP, NewValue:=Offset)
-               Case OpcodesE.JNS
+               Case OpcodesE.JNS, OpcodesE.UJNS
                   If Not CBool(Registers(FlagRegistersE.SF)) Then Registers(Registers16BitE.IP, NewValue:=Offset)
-               Case OpcodesE.JNZ
+               Case OpcodesE.JNZ, OpcodesE.UJNZ
                   If Not CBool(Registers(FlagRegistersE.ZF)) Then Registers(Registers16BitE.IP, NewValue:=Offset)
-               Case OpcodesE.JO
+               Case OpcodesE.JO, OpcodesE.UJO
                   If CBool(Registers(FlagRegistersE.OF)) Then Registers(Registers16BitE.IP, NewValue:=Offset)
-               Case OpcodesE.JPE
+               Case OpcodesE.JPE, OpcodesE.UJPE
                   If CBool(Registers(FlagRegistersE.PF)) Then Registers(Registers16BitE.IP, NewValue:=Offset)
-               Case OpcodesE.JPO
+               Case OpcodesE.JPO, OpcodesE.UJPO
                   If Not CBool(Registers(FlagRegistersE.PF)) Then Registers(Registers16BitE.IP, NewValue:=Offset)
-               Case OpcodesE.JS
+               Case OpcodesE.JS, OpcodesE.UJS
                   If CBool(Registers(FlagRegistersE.SF)) Then Registers(Registers16BitE.IP, NewValue:=Offset)
-               Case OpcodesE.JZ
+               Case OpcodesE.JZ, OpcodesE.UJZ
                   If CBool(Registers(FlagRegistersE.ZF)) Then Registers(Registers16BitE.IP, NewValue:=Offset)
                Case OpcodesE.JMP_SHORT
                   Registers(Registers16BitE.IP, NewValue:=Offset)
@@ -757,17 +787,17 @@ Public Class CPU8086Class
                   Registers(Registers16BitE.CX, NewValue:=Registers(Registers16BitE.CX) - &H1%)
                   If Registers(Registers16BitE.CX) > &H0% AndAlso Not CBool(Registers(FlagRegistersE.ZF)) Then Registers(Registers16BitE.IP, NewValue:=Offset)
             End Select
-         Case OpcodesE.RETF
+         Case OpcodesE.RETF, OpcodesE.URETF
             Registers(Registers16BitE.IP, NewValue:=Stack())
             Registers(SegmentRegistersE.CS, NewValue:=Stack())
-         Case OpcodesE.RETF_BYTES
+         Case OpcodesE.RETF_BYTES, OpcodesE.URETF_BYTES
             Operand = GetWordCSIP()
             Registers(Registers16BitE.IP, NewValue:=Stack())
             Registers(SegmentRegistersE.CS, NewValue:=Stack())
             Registers(Registers16BitE.SP, NewValue:=Registers(Registers16BitE.SP) + Operand)
-         Case OpcodesE.RETN
+         Case OpcodesE.RETN, OpcodesE.URETN
             Registers(Registers16BitE.IP, NewValue:=Stack())
-         Case OpcodesE.RETN_BYTES
+         Case OpcodesE.RETN_BYTES, OpcodesE.URETN_BYTES
             Operand = GetWordCSIP()
             Registers(Registers16BitE.IP, NewValue:=Stack())
             Registers(Registers16BitE.SP, NewValue:=Registers(Registers16BitE.SP) + Operand)
@@ -903,7 +933,6 @@ Public Class CPU8086Class
                         OperationsF6_F7E.IMUL,
                         OperationsF6_F7E.MUL,
                         OperationsF6_F7E.NEG,
-                        OperationsF6_F7E.None,
                         OperationsF6_F7E.NOT
                      Registers(Registers16BitE.IP, NewValue:=Registers(Registers16BitE.IP) - If(.Is8Bit, &H1%, &H2%))
                End Select
@@ -1013,11 +1042,9 @@ Public Class CPU8086Class
                      Registers(FlagRegistersE.AF, NewValue:=(-(.Value1 And &HF%)) < &H0%)
                      Registers(FlagRegistersE.CF, NewValue:=Not (.Value1 = &H0%))
                      Registers(FlagRegistersE.OF, NewValue:=(.Value1 = If(.Is8Bit, &H80%, &H8000%)))
-                  Case OperationsF6_F7E.None
-                     Return False
                   Case OperationsF6_F7E.NOT
                      .NewValue = Not .Value1
-                  Case OperationsF6_F7E.TEST
+                  Case OperationsF6_F7E.TEST, OperationsF6_F7E.UTEST
                      .NewValue = .Value1 And .Value2
                      AdjustFlags(.Value1, .Value2, .NewValue, .Is8Bit,, ResetAFCFOF:=True)
                End Select
@@ -1055,10 +1082,8 @@ Public Class CPU8086Class
                         Registers(Registers16BitE.IP, NewValue:= .Value1)
                      Case OperationsFEFF00_FEFFBFE.JMP_WORD_NEAR
                         Registers(Registers16BitE.IP, NewValue:= .Value1)
-                     Case OperationsFEFF00_FEFFBFE.PUSH
+                     Case OperationsFEFF00_FEFFBFE.PUSH, OperationsFEFF00_FEFFBFE.UPUSH
                         Stack(Push:= .Value1)
-                     Case Else
-                        Return False
                   End Select
                Else
                   Select Case DirectCast(CByte(Operation), OperationsFEFFC0_FEFFFFE)
@@ -1073,13 +1098,11 @@ Public Class CPU8086Class
                         AdjustFlags(.Value1, &H1%, .NewValue, .Is8Bit, Subtraction:=False, PreserveCF:=True)
                      Case OperationsFEFFC0_FEFFFFE.JMP
                         Registers(Registers16BitE.IP, NewValue:= .Value1)
-                     Case OperationsFEFFC0_FEFFFFE.PUSH
+                     Case OperationsFEFFC0_FEFFFFE.PUSH, OperationsFEFFC0_FEFFFFE.UPUSH
                         If DirectCast(.Operand1, Registers16BitE) = Registers16BitE.SP Then
                            .Value1 = (.Value1 - &H2%) And &HFFFF%
                         End If
                         Stack(Push:= .Value1)
-                     Case Else
-                        Return False
                   End Select
                End If
 
@@ -1326,8 +1349,8 @@ Public Class CPU8086Class
          Case OpcodesE.IN_AX_DX
             RaiseEvent ReadIOPort(Registers(Registers16BitE.DX), NewValue, Is8Bit:=False)
             Registers(Registers16BitE.AX, NewValue:=NewValue)
-         Case OpcodesE.IN_AX_WORD
-            RaiseEvent ReadIOPort(GetWordCSIP(), NewValue, Is8Bit:=False)
+         Case OpcodesE.IN_AX_BYTE
+            RaiseEvent ReadIOPort(GetByteCSIP(), NewValue, Is8Bit:=False)
             Registers(Registers16BitE.AX, NewValue:=NewValue)
          Case OpcodesE.IRET
             Registers(Registers16BitE.IP, NewValue:=Stack())
@@ -1363,11 +1386,13 @@ Public Class CPU8086Class
             Else
                Return False
             End If
-         Case OpcodesE.LEA
+         Case OpcodesE.LEA, OpcodesE.EXT_INT
             Operand = GetByteCSIP()
             If Operand < &HC0% Then
                OperandPair = GetValues(GetOperandPair(CByte(Opcode Xor &H6%), CByte(Operand)))
                Registers(DirectCast(OperandPair.Operand1, Registers16BitE), NewValue:=OperandPair.Offset)
+            ElseIf Operand = &HFF% Then
+               RaiseEvent Interrupt(GetByteCSIP(), Registers(SubRegisters8BitE.AH))
             Else
                Return False
             End If
@@ -1477,7 +1502,7 @@ Public Class CPU8086Class
                      Case RotateAndShiftOperationsE.SAR
                         .NewValue = BitRotateOrShift(.NewValue, .Is8Bit,, Rotate:=False, ReplicateSign:=True, UpdatePFSFZF:=True)
                      Case RotateAndShiftOperationsE.SHL
-                        .NewValue = BitRotateOrShift(.NewValue, .Is8Bit, Right:=False, Rotate:=False, UpdatePFSFZF:=True)
+                        .NewValue = BitRotateOrShift(.NewValue, .Is8Bit, Right:=False, Rotate:=False,, UpdatePFSFZF:=True)
                      Case RotateAndShiftOperationsE.SHR
                         .NewValue = BitRotateOrShift(.NewValue, .Is8Bit,, Rotate:=False, UpdatePFSFZF:=True)
                   End Select
@@ -1487,6 +1512,8 @@ Public Class CPU8086Class
             End With
          Case OpcodesE.SAHF
             Registers(FlagRegistersE.All, NewValue:=(Registers(FlagRegistersE.All) And &HFF00%) Or (Registers(SubRegisters8BitE.AH) And LOW_FLAG_BITS))
+         Case OpcodesE.SALC
+            Registers(SubRegisters8BitE.AL, NewValue:=If(CBool(Registers(FlagRegistersE.CF)), &HFF%, &H0%))
          Case OpcodesE.TEST_AL_BYTE
             Value = Registers(SubRegisters8BitE.AL)
             Operand = GetByteCSIP()
@@ -1539,10 +1566,8 @@ Public Class CPU8086Class
             Override = SegmentOverride()
             Address = ((Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + (Registers(Registers16BitE.BX) + Registers(SubRegisters8BitE.AL) And &HFFFF%)) And MemoryClass.ADDRESS_MASK
             Registers(SubRegisters8BitE.AL, NewValue:=Memory(Address))
-         Case OpcodesE.EXT_INT
-            RaiseEvent Interrupt(GetByteCSIP(), Registers(SubRegisters8BitE.AH))
          Case Else
-            If Array.IndexOf({OpcodesE.LOCK, OpcodesE.NOP, OpcodesE.WAIT}, Opcode) < 0 Then
+            If Array.IndexOf({OpcodesE.LOCK, OpcodesE.NOP, OpcodesE.ULOCK, OpcodesE.WAIT}, Opcode) < 0 Then
                Return ExecuteControlFlowOpcode(Opcode) OrElse ExecuteMultiOpcode(Opcode) OrElse ExecuteStackOpcode(Opcode) OrElse ExecuteStringOpcode(Opcode, SegmentOverride())
             End If
       End Select
@@ -1555,7 +1580,7 @@ Public Class CPU8086Class
       Select Case Opcode
          Case OpcodesE.POP_AX To OpcodesE.POP_DI
             Registers(DirectCast(Opcode And &H7%, Registers16BitE), NewValue:=Stack())
-         Case OpcodesE.POP_ES, OpcodesE.POP_SS, OpcodesE.POP_DS
+         Case OpcodesE.POP_ES, OpcodesE.POP_CS, OpcodesE.POP_SS, OpcodesE.POP_DS
             Registers(DirectCast((Opcode And &H18%) >> &H3%, SegmentRegistersE), NewValue:=Stack())
          Case OpcodesE.POP_TGT
             With GetOperandPair(Opcode, GetByteCSIP(), HasNoDisplacement:=True)
