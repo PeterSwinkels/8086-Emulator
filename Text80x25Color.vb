@@ -68,7 +68,7 @@ Public Class Text80x25ColorClass
                Else
                   Attribute = ToByte(Memory(Position + &H1%) \ &H10%)
                End If
-               .FillRectangle(EGA.EGABrushes(Attribute), Target.X * MCC.Scaling, Target.Y * MCC.Scaling, CHARACTER_SIZE.Width * MCC.Scaling, CHARACTER_SIZE.Height * MCC.Scaling)
+               .FillRectangle(EGA.Brushes(Attribute), Target.X * MCC.Scaling, Target.Y * MCC.Scaling, CHARACTER_SIZE.Width * MCC.Scaling, CHARACTER_SIZE.Height * MCC.Scaling)
 
                If Target.X < TEXT_SCREEN_SIZE.Width - CHARACTER_SIZE.Width Then
                   Target.X += CHARACTER_SIZE.Width
@@ -84,7 +84,7 @@ Public Class Text80x25ColorClass
                Index = Memory(Position)
                Attribute = Memory(Position + &H1%)
 
-               CharacterColor = EGA.EGABrushes(Attribute And &HF%)
+               CharacterColor = EGA.Brushes(Attribute And &HF%)
 
                If ((Attribute And BLINK_BITMASK) = &H0%) OrElse BlinkCharactersVisible OrElse Not MCC.BlinkingOn Then
                   For y As Integer = &H0% To &H7%
@@ -108,7 +108,7 @@ Public Class Text80x25ColorClass
 
             If (Not Cursor.Off) AndAlso Cursor.Visible Then
                Attribute = ToByte(Memory((AddressesE.Text80x25ColorBuffer + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)) + &H1%) And &HF%)
-               .FillRectangle(EGA.EGABrushes(Attribute), (Cursor.X * CHARACTER_SIZE.Width) * MCC.Scaling, ((Cursor.Y * CHARACTER_SIZE.Height) + (CursorScanlineStart * PIXELS_PER_SCANLINE) - &H4%) * MCC.Scaling, CHARACTER_SIZE.Width * MCC.Scaling, ((CursorScanlineEnd * PIXELS_PER_SCANLINE) - (CursorScanlineStart * PIXELS_PER_SCANLINE)) * MCC.Scaling)
+               .FillRectangle(EGA.Brushes(Attribute), (Cursor.X * CHARACTER_SIZE.Width) * MCC.Scaling, ((Cursor.Y * CHARACTER_SIZE.Height) + (CursorScanlineStart * PIXELS_PER_SCANLINE) - &H4%) * MCC.Scaling, CHARACTER_SIZE.Width * MCC.Scaling, ((CursorScanlineEnd * PIXELS_PER_SCANLINE) - (CursorScanlineStart * PIXELS_PER_SCANLINE)) * MCC.Scaling)
             End If
          End With
       Catch
@@ -153,9 +153,9 @@ Public Class Text80x25ColorClass
       ResetCursor()
       MCC.BlinkingOn = True
 
-      EGA.EGABrushes = New List(Of SolidBrush)
+      EGA.Brushes = New List(Of SolidBrush)
       For Each [Color] As Color In COLORS
-         EGA.EGABrushes.Add(New SolidBrush([Color]))
+         EGA.Brushes.Add(New SolidBrush([Color]))
       Next [Color]
    End Sub
 

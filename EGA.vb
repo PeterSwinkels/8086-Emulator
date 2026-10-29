@@ -21,7 +21,7 @@ Public Class EGAClass
    Public Const EGA_MEMORY_SIZE As MemorySizesE = MemorySizesE.k256  'Defines the reported video memory size.
    Public Const MONO_MODE As Boolean = False                         'Indicates whether or not mono mode is enabled.
 
-   Public EGABrushes As New List(Of SolidBrush)   'Contains the brushes created using the current palette.
+   Public Brushes As New List(Of SolidBrush)   'Contains the brushes created using the current palette.
 
    'This procedure returns the 6-bit RGB code as a 24-bit RGB color.
    Private Function EGA6RGBBitTo24RGB(RGB6Bit As Byte) As Color
@@ -40,9 +40,9 @@ Public Class EGAClass
 
    'This procedure updates the current EGA palette using the specified 6-bit RGB codes.
    Public Sub SetEntirePalette(Palette() As Byte)
-      EGA.EGABrushes = New List(Of SolidBrush)
+      EGA.Brushes = New List(Of SolidBrush)
       For Each RGB6Bit As Byte In Palette
-         EGA.EGABrushes.Add(New SolidBrush(EGA6RGBBitTo24RGB(RGB6Bit)))
+         EGA.Brushes.Add(New SolidBrush(EGA6RGBBitTo24RGB(RGB6Bit)))
       Next RGB6Bit
    End Sub
 End Class

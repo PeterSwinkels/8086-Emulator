@@ -13,9 +13,22 @@ Imports System.Linq
 
 'This class contains the VGA related procedures.
 Public Class VGAClass
-   'This enumeration defines the supported sequencer (I/O port 3C4h/3C5h) registers.
+   'This enumeration lists the bit-planes.
+   Public Enum BitPlanesE As Integer
+      Blue        'Blue.
+      Green       'Green.
+      Red         'Red.
+      Intensity   'Intensity
+   End Enum
+
+   'This enumeration lists the supported data (I/O port 3CEh/3CFh) registers.
+   Public Enum DataRegistersE As Integer
+      SelectedInputBitPlane = &H4%   'Selected input bit planes.
+   End Enum
+
+   'This enumeration lists the supported sequencer (I/O port 3C4h/3C5h) registers.
    Public Enum SequencerRegistersE As Integer
-      ActiveBitPlanes = &H2%   'Active bit planes.
+      SelectedOutputBitPlanes = &H2%   'Selected output bit planes.
    End Enum
 
    Public STATIC_FUNCTIONALITY_ADDRESS As Integer = &HC2700%   'Defines the static video functionality table address.
@@ -26,13 +39,13 @@ Public Class VGAClass
    Private ReadOnly TO_FROM_8_BIT As Double = (&HFF% / &H3F%)   'Defines the value used to/ convert 6-bit values to/from 8-bit values.
 
    Public AttributeAndSequencerIndex As New Integer   'Contains the VGA attribute and sequencer's index.
+   Public BitPlanes As List(Of Byte())                'Contains the bit-planes.
    Public Brushes(&H0% To &HFF%) As SolidBrush        'Contains the brushes created using the current palette.
    Public GraphicsIndex As New Integer                'Contains the VGA graphic's index.
+   Public SequencerData(&H0% To &HFF%) As Integer     'Contains the CGA/EGA/VGA sequencer register's data.
    Public SequencerIndex As New Integer               'Contains CGA/EGA/VGA sequencer index.
-
-   Private Data(0 To 8) As Integer              'Contains the VGA register's data.
-   Private SelectedAddress As New Integer       'Contains the VGA video DAC PEL address.
-   Private SequencerData(0 To 255) As Integer   'Contains the CGA/EGA/VGA sequencer register's data.
+   Private Data(&H0% To &H8%) As Integer               'Contains the VGA register's data.
+   Private SelectedAddress As New Integer              'Contains the VGA video DAC PEL address.
 
    'This procedure gets a block of DAC color registers.
    Public Sub GetDACBlock()
@@ -51,7 +64,7 @@ Public Class VGAClass
          Green = ReadFromDac()
          Memory(Address) = ToByte(Green)
          Address += &H1%
-         Blue = ReadfromDac()
+         Blue = ReadFromDac()
          Memory(Address) = ToByte(Blue)
          Address += &H1%
       Next Index
@@ -121,6 +134,14 @@ Public Class VGAClass
    Public Function Register(Optional NewValue As Integer? = Nothing) As Integer
       If NewValue IsNot Nothing AndAlso GraphicsIndex <= Data.GetUpperBound(0) Then
          Data(GraphicsIndex) = NewValue.Value
+
+         If DirectCast(Data(GraphicsIndex), DataRegistersE) = DataRegistersE.SelectedInputBitPlane Then
+            If SequencerData(DataRegistersE.SelectedInputBitPlane) >= 0 AndAlso SequencerData(DataRegistersE.SelectedInputBitPlane) < BitPlanes.Count Then
+               Memory.PutRange(AddressesE.VGABuffer, BitPlanes(SequencerData(DataRegistersE.SelectedInputBitPlane)))
+            Else
+               Memory.PutRange(AddressesE.VGABuffer, Enumerable.Repeat(CByte(&H0%), &H10000%).ToArray())
+            End If
+         End If
       End If
 
       Return Data(GraphicsIndex)
@@ -136,13 +157,7 @@ Public Class VGAClass
       If NewValue IsNot Nothing AndAlso SequencerIndex <= SequencerData.GetUpperBound(0) Then
          SequencerData(SequencerIndex) = NewValue.Value
 
-         ''--->>>
-         If DirectCast(SequencerIndex, SequencerRegistersE) = SequencerRegistersE.ActiveBitPlanes Then
-            SyncLock SYNCHRONIZER
-               CPU_EVENT.Append($"Active bit planes: {SequencerData(SequencerRegistersE.ActiveBitPlanes)} {Environment.NewLine}")
-            End SyncLock
-         End If
-         ''<<<---
+         Memory.PutRange(AddressesE.VGABuffer, Enumerable.Repeat(CByte(&H0%), &HFFFF%).ToArray())
       End If
 
       Return SequencerData(SequencerIndex)
