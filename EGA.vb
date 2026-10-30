@@ -24,7 +24,7 @@ Public Class EGAClass
    Public Brushes As New List(Of SolidBrush)   'Contains the brushes created using the current palette.
 
    'This procedure returns the 6-bit RGB code as a 24-bit RGB color.
-   Private Function EGA6RGBBitTo24RGB(RGB6Bit As Byte) As Color
+   Public Function EGA6RGBBitTo24RGB(RGB6Bit As Byte) As Color
       Dim B1 As Integer = (RGB6Bit And &H1%)
       Dim B2 As Integer = (RGB6Bit And &H8%) >> &H3%
       Dim Blue As Integer = (B2 * &H40%) + (B1 * &HBF%)

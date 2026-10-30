@@ -56,7 +56,7 @@ Public Class EGA320x200Class
                         End If
                      Next BitPlane
 
-                     .FillRectangle(EGA.Brushes(Color), (x + Bit) * MCC.Scaling, y * MCC.Scaling, MCC.Scaling, MCC.Scaling)
+                     .FillRectangle(EGA.Brushes(Color), (x + (&H7% - Bit)) * MCC.Scaling, y * MCC.Scaling, MCC.Scaling, MCC.Scaling)
                   Next Bit
                   Position += &H1%
                Next x

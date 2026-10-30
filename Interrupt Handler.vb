@@ -7,6 +7,7 @@ Option Strict On
 Imports Emulator8086Program.CPU8086Class
 Imports System
 Imports System.Convert
+Imports System.Drawing
 Imports System.Environment
 Imports System.Linq
 Imports System.Threading.Tasks
@@ -238,6 +239,12 @@ Public Module InterruptHandlerModule
                            Success = True
                         Case VideoModesE.EGA320x200, VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.VGA320x200
                            Select Case CPU.Registers(SubRegisters8BitE.AL)
+                              Case &H0%
+                                 Select Case MCC.CurrentVideoMode
+                                    Case VideoModesE.EGA320x200
+                                       EGA.Brushes(CPU.Registers(SubRegisters8BitE.BL)) = New SolidBrush(EGA.EGA6RGBBitTo24RGB(ToByte(CPU.Registers(SubRegisters8BitE.BH))))
+                                       Success = True
+                                 End Select
                               Case &H1%
                                  Success = True
                               Case &H2%

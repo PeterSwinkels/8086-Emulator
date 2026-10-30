@@ -154,10 +154,22 @@ Public Class VGAClass
 
    'This procedure manages the sequencer's data.
    Public Function SequencerRegister(Optional NewValue As Integer? = Nothing) As Integer
-      If NewValue IsNot Nothing AndAlso SequencerIndex <= SequencerData.GetUpperBound(0) Then
-         SequencerData(SequencerIndex) = NewValue.Value
+      Dim SelectionBit As New Integer
 
-         Memory.PutRange(AddressesE.VGABuffer, Enumerable.Repeat(CByte(&H0%), &HFFFF%).ToArray())
+      If NewValue IsNot Nothing AndAlso SequencerIndex <= SequencerData.GetUpperBound(0) Then
+         Select Case DirectCast(SequencerIndex, SequencerRegistersE)
+            Case SequencerRegistersE.SelectedOutputBitPlanes
+               For Each BitPlane As Integer In [Enum].GetValues(GetType(VGAClass.BitPlanesE))
+                  SelectionBit = &H1% << BitPlane
+                  If (SequencerData(SequencerIndex) And SelectionBit) = SelectionBit Then
+                     VGA.BitPlanes(BitPlane) = Memory.GetRange(AddressesE.EGABuffer, &HFFFF%)
+                  End If
+               Next BitPlane
+
+               Memory.PutRange(AddressesE.VGABuffer, Enumerable.Repeat(CByte(&H0%), &HFFFF%).ToArray())
+         End Select
+
+         SequencerData(SequencerIndex) = NewValue.Value
       End If
 
       Return SequencerData(SequencerIndex)
