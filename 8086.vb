@@ -1624,7 +1624,7 @@ Public Class CPU8086Class
          Case OpcodesE.CMPSB
             SourceValue = Memory(((Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + Registers(Registers16BitE.SI)) And MemoryClass.ADDRESS_MASK)
             TargetValue = Memory(((Registers(SegmentRegistersE.ES) << &H4%) + Registers(Registers16BitE.DI)) And MemoryClass.ADDRESS_MASK)
-            NewValue = TargetValue - SourceValue
+            NewValue = SourceValue - TargetValue
             AdjustFlags(TargetValue, SourceValue, NewValue)
          Case OpcodesE.CMPSW
             SourceValue = Memory.GetWord(Segment:=Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)), Offset:=Registers(Registers16BitE.SI))
@@ -1642,12 +1642,12 @@ Public Class CPU8086Class
          Case OpcodesE.SCASB
             SourceValue = Registers(SubRegisters8BitE.AL)
             TargetValue = Memory(((Registers(SegmentRegistersE.ES) << &H4%) + Registers(Registers16BitE.DI)) And MemoryClass.ADDRESS_MASK)
-            NewValue = TargetValue - SourceValue
+            NewValue = SourceValue - TargetValue
             AdjustFlags(TargetValue, SourceValue, NewValue)
          Case OpcodesE.SCASW
             SourceValue = Registers(Registers16BitE.AX)
             TargetValue = Memory.GetWord(Segment:=Registers(SegmentRegistersE.ES), Offset:=Registers(Registers16BitE.DI))
-            NewValue = TargetValue - SourceValue
+            NewValue = SourceValue - TargetValue
             AdjustFlags(TargetValue, SourceValue, NewValue, Is8Bit:=False)
          Case OpcodesE.STOSB
             Memory((Registers(SegmentRegistersE.ES) << &H4%) + Registers(Registers16BitE.DI) And MemoryClass.ADDRESS_MASK) = CByte(Registers(SubRegisters8BitE.AL))
