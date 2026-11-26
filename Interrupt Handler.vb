@@ -137,8 +137,9 @@ Public Module InterruptHandlerModule
                   Case &H8%
                      Select Case MCC.CurrentVideoMode
                         Case VideoModesE.Text80x25Color, VideoModesE.Text80x25Gray, VideoModesE.Text80x25Mono_Hercules
+                           VideoPageAddress = MCC.VideoPageAddress()
                            CursorPositionUpdate()
-                           CPU.Registers(Registers16BitE.AX, NewValue:=Memory.GetWord(AddressesE.Text80x25MonoBuffer + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)))
+                           CPU.Registers(Registers16BitE.AX, NewValue:=Memory.GetWord(VideoPageAddress + (Cursor.Y * &HA0%) + (Cursor.X * &H2%)))
                            Success = True
                      End Select
                   Case &H9%, &HA%
@@ -186,10 +187,11 @@ Public Module InterruptHandlerModule
                      x = CPU.Registers(Registers16BitE.CX)
                      y = CPU.Registers(Registers16BitE.DX)
                      AL = CByte(CPU.Registers(SubRegisters8BitE.AL))
+                     VideoPageAddress = MCC.VideoPageAddress()
                      Select Case MCC.CurrentVideoMode
                         Case VideoModesE.CGA320x200A, VideoModesE.CGA320x200B
                            PixelColor = CByte(AL And &H3%)
-                           Position = AddressesE.CGABuffer + If((y And 1) = 0, 0, VideoPageSizesE.CGA320x200A \ 2) + (y \ 2) * 80 + (x \ 4)
+                           Position = VideoPageAddress + If((y And 1) = 0, 0, VideoPageSizesE.CGA320x200A \ 2) + (y \ 2) * 80 + (x \ 4)
                            Pixel = x And &H3%
                            Shift = (&H3% - Pixel) * &H2%
                            Mask = CByte(&H3% << Shift)
@@ -204,7 +206,7 @@ Public Module InterruptHandlerModule
                            Memory(Position) = CByte(Value)
                         Case VideoModesE.CGA640x200
                            PixelColor = CByte(AL And &H1%)
-                           Position = AddressesE.CGABuffer + If((y And 1) = 0, 0, VideoPageSizesE.CGA640x200 \ 2) + (y \ 2) * 80 + (x \ 4)
+                           Position = VideoPageAddress + If((y And 1) = 0, 0, VideoPageSizesE.CGA640x200 \ 2) + (y \ 2) * 80 + (x \ 4)
                            Pixel = x And &H6%
                            Shift = (&H6% - Pixel) * &H4%
                            Mask = CByte(&H6% << Shift)
@@ -218,7 +220,7 @@ Public Module InterruptHandlerModule
 
                            Memory(Position) = CByte(Value)
                         Case VideoModesE.VGA320x200
-                           Position = AddressesE.VGABuffer + ((y * 320) + x)
+                           Position = VideoPageAddress + ((y * 320) + x)
                            Memory(Position) = CByte(AL)
                      End Select
 

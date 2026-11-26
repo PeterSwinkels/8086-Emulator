@@ -948,7 +948,7 @@ Public Module CoreModule
                      Case "TS"
                         CPU.ClockToken.Cancel()
                         CPU.Tracing = False
-                        Output.AppendText($"Tracing {If(CPU.Clock.Status = TaskStatus.Running, "stopped.", " is not active.")}{NewLine}")
+                        Output.AppendText($"Tracing {If(CPU.Clock.Status = TaskStatus.Running, "stopped.", "is not active.")}{NewLine}")
                      Case "VOLUME"
                         If Operands Is Nothing Then
                            Output.AppendText($"{PC_Speaker.Volume}{NewLine}")

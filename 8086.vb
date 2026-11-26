@@ -1629,7 +1629,7 @@ Public Class CPU8086Class
          Case OpcodesE.CMPSW
             SourceValue = Memory.GetWord(Segment:=Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)), Offset:=Registers(Registers16BitE.SI))
             TargetValue = Memory.GetWord(Segment:=Registers(SegmentRegistersE.ES), Offset:=Registers(Registers16BitE.DI))
-            NewValue = TargetValue - SourceValue
+            NewValue = SourceValue - TargetValue
             AdjustFlags(TargetValue, SourceValue, NewValue, Is8Bit:=False)
          Case OpcodesE.LODSB
             Registers(SubRegisters8BitE.AL, NewValue:=Memory(((Registers(If(Override Is Nothing, SegmentRegistersE.DS, Override)) << &H4%) + Registers(Registers16BitE.SI)) And MemoryClass.ADDRESS_MASK))

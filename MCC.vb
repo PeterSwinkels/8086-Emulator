@@ -42,7 +42,7 @@ Public Class MCCClass
 
    Public Const INTENSITY_BIT As Integer = &H10%              'Defines the color intensity bit.
    Private Const CHARACTER_SCANLINE_COUNT As Byte = &HE%       'Defines the number of scanlines per character.
-   Private Const DEFAULT_CHARACTER_ROW_COUNT As Byte = &H19%   'Defines the default number of character rows.
+   Private Const DEFAULT_CHARACTER_ROW_COUNT As Byte = &H18%   'Defines the default zero-based number of character rows.
 
    Public ReadOnly BACKGROUND_COLORS() As Color = {Color.Black, Color.DarkBlue, Color.DarkGreen, Color.DarkCyan, Color.DarkRed, Color.Purple, Color.Brown, Color.White, Color.Gray, Color.Blue, Color.Green, Color.Cyan, Color.Red, Color.Pink, Color.Yellow, Color.White}   'Contains the background colors.
    Public ReadOnly GET_SELECTED_REGISTER As Func(Of RegistersE) = Function() SelectedRegister       'Returns the selected register.
