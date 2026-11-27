@@ -218,7 +218,7 @@ Public Class Text80x25MonoClass
       Dim Position As New Integer
       Dim VideoPageAddress As Integer = AddressesE.Text80x25MonoBuffer
 
-      If Count = &H0% OrElse Count > MCC.RowCount() Then
+      If Count = &H0% OrElse Count > MCC.RowCount() + &H1% Then
          For Row As Integer = ScrollArea.ULCRow To ScrollArea.LRCRow
             For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
                Memory.PutWord(VideoPageAddress + ((Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%)), Word:=Attribute << &H8%)
@@ -232,7 +232,7 @@ Public Class Text80x25MonoClass
 
                   For Row As Integer = ScrollArea.ULCRow + &H1% To ScrollArea.LRCRow
                      For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn
-                        If Row < MCC.RowCount() Then
+                        If Row < MCC.RowCount() + &H1% Then
                            CharacterCell = Memory.GetWord(VideoPageAddress + (Row * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%))
                            Memory.PutWord(VideoPageAddress + ((Row - &H1%) * TEXT_80_X_25_BYTES_PER_ROW) + (Column * &H2%), Word:=CharacterCell)
                         Else

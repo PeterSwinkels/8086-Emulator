@@ -115,7 +115,7 @@ Public Class CGA640x200Class
       Dim CharacterByte As New Byte
       Dim NewAddress As New Integer
 
-      If Count = &H0% OrElse Count > MCC.RowCount() Then
+      If Count = &H0% OrElse Count > MCC.RowCount() + &H1% Then
          For Row As Integer = ScrollArea.ULCRow * CGA_640_X_200_LINES_PER_CHARACTER To (ScrollArea.LRCRow + &H1%) * CGA_640_X_200_LINES_PER_CHARACTER
             For Column As Integer = ScrollArea.ULCColumn To ScrollArea.LRCColumn + &H1%
                Address = AddressesE.CGABuffer + If((Row And &H1%) = &H0%, &H0%, VideoPageSizesE.CGA640x200 \ &H2%) + ((Row \ &H2%) * CGA_640_X_200_BYTES_PER_ROW) + Column

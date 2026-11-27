@@ -97,7 +97,7 @@ Public Class VGA320x200Class
       Dim CharacterByte As New Byte
       Dim NewAddress As New Integer
 
-      If Count = &H0% OrElse Count > MCC.RowCount() Then
+      If Count = &H0% OrElse Count > MCC.RowCount() + &H1% Then
          For Row As Integer = ScrollArea.ULCRow * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE To (ScrollArea.LRCRow * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE) + (VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE - &H1%)
             For Column As Integer = ScrollArea.ULCColumn * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE To (ScrollArea.LRCColumn * VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE) + VGA_320_X_200_PIXELS_PER_CHARACTER_SIDE
                Address = AddressesE.VGABuffer + ((Row * VGA_320_X_200_BYTES_PER_ROW) + Column)
